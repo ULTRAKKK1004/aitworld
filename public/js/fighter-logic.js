@@ -1,51 +1,43 @@
-const socket = io();
+// 0. Global Setup
+const socket = (typeof io !== 'undefined') ? io() : null;
 
-// 1. 캐릭터 데이터 및 특성
+// 1. 다채로운 캐릭터 데이터 (3D 렌더링 지원)
 const CHARACTERS = [
-    { id: 'gunner', name: 'Gunner', color: '#7f8c8d', speed: 4.8, power: 1.1, jump: 12, special: 'SHELLING', info: '무기 인출 & 포격' },
-    { id: 'fencer', name: 'Fencer', color: '#0984e3', speed: 5.8, power: 1.2, jump: 12, special: 'SWORD SWEEP', info: '장검 휘두르기' },
-    { id: 'balloon', name: 'Balloon', color: '#e84393', speed: 4.2, power: 1.3, jump: 16, special: 'GIGA CRUSH', info: '튕기기 & 압살' },
-    { id: 'ninja', name: 'Ninja', color: '#2d3436', speed: 7.2, power: 0.9, jump: 17, special: 'VANISH', info: '은신 무적' },
-    { id: 'master', name: 'Qi Master', color: '#f1c40f', speed: 5.2, power: 1.2, jump: 18, special: 'HADOKEN', info: '거대 장풍' },
-    { id: 'wrestler', name: 'Wrestler', color: '#d63031', speed: 4.8, power: 1.8, jump: 10, special: 'POWER SLAM', info: '잡아 던지기' },
-    { id: 'muscle', name: 'Muscle', color: '#e67e22', speed: 3.8, power: 2.2, jump: 11, special: 'IMPACT PUNCH', info: '강력한 넉백' },
-    { id: 'mage', name: 'Mage', color: '#9b59b6', speed: 4.2, power: 1.4, jump: 13, special: 'MAGIC ORB', info: '유도 마력탄' },
-    { id: 'marine', name: 'Marine', color: '#2ecc71', speed: 7.8, power: 1.0, jump: 14, special: 'STORM DASH', info: '초고속 돌진' }
+    { id: 'vanguard', name: 'Vanguard', color: '#00f2ff', speed: 5.5, power: 1.0, jump: 14, special: 'CYBER SLASH', info: '사이버 빔 소드 공격' },
+    { id: 'wraith', name: 'Wraith', color: '#ff0055', speed: 8.0, power: 0.8, jump: 16, special: 'VOID STEP', info: '무적 은신 및 대시' },
+    { id: 'colossus', name: 'Colossus', color: '#95a5a6', speed: 3.5, power: 2.5, jump: 10, special: 'GROUND SMASH', info: '육중한 주먹 강타' },
+    { id: 'volt', name: 'Volt', color: '#f1c40f', speed: 6.0, power: 1.1, jump: 14, special: 'PLASMA BOLT', info: '전기 구체 발사' },
+    { id: 'reaper', name: 'Reaper', color: '#8e44ad', speed: 5.0, power: 1.4, jump: 13, special: 'SOUL DRAIN', info: '거대 낫 & 체력 흡수' },
+    { id: 'glitch', name: 'Glitch', color: '#2ecc71', speed: 6.5, power: 1.2, jump: 15, special: 'ERROR 404', info: '무작위 순간이동' },
+    { id: 'monk', name: 'Monk', color: '#e67e22', speed: 5.8, power: 1.0, jump: 18, special: 'DRAGON KICK', info: '기공권 및 공중기' },
+    { id: 'cyber', name: 'Cyber', color: '#1abc9c', speed: 5.2, power: 1.3, jump: 13, special: 'LASER BEAM', info: '팔 캐논 레이저' },
+    { id: 'phantom', name: 'Phantom', color: '#ffffff', speed: 7.0, power: 0.9, jump: 15, special: 'MIRROR IMAGE', info: '잔상 환영 이동' }
 ];
 
 const PLATFORMS = [
-    { x: 50, y: 300, w: 120, h: 10 }, { x: 630, y: 300, w: 120, h: 10 },
-    { x: 200, y: 220, w: 150, h: 10 }, { x: 450, y: 220, w: 150, h: 10 },
-    { x: 300, y: 130, w: 200, h: 10 }
+    { x: 50, y: 300, w: 150, h: 12 }, { x: 600, y: 300, w: 150, h: 12 },
+    { x: 250, y: 200, w: 300, h: 12 }
 ];
 
+// 2. 사운드 엔진
 class SoundEngine {
     constructor() { this.ctx = null; this.bgmInterval = null; }
     init() { 
-        if (!this.ctx) {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume().then(() => {
-                console.log("AudioContext resumed");
-                this.startBGM();
-            });
-        } else {
+        try {
+            if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.ctx.state === 'suspended') this.ctx.resume();
             this.startBGM();
-        }
+        } catch(e) {}
     }
     play(t) {
-        if (!this.ctx) this.init();
-        if (this.ctx.state === 'suspended') this.ctx.resume();
+        if (!this.ctx || this.ctx.state !== 'running') return;
         const now = this.ctx.currentTime;
         const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
-        if (t === 'punch') { o.type='square'; o.frequency.setValueAtTime(150, now); g.gain.setValueAtTime(0.1, now); o.start(); o.stop(now+0.08); }
-        else if (t === 'hit') { this.noise(0.4, 0.1, 150); }
-        else if (t === 'shoot') { o.type='sine'; o.frequency.setValueAtTime(800, now); o.frequency.exponentialRampToValueAtTime(100, now+0.1); g.gain.setValueAtTime(0.1, now); o.start(); o.stop(now+0.1); }
-        else if (t === 'special') { o.type='sawtooth'; o.frequency.setValueAtTime(50, now); o.frequency.linearRampToValueAtTime(600, now+0.4); g.gain.setValueAtTime(0.2, now); o.start(); o.stop(now+0.4); }
+        if (t === 'punch') { o.type='square'; o.frequency.setValueAtTime(200, now); g.gain.setValueAtTime(0.1, now); o.start(); o.stop(now+0.05); }
+        else if (t === 'hit') { this.noise(0.3, 0.08, 200); }
+        else if (t === 'special') { o.type='sawtooth'; o.frequency.setValueAtTime(100, now); o.frequency.exponentialRampToValueAtTime(1000, now+0.3); g.gain.setValueAtTime(0.2, now); o.start(); o.stop(now+0.3); }
     }
     noise(v, d, f) {
-        if (!this.ctx) return;
         const b = this.ctx.createBuffer(1, this.ctx.sampleRate*d, this.ctx.sampleRate);
         const data = b.getChannelData(0); for(let i=0; i<data.length; i++) data[i]=Math.random()*2-1;
         const s = this.ctx.createBufferSource(); s.buffer = b;
@@ -55,345 +47,304 @@ class SoundEngine {
     }
     startBGM() {
         if(this.bgmInterval) return;
-        console.log("Starting Tense BGM");
         let step = 0;
         this.bgmInterval = setInterval(() => {
             if(!this.ctx || this.ctx.state !== 'running') return;
-            
-            // Fast, tense, and slightly annoying "taunting" melody
-            // Using minor and diminished intervals for tension
-            const baseNotes = [130.81, 138.59, 164.81, 174.61, 130.81, 123.47, 116.54, 123.47];
-            const leadingNotes = [261.63, 277.18, 329.63, 349.23];
-            
             const now = this.ctx.currentTime;
-            const o = this.ctx.createOscillator(); 
-            const g = this.ctx.createGain();
             
-            // Toggle between bass and high "taunting" notes
-            let freq = baseNotes[step % baseNotes.length];
-            if (step % 4 === 0) freq = leadingNotes[Math.floor(Math.random() * leadingNotes.length)];
+            // Frantic, high-pitched taunting melody
+            // Using a mix of high chromatic jumps and a fast "laughing" rhythm
+            const tauntMelody = [523.25, 659.25, 783.99, 932.33, 880.00, 698.46, 587.33, 493.88]; 
+            const bassline = [65.41, 65.41, 82.41, 98.00]; // Low C pulses
             
-            o.type = (step % 2 === 0) ? 'sawtooth' : 'square'; // Aggressive wave types
-            o.frequency.setValueAtTime(freq, now);
-            
-            // High volume (0.25)
-            g.gain.setValueAtTime(0.25, now); 
-            g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-            
-            o.connect(g); 
-            g.connect(this.ctx.destination); 
-            o.start(); 
-            o.stop(now + 0.15);
+            // Main Melody (High & Chirpy)
+            const o1 = this.ctx.createOscillator();
+            const g1 = this.ctx.createGain();
+            o1.type = (step % 4 === 0) ? 'sawtooth' : 'square';
+            o1.frequency.setValueAtTime(tauntMelody[step % tauntMelody.length], now);
+            g1.gain.setValueAtTime(0.08, now);
+            g1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            o1.connect(g1); g1.connect(this.ctx.destination);
+            o1.start(); o1.stop(now + 0.1);
+
+            // Bass Pulse (Punchy)
+            if (step % 2 === 0) {
+                const o2 = this.ctx.createOscillator();
+                const g2 = this.ctx.createGain();
+                o2.type = 'triangle';
+                o2.frequency.setValueAtTime(bassline[Math.floor(step/2) % bassline.length], now);
+                g2.gain.setValueAtTime(0.15, now);
+                g2.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                o2.connect(g2); g2.connect(this.ctx.destination);
+                o2.start(); o2.stop(now + 0.12);
+            }
             
             step++;
-        }, 150); // Faster tempo (150ms) for more annoyance/tension
+        }, 120); // Faster tempo (120ms) for maximum annoyance/tension
     }
 }
 const sounds = new SoundEngine();
 
-let selectedChar = null, myUsername = currentUser.username, gameMode = '', currentRoom = '', isPlayer1 = true, p1, p2, gameLoopId;
-const keys = {}, mobileKeys = { left:false, right:false, up:false, down:false, punch:false, kick:false, special:false };
-let particles = [], screenShake = 0, arenaStarted = false, backAttackText = 0;
-
-function createHitFX(x, y, color, size=10) { for(let i=0; i<size; i++) particles.push({ x, y, vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20, r:Math.random()*3+1, life:15, color }); screenShake = 12; }
-
+// 3. 파이터 클래스 (3D 효과 & 물리 최적화)
 class Fighter {
     constructor(x, y, charData, isP1, isLocal) {
         this.x=x; this.y=y; this.char=charData; this.isP1=isP1; this.isLocal=isLocal;
-        this.width=70; this.height=165; this.velocity={x:0,y:0};
+        this.width=60; this.height=130; this.velocity={x:0,y:0};
         this.health=100; this.skillPower=0; this.isAttacking=false; this.attackType=''; this.attackFrame=0;
-        this.isCrouching=false; this.isJumping=false; this.isGuarding=false;
-        this.facingRight=isP1; this.hitTimer=0; this.animTime=0; this.projectiles=[];
-        this.isDown = false; this.fallTimer = 0; this.isStealth = false;
+        this.isJumping=false; this.facingRight=isP1; this.hitTimer=0; this.animTime=0;
+        this.projectiles=[]; this.isStealth=false;
     }
 
     draw(ctx) {
-        if (this.isStealth && Math.floor(this.animTime * 15) % 2 === 0) return;
-        ctx.save(); this.animTime += 0.15;
-        const breath = (this.char.id === 'balloon') ? Math.sin(this.animTime) * 12 : Math.sin(this.animTime) * 4;
-        const walk = (Math.abs(this.velocity.x) > 0.1) ? Math.sin(this.animTime * 1.5) : 0;
-        
-        const sx = (Math.random()-0.5)*screenShake, sy = (Math.random()-0.5)*screenShake;
-        ctx.translate(this.x + this.width/2 + sx, this.y + this.height + sy);
-        if (!this.facingRight) ctx.scale(-1, 1);
-        
-        if (this.isDown) ctx.rotate(Math.PI/2);
-
-        if(this.isLocal){
-            ctx.save(); ctx.scale(this.facingRight?1:-1, 1); ctx.fillStyle='#f1c40f'; 
-            ctx.beginPath(); ctx.moveTo(0,-this.height-50); ctx.lineTo(-10,-this.height-65); ctx.lineTo(10,-this.height-65); ctx.fill();
-            ctx.restore();
-        }
-
-        const color = this.char.color, skin = '#f3c1a3', legY = this.isCrouching ? -40 : -65;
-
-        // 다리
-        ctx.lineWidth = 16; ctx.lineCap = 'round'; ctx.strokeStyle = color;
-        const isGunnerShelling = (this.char.id === 'gunner' && this.attackType === 'special' && this.isAttacking);
-        if(isGunnerShelling) { // 포격 자세: 무릎을 굽힘
-            ctx.beginPath(); ctx.moveTo(-15, legY); ctx.lineTo(-25, 0); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(15, legY); ctx.lineTo(25, 0); ctx.stroke();
-        } else if(this.isAttacking && this.attackType==='kick' && this.attackFrame>=5){
-            ctx.beginPath(); ctx.moveTo(0,legY); ctx.lineTo(85, legY+15); ctx.stroke();
-        } else {
-            ctx.beginPath(); ctx.moveTo(0,legY); ctx.lineTo(walk * 25, 0); ctx.stroke();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 14;
-            ctx.beginPath(); ctx.moveTo(0,legY); ctx.lineTo(-walk * 25, 0); ctx.stroke();
-        }
-
-        // 몸통
-        ctx.translate(0, (this.isCrouching ? 40 : 0) + breath);
-        ctx.fillStyle = color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-        const tH = this.isCrouching ? 50 : 90, tW = (this.char.id === 'balloon') ? 95 : 55;
-        ctx.beginPath();
-        if(this.char.id === 'balloon') ctx.arc(0, legY - tH/2, tW/2, 0, Math.PI*2);
-        else if(ctx.roundRect) ctx.roundRect(-tW/2, legY - tH, tW, tH, 12);
-        else ctx.rect(-tW/2, legY - tH, tW, tH);
-        ctx.fill(); ctx.stroke();
-
-        // 무기 및 기술 애니메이션 (강화)
-        this.drawWeaponAdvanced(ctx, legY - tH + 20, color);
-
-        // 머리
-        const hy = legY - tH - 25;
-        ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, hy, 28, 0, Math.PI * 2); ctx.fill();
-        this.drawFace(ctx, hy);
-
-        ctx.restore();
-
-        this.projectiles.forEach(p => {
-            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
-        });
-    }
-
-    drawWeaponAdvanced(ctx, shY, color) {
+        if (this.isStealth && Math.floor(Date.now() / 100) % 2 === 0) return;
         ctx.save();
-        if(this.char.id === 'fencer') { // 검술사: 크게 휘두르기
-            ctx.strokeStyle = '#bdc3c7'; ctx.lineWidth = 5;
-            if(this.isAttacking) {
-                const angle = (this.attackFrame / 20) * Math.PI - (Math.PI/2); // -90도에서 90도로 스윕
-                ctx.rotate(angle);
-                ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(120, 0); ctx.stroke();
-                // 베기 효과
-                ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 15;
-                ctx.beginPath(); ctx.arc(0, 0, 120, -0.5, 0.5); ctx.stroke();
-            } else {
-                ctx.beginPath(); ctx.moveTo(10, shY); ctx.lineTo(100, shY-10); ctx.stroke();
-            }
-        } else if(this.char.id === 'gunner') { // 건너: 무기 인출 및 포격
-            if(this.isAttacking) {
-                if(this.attackFrame < 8) { // 주머니에서 꺼내는 중
-                    ctx.fillStyle = '#333'; ctx.fillRect(0, shY + 10, 20, 10);
-                } else { // 조준 및 사격
-                    ctx.fillStyle = '#333'; ctx.fillRect(10, shY - 5, 40, 15);
-                    if(this.attackFrame === 11) { // 총구 화염
-                        ctx.fillStyle='#f1c40f'; ctx.beginPath(); ctx.arc(55, shY, 15, 0, Math.PI*2); ctx.fill();
-                    }
-                }
-            }
-        } else if(this.char.id === 'mage') {
-            ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 6;
-            ctx.beginPath(); ctx.moveTo(10, shY+20); ctx.lineTo(35, shY-65); ctx.stroke();
-            ctx.fillStyle = '#9b59b6'; ctx.beginPath(); ctx.arc(35, shY-70, 15, 0, Math.PI*2); ctx.fill();
-        }
+        this.animTime += 0.15;
+        const bounce = Math.sin(this.animTime) * 4;
+        const walk = Math.abs(this.velocity.x) > 0.1 ? Math.sin(this.animTime * 1.5) * 12 : 0;
+
+        ctx.translate(this.x + this.width/2, this.y + this.height);
+        if (!this.facingRight) ctx.scale(-1, 1);
+
+        // Legs (3D Shading)
+        [ {x:-10, w:walk}, {x:10, w:-walk} ].forEach(leg => {
+            const grad = ctx.createLinearGradient(leg.x-6, 0, leg.x+6, 0);
+            grad.addColorStop(0, '#222'); grad.addColorStop(0.5, this.char.color); grad.addColorStop(1, '#222');
+            ctx.strokeStyle = grad; ctx.lineWidth = 14; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(leg.x, -40); ctx.lineTo(leg.x + leg.w, 0); ctx.stroke();
+        });
+
+        // Body (3D Deep Gradient)
+        ctx.translate(0, bounce);
+        const bodyGrad = ctx.createLinearGradient(-30, 0, 30, 0);
+        bodyGrad.addColorStop(0, '#111'); bodyGrad.addColorStop(0.5, this.char.color); bodyGrad.addColorStop(1, '#111');
+        ctx.fillStyle = bodyGrad;
+        ctx.shadowBlur = 25; ctx.shadowColor = this.char.color;
+        if(ctx.roundRect) ctx.roundRect(-30, -110, 60, 85, 12); else ctx.rect(-30, -110, 60, 85);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+
+        // Highlighting
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(-25, -105, 12, 75);
+
+        // Weapons
+        this.drawWeapon(ctx);
+
+        // Head (Radial Shading)
+        const headGrad = ctx.createRadialGradient(-10, -145, 5, 0, -135, 25);
+        headGrad.addColorStop(0, '#f9d5c0'); headGrad.addColorStop(1, '#c49a80');
+        ctx.fillStyle = headGrad;
+        ctx.beginPath(); ctx.arc(0, -135, 28, 0, Math.PI*2); ctx.fill();
+        ctx.stroke();
+        
+        // Eyes
+        ctx.shadowBlur = 15; ctx.shadowColor = this.hitTimer > 0 ? '#f00' : '#fff';
+        ctx.fillStyle = this.hitTimer > 0 ? '#f00' : '#fff';
+        ctx.fillRect(6, -142, 8, 8); ctx.fillRect(-14, -142, 8, 8);
+
         ctx.restore();
     }
 
-    drawFace(ctx, hy) {
-        ctx.lineWidth = 2; ctx.strokeStyle = '#000';
-        if (this.hitTimer > 0) {
-            ctx.beginPath(); ctx.moveTo(-10, hy-10); ctx.lineTo(10, hy+10); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(10, hy-10); ctx.lineTo(-10, hy+10); ctx.stroke();
-            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, hy+15, 12, 0, Math.PI*2); ctx.fill();
+    drawWeapon(ctx) {
+        ctx.save();
+        const atkProgress = this.isAttacking ? Math.sin((this.attackFrame/15) * Math.PI) : 0;
+        if(this.char.id === 'vanguard') {
+            const angle = atkProgress * 1.5; ctx.rotate(angle);
+            const swordGrad = ctx.createLinearGradient(20, -80, 90, -80);
+            swordGrad.addColorStop(0, '#fff'); swordGrad.addColorStop(1, this.char.color);
+            ctx.strokeStyle = swordGrad; ctx.lineWidth = 12;
+            ctx.beginPath(); ctx.moveTo(20, -80); ctx.lineTo(90, -80); ctx.stroke();
+        } else if(this.char.id === 'reaper') {
+            const angle = atkProgress * 2; ctx.rotate(angle);
+            ctx.strokeStyle = '#222'; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(10, -60); ctx.lineTo(10, -160); ctx.stroke();
+            const scytheGrad = ctx.createLinearGradient(10, -160, 85, -130);
+            scytheGrad.addColorStop(0, this.char.color); scytheGrad.addColorStop(1, '#111');
+            ctx.strokeStyle = scytheGrad; ctx.lineWidth = 14;
+            ctx.beginPath(); ctx.moveTo(10, -160); ctx.quadraticCurveTo(50, -160, 85, -130); ctx.stroke();
+        } else if(this.char.id === 'colossus') {
+            const punch = atkProgress * 60;
+            const fistGrad = ctx.createRadialGradient(25+punch, -90, 5, 25+punch, -90, 20);
+            fistGrad.addColorStop(0, '#888'); fistGrad.addColorStop(1, '#333');
+            ctx.fillStyle = fistGrad; ctx.fillRect(10 + punch, -105, 45, 45); ctx.strokeRect(10 + punch, -105, 45, 45);
+        } else if(this.char.id === 'cyber') {
+            ctx.fillStyle = '#222'; ctx.fillRect(15, -95, 50, 35);
+            if(this.isAttacking && this.attackFrame > 5) {
+                const laserGrad = ctx.createRadialGradient(65, -80, 2, 65, -80, 25);
+                laserGrad.addColorStop(0, '#fff'); laserGrad.addColorStop(1, this.char.color);
+                ctx.fillStyle = laserGrad; ctx.beginPath(); ctx.arc(65, -80, 25 * atkProgress, 0, Math.PI*2); ctx.fill();
+            }
         } else {
-            ctx.fillStyle = '#000'; ctx.fillRect(8, hy-5, 5, 5);
-            ctx.beginPath(); ctx.arc(0, hy+15, 10, 0, Math.PI); ctx.stroke();
+            const swing = atkProgress * 45;
+            ctx.strokeStyle = '#f3c1a3'; ctx.lineWidth = 14;
+            ctx.beginPath(); ctx.moveTo(15, -80); ctx.lineTo(45 + swing, -80 + swing/2); ctx.stroke();
         }
+        ctx.restore();
     }
 
     update() {
-        if(this.fallTimer > 0) { this.fallTimer--; this.isDown = true; return; } else { this.isDown = false; }
         this.x += this.velocity.x; this.y += this.velocity.y;
-        
         let onPlat = false;
-        for(const p of PLATFORMS){ if(this.x+this.width > p.x && this.x < p.x+p.w && this.y+this.height >= p.y && this.y+this.height <= p.y+p.h+10){ this.y = p.y - this.height; this.velocity.y = 0; onPlat = true; break; } }
-        
-        if(!onPlat){
-            if (this.y + this.height < 400) { this.velocity.y += 0.8; this.isJumping = true; }
-            else { 
-                if(this.char.id === 'balloon' && this.velocity.y > 5) { this.velocity.y = -this.velocity.y * 0.7; }
-                else { this.velocity.y = 0; this.y = 400 - this.height; this.isJumping = false; }
+        PLATFORMS.forEach(p => {
+            if(this.x+this.width > p.x && this.x < p.x+p.w && this.y+this.height >= p.y && this.y+this.height <= p.y+p.h+10){
+                this.y = p.y - this.height; this.velocity.y = 0; onPlat = true;
             }
-        } else { this.isJumping = false; }
-
-        if(this.x<0)this.x=0; if(this.x+this.width>800)this.x=800-this.width;
-        if(this.isAttacking){ this.attackFrame++; if(this.attackFrame>20){ this.isAttacking=false; this.attackFrame=0; } }
-        if(this.hitTimer > 0) this.hitTimer--;
-        this.skillPower += (this.isGuarding ? 1.5 : 0.4); if(this.skillPower > 100) this.skillPower = 100;
-        
-        this.projectiles.forEach((p,i)=>{ 
-            p.x+=p.vx; p.y+=p.vy;
-            if(p.type==='mage') { const dx = (isPlayer1 ? p2.x : p1.x) - p.x; p.vy += dx > 0 ? 0.05 : -0.05; }
-            if(p.x<0||p.x>800||p.y>400)this.projectiles.splice(i,1); 
         });
+        if(!onPlat) {
+            if (this.y + this.height < 400) { this.velocity.y += 0.8; this.isJumping = true; }
+            else { this.velocity.y = 0; this.y = 400 - this.height; this.isJumping = false; }
+        } else { this.isJumping = false; }
+        if(this.x < 0) this.x = 0; if(this.x + this.width > 800) this.x = 800 - this.width;
+        if(this.isAttacking) { this.attackFrame++; if(this.attackFrame > 15) { this.isAttacking = false; this.attackFrame = 0; } }
+        if(this.hitTimer > 0) this.hitTimer--;
+        this.skillPower += 0.4; if(this.skillPower > 100) this.skillPower = 100;
+        this.projectiles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; if(p.x < -100 || p.x > 900 || p.y < -100 || p.y > 500) this.projectiles.splice(i, 1); });
     }
 
     attack(t) {
-        if(!this.isAttacking && this.hitTimer===0 && !this.isGuarding && !this.isDown){
-            if(t==='special' && this.skillPower < 100) return;
+        if(!this.isAttacking && this.hitTimer === 0) {
+            if(t === 'special' && this.skillPower < 100) return;
             this.isAttacking = true; this.attackType = t; this.attackFrame = 0;
-            sounds.play(t==='special'?'special':'punch');
-            if(t==='special'){
-                this.skillPower = 0;
-                if(this.char.id==='gunner') { sounds.play('shoot'); this.projectiles.push({x:this.x+(this.facingRight?80:-10), y:this.y+80, vx:this.facingRight?25:-25, vy:0, r:6, color:'#f1c40f', type:'bullet'}); }
-                if(this.char.id==='master') { this.projectiles.push({x:this.x+(this.facingRight?80:-10), y:this.y+80, vx:this.facingRight?15:-15, vy:0, r:35, color:'#00d2d3', type:'qi'}); }
-                if(this.char.id==='mage') { this.projectiles.push({x:this.x+(this.facingRight?80:-10), y:this.y+80, vx:this.facingRight?6:-6, vy:0, r:50, color:'#9b59b6', type:'mage'}); }
-                if(this.char.id==='ninja') { this.isStealth = true; setTimeout(()=>this.isStealth=false, 3000); }
-                if(['muscle','marine','tank'].includes(this.char.id)) this.velocity.x = this.facingRight?45:-45;
-            }
+            if(t === 'special') { this.skillPower = 0; screenShake = 25; this.executeSpecial(); }
+            sounds.play(t === 'special' ? 'special' : 'punch');
         }
     }
-}
 
-// 🧠 AI 너프 (반응 속도 지연)
-function updateAI(ai, target) {
-    const d = target.x - ai.x;
-    const absD = Math.abs(d);
-
-    // 1. 반응 지연 (유저 공격 프레임이 10 이상일 때만 방어 시도)
-    if (target.isAttacking && target.attackFrame > 10 && absD < 200) {
-        if(Math.random()<0.4) { ai.isGuarding=true; if(target.attackType==='kick') ai.isCrouching=true; return; }
-    } else { ai.isGuarding=false; ai.isCrouching=false; }
-
-    // 2. 이동 및 공격 (더 인간적으로)
-    if (absD > 160) {
-        ai.velocity.x = d > 0 ? ai.char.speed * 0.7 : -ai.char.speed * 0.7;
-        ai.facingRight = d > 0;
-    } else {
-        ai.velocity.x = 0;
-        if(Math.random()<0.04) ai.attack(ai.skillPower>=100?'special':'punch');
+    executeSpecial() {
+        if(this.char.id === 'volt') this.projectiles.push({x:this.x + (this.facingRight?60:-20), y:this.y+50, vx:this.facingRight?15:-15, vy:0, r:20, color:this.char.color});
+        else if(this.char.id === 'cyber') this.projectiles.push({x:this.x + (this.facingRight?60:-20), y:this.y+50, vx:this.facingRight?30:-30, vy:0, r:12, color:this.char.color});
+        else if(this.char.id === 'wraith') { this.isStealth = true; setTimeout(()=>this.isStealth=false, 2500); this.velocity.x = this.facingRight ? 50 : -50; }
+        else if(this.char.id === 'glitch') { this.x = Math.random() * 700; this.y = 100; }
     }
-    if (target.y < ai.y - 80 && !ai.isJumping && Math.random()<0.05) ai.velocity.y = -ai.char.jump;
 }
 
-const canvas=document.getElementById('gameCanvas'), ctx=canvas.getContext('2d');
+// 4. 게임 엔진
+let particles = [], screenShake = 0, arenaStarted = false, selectedChar = null, gameMode = '', p1, p2, gameLoopId;
+const inputs = { left:false, right:false, up:false, punch:false, kick:false, special:false };
+const myUsername = (typeof currentUser !== 'undefined') ? currentUser.username : "Guest";
 
-function checkCollision(a,b){
-    if(b.isStealth) return false;
-    const isBackAttack = (a.facingRight === b.facingRight);
+function createHitFX(x, y, color) {
+    for(let i=0; i<15; i++) particles.push({ x, y, vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20, life:25, color, r:Math.random()*7+3 });
+    screenShake = 15;
+}
 
-    // 풍선 깔아뭉개기
-    if(a.char.id==='balloon' && a.velocity.y > 3 && a.y+a.height < b.y+60 && Math.abs((a.x+35)-(b.x+35)) < 50) { b.health -= 25; b.fallTimer = 50; createHitFX(b.x+35, b.y, a.char.color, 25); sounds.play('hit'); a.velocity.y = -12; return; }
-
-    a.projectiles.forEach((p,i)=>{ 
-        if(p.x>b.x && p.x<b.x+b.width && p.y>b.y && p.y<b.y+b.height){
-            if(!isBackAttack && b.isGuarding && b.isCrouching) return;
-            let dmg = (p.type==='bullet') ? 15 : (p.type==='qi' ? 20 : 25);
-            if(isBackAttack) { dmg *= 2; backAttackText = 30; }
-            b.health -= dmg;
-            if(p.type==='bullet') b.fallTimer=80; else if(p.type==='qi') b.velocity.x=p.vx*8;
-            b.hitTimer=20; createHitFX(p.x,p.y,p.color, isBackAttack?30:20); sounds.play('hit'); a.projectiles.splice(i,1);
+function checkCollision(a, b) {
+    a.projectiles.forEach((p, i) => {
+        if(!b.isStealth && p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height) {
+            b.health -= 18; b.hitTimer = 15; createHitFX(p.x, p.y, p.color); a.projectiles.splice(i, 1); sounds.play('hit');
         }
     });
-
-    if(!a.isAttacking || a.attackFrame<6 || a.attackFrame>16) return false;
-    const reach = (a.char.id==='fencer' || a.attackType==='special') ? 140 : 85;
-    const ax = a.facingRight ? a.x+a.width : a.x-reach, ay = a.y+(a.attackType==='punch'?50:100);
-    if(!isBackAttack && b.isGuarding && (b.isCrouching || a.attackType==='punch')) return false;
-
-    const hit = ax < b.x+b.width && ax+reach > b.x && ay < b.y+b.height && ay+40 > b.y;
-    if(hit && b.hitTimer===0){
-        let dmg = a.char.power*6; if(isBackAttack) { dmg *= 2; backAttackText = 30; }
-        b.health -= dmg; b.hitTimer=15; createHitFX(ax+(a.facingRight?reach:0), ay, a.char.color, isBackAttack?25:15); sounds.play('hit'); b.velocity.x=a.facingRight?20:-20;
+    if(!a.isAttacking || a.attackFrame < 5 || a.attackFrame > 12 || b.isStealth) return;
+    const range = a.attackType === 'special' ? 140 : 80;
+    const ax = a.facingRight ? a.x + a.width : a.x - range;
+    if(ax < b.x + b.width && ax + range > b.x && a.y < b.y + b.height && a.y + a.height > b.y) {
+        if(b.hitTimer === 0) {
+            let dmg = a.char.power * (a.attackType === 'special' ? 30 : 9);
+            b.health -= dmg; b.hitTimer = 12;
+            if(a.char.id === 'reaper') a.health = Math.min(100, a.health + 5);
+            sounds.play('hit'); createHitFX(b.x + b.width/2, b.y + b.height/2, a.char.color);
+        }
     }
 }
 
-function animate(){
-    gameLoopId=requestAnimationFrame(animate); ctx.clearRect(0,0,800,400);
-    ctx.fillStyle = '#34495e'; PLATFORMS.forEach(p => { ctx.fillRect(p.x, p.y, p.w, p.h); ctx.strokeStyle='#ecf0f1'; ctx.strokeRect(p.x,p.y,p.w,p.h); });
-    const me=isPlayer1?p1:p2; me.velocity.x=0;
-    me.isCrouching=(keys['ArrowDown']||keys['KeyS']||mobileKeys.down);
-    me.isGuarding=(keys['KeyG']||mobileKeys.guard || me.isCrouching);
-    if(!me.isGuarding && !me.isAttacking && me.hitTimer===0 && !me.isDown){
-        const s = me.char.id==='marine'?1.8:1;
-        if(keys['ArrowLeft']||keys['KeyA']||mobileKeys.left){ me.velocity.x=-me.char.speed*s; me.facingRight=false; }
-        if(keys['ArrowRight']||keys['KeyD']||mobileKeys.right){ me.velocity.x=me.char.speed*s; me.facingRight=true; }
-        if((keys['ArrowUp']||keys['KeyW']||mobileKeys.up)&&!me.isJumping){ me.velocity.y=-me.char.jump; me.velocity.x=(keys['ArrowLeft']||keys['KeyA']||mobileKeys.left)?-me.char.speed*2.5:(keys['ArrowRight']||keys['KeyD']||mobileKeys.right)?me.char.speed*2.5:(me.facingRight?me.char.speed:-me.char.speed); }
-        if(keys['Space']||mobileKeys.punch) me.attack('punch');
-        if(keys['KeyK']||mobileKeys.kick) me.attack('kick');
-        if((keys['KeyL']||mobileKeys.special)&&me.skillPower>=100) me.attack('special');
-    }
-    if(gameMode==='ai') updateAI(p2, p1);
-    p1.update(); p2.update(); checkCollision(p1,p2); checkCollision(p2,p1);
-    particles.forEach((p,i)=>{ p.x+=p.vx; p.y+=p.vy; p.life--; if(p.life<=0)particles.splice(i,1); else { ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); } });
-    if(screenShake>0) screenShake*=0.9;
-    if(backAttackText > 0) { ctx.fillStyle = '#ff3e3e'; ctx.font = 'italic bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText("BACK ATTACK!! x2", 400, 100); backAttackText--; }
-    document.getElementById('p1-health').style.width=Math.max(0,p1.health)+'%';
-    document.getElementById('p2-health').style.width=Math.max(0,p2.health)+'%';
-    document.getElementById('p1-skill').style.width=p1.skillPower+'%';
-    document.getElementById('p2-skill').style.width=p2.skillPower+'%';
-    p1.draw(ctx); p2.draw(ctx);
-    if(p1.health<=0||p2.health<=0){ cancelAnimationFrame(gameLoopId); const win=p1.health<=0?p2:p1; const los=p1.health<=0?p1:p2; document.getElementById('game-over-msg').innerText=win.char.name+" WINS!"; socket.emit('record_result',{winner:win.isLocal?myUsername:'CPU',loser:los.isLocal?myUsername:'CPU'}); setTimeout(()=>{showScreen('lobby');initCharSelection();}, 3000); }
-}
-
-function showScreen(n) {
-    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
-    const t = document.getElementById(n + '-screen');
-    if (t) t.style.display = 'block';
-
-    const overlay = document.getElementById('start-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
-
-window.initAudioAndStart = () => {
-    console.log("initAudioAndStart called");
-    if (arenaStarted) return;
-    arenaStarted = true;
+function animate() {
+    gameLoopId = requestAnimationFrame(animate);
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 800, 400);
     
+    ctx.fillStyle = '#0a0a0c'; ctx.fillRect(0,0,800,400);
+    ctx.strokeStyle = 'rgba(0, 242, 255, 0.05)';
+    for(let i=0; i<800; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,400); ctx.stroke(); }
+    ctx.fillStyle = '#1a1a1e'; PLATFORMS.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+    if(screenShake > 0) { ctx.save(); ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake); screenShake *= 0.9; }
+    
+    // Process Inputs (Simultaneous Handling)
+    p1.velocity.x = 0;
+    if(inputs.left) { p1.velocity.x = -p1.char.speed; p1.facingRight = false; }
+    if(inputs.right) { p1.velocity.x = p1.char.speed; p1.facingRight = true; }
+    if(inputs.up && !p1.isJumping) p1.velocity.y = -p1.char.jump;
+    if(inputs.punch) p1.attack('punch');
+    if(inputs.kick) p1.attack('kick');
+    if(inputs.special) p1.attack('special');
+
+    if(gameMode === 'ai') {
+        const dist = p1.x - p2.x;
+        if(Math.abs(dist) > 110) { p2.velocity.x = dist > 0 ? p2.char.speed * 0.6 : -p2.char.speed * 0.6; p2.facingRight = dist > 0; }
+        else { p2.velocity.x = 0; if(Math.random() < 0.04) p2.attack('punch'); }
+    }
+
+    p1.update(); p2.update();
+    checkCollision(p1, p2); checkCollision(p2, p1);
+    p1.draw(ctx); p2.draw(ctx);
+
+    [p1, p2].forEach(f => {
+        f.projectiles.forEach(p => {
+            ctx.fillStyle = p.color; ctx.shadowBlur = 20; ctx.shadowColor = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+        });
+    });
+
+    if(screenShake > 0) ctx.restore();
+
+    particles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy; p.life--;
+        if(p.life <= 0) particles.splice(i, 1);
+        else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill(); }
+    });
+
+    document.getElementById('p1-health').style.width = Math.max(0, p1.health) + '%';
+    document.getElementById('p2-health').style.width = Math.max(0, p2.health) + '%';
+    document.getElementById('p1-skill').style.width = p1.skillPower + '%';
+    document.getElementById('p2-skill').style.width = p2.skillPower + '%';
+
+    if(p1.health <= 0 || p2.health <= 0) {
+        cancelAnimationFrame(gameLoopId);
+        arenaStarted = false;
+        const winner = p1.health > 0 ? myUsername : 'CPU';
+        const loser = p1.health > 0 ? 'CPU' : myUsername;
+        document.getElementById('game-over-msg').innerText = (p1.health > 0 ? p1.char.name : p2.char.name) + " WINS!";
+        if(socket) socket.emit('record_result', { winner, loser });
+        setTimeout(() => showScreen('lobby'), 3000);
+    }
+}
+
+// 5. 인프라
+window.initAudioAndStart = function() {
+    if (arenaStarted) return;
     showScreen('lobby');
+    arenaStarted = true;
     sounds.init();
     initCharSelection();
 };
 
-function incrementFighterAttempts() {
-    fetch('/api/increment-attempts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game: 'fighter' })
-    }).then(res => res.json())
-      .then(data => {
-          if (data.success) {
-              const el = document.getElementById('my-attempts');
-              if (el) el.innerText = parseInt(el.innerText) + 1;
-          }
-      });
-}
-
-window.startAIGame=()=>{
+window.startAIGame = function() {
     if(!selectedChar) return;
-    gameMode='ai';
-    p1=new Fighter(100,300,selectedChar,true,true);
-    p2=new Fighter(600,300,CHARACTERS[Math.floor(Math.random()*9)],false,false);
+    gameMode = 'ai';
+    p1 = new Fighter(100, 300, selectedChar, true, true);
+    p2 = new Fighter(600, 300, CHARACTERS[Math.floor(Math.random()*CHARACTERS.length)], false, false);
     showScreen('game');
     animate();
     incrementFighterAttempts();
 };
 
-socket.on('stats_update', d => { 
-    document.getElementById('welcome-msg').innerText = `HI, ${myUsername}! 준비되셨나요?`; 
-    const statsEl = document.getElementById('user-stats');
-    if(statsEl) statsEl.innerText = `${d.wins}W ${d.losses}L`;
-});
+window.showScreen = function(n) {
+    document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+    const t = document.getElementById(n + '-screen');
+    if (t) t.style.display = 'flex';
+    document.getElementById('start-overlay').style.display = 'none';
+    if(n === 'lobby') initCharSelection();
+};
 
 function initCharSelection() {
-    console.log("initCharSelection called");
     const cg = document.getElementById('char-grid');
     if (!cg) return;
     cg.innerHTML = '';
     CHARACTERS.forEach(c => {
         const card = document.createElement('div');
-        card.className = 'char-card';
-        card.innerHTML = `<canvas id="icon-${c.id}" width="60" height="60" class="face-icon"></canvas><div class="char-name">${c.name}</div>`;
+        card.className = 'char-card' + (selectedChar && selectedChar.id === c.id ? ' selected' : '');
+        const canvasId = `icon-${c.id}`;
+        card.innerHTML = `<canvas id="${canvasId}" width="80" height="80" class="face-icon"></canvas><div class="char-name">${c.name}</div>`;
         card.onclick = () => {
             selectedChar = c;
             document.querySelectorAll('.char-card').forEach(el => el.classList.remove('selected'));
@@ -402,39 +353,59 @@ function initCharSelection() {
             document.getElementById('ai-btn').disabled = false;
         };
         cg.appendChild(card);
-        
-        const canvas = document.getElementById(`icon-${c.id}`);
-        if (canvas) {
-            const ictx = canvas.getContext('2d');
-            ictx.fillStyle = '#f3c1a3';
-            ictx.beginPath();
-            ictx.arc(30, 30, 25, 0, Math.PI * 2);
-            ictx.fill();
-            ictx.fillStyle = c.color;
-            if (c.id === 'gunner') ictx.fillRect(5, 25, 50, 10);
-            else if (c.id === 'fencer') { ictx.fillStyle = '#eee'; ictx.fillRect(5, 5, 10, 50); }
-            else if (c.id === 'balloon') { /* Balloon icon logic if any */ }
-            else if (c.id === 'ninja') { ictx.fillStyle = '#333'; ictx.fillRect(5, 20, 50, 15); }
-            else if (c.id === 'mage') { ictx.beginPath(); ictx.moveTo(30, 0); ictx.lineTo(5, 25); ictx.lineTo(55, 25); ictx.fill(); }
-            ictx.fillStyle = '#000';
-            ictx.fillRect(20, 28, 4, 4);
-            ictx.fillRect(36, 28, 4, 4);
-        }
+        setTimeout(() => {
+            const canvas = document.getElementById(canvasId);
+            if(canvas) {
+                const ictx = canvas.getContext('2d');
+                ictx.shadowBlur = 15; ictx.shadowColor = c.color;
+                const grad = ictx.createRadialGradient(40, 40, 5, 40, 40, 30);
+                grad.addColorStop(0, c.color); grad.addColorStop(1, '#000');
+                ictx.fillStyle = grad; ictx.beginPath(); ictx.arc(40,40,30,0,Math.PI*2); ictx.fill();
+                ictx.fillStyle = '#fff'; ictx.fillRect(30,35,6,6); ictx.fillRect(44,35,6,6);
+            }
+        }, 0);
     });
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    console.log("DOMContentLoaded: initCharSelection");
-    initCharSelection();
-});
+function incrementFighterAttempts() {
+    fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'fighter' }) })
+    .then(res => res.json()).then(d => { if(d.success) { 
+        const el = document.getElementById('my-attempts');
+        if(el) el.innerText = parseInt(el.innerText) + 1;
+    }}).catch(e => {});
+}
 
-const bind=(id,k)=>{
-    const e=document.getElementById(id);
-    if(e){
-        e.addEventListener('touchstart',ev=>{ev.preventDefault();mobileKeys[k]=true;});
-        e.addEventListener('touchend',ev=>{ev.preventDefault();mobileKeys[k]=false;});
+if(socket) {
+    socket.on('stats_update', d => {
+        const el = document.getElementById('user-stats');
+        if(el) el.innerText = `${d.wins}W ${d.losses}L`;
+    });
+}
+
+// Improved Input Handler (Simultaneous Support)
+const updateInput = (k, v) => {
+    if(['ArrowLeft','KeyA'].includes(k)) inputs.left = v;
+    if(['ArrowRight','KeyD'].includes(k)) inputs.right = v;
+    if(['ArrowUp','KeyW','KeyW'].includes(k)) inputs.up = v;
+    if(k === 'Space') inputs.punch = v;
+    if(k === 'KeyK') inputs.kick = v;
+    if(k === 'KeyL') inputs.special = v;
+};
+
+window.addEventListener('keydown', e => updateInput(e.code, true));
+window.addEventListener('keyup', e => updateInput(e.code, false));
+
+const bind = (id, k) => {
+    const e = document.getElementById(id);
+    if(e) {
+        const set = (v) => { inputs[k] = v; };
+        e.addEventListener('touchstart', ev => { ev.preventDefault(); set(true); });
+        e.addEventListener('touchend', ev => { ev.preventDefault(); set(false); });
+        e.addEventListener('mousedown', () => set(true));
+        e.addEventListener('mouseup', () => set(false));
+        e.addEventListener('mouseleave', () => set(false));
     }
 };
-bind('btn-up','up');bind('btn-down','down');bind('btn-left','left');bind('btn-right','right');bind('btn-punch','punch');bind('btn-kick','kick');bind('btn-special','special');
-window.addEventListener('keydown',e=>keys[e.code]=true);
-window.addEventListener('keyup',e=>keys[e.code]=false);
+bind('btn-up','up'); bind('btn-left','left'); bind('btn-right','right'); bind('btn-punch','punch'); bind('btn-kick','kick'); bind('btn-special','special');
+
+document.addEventListener('DOMContentLoaded', initCharSelection);
