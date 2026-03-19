@@ -7,7 +7,7 @@ const ctx = canvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const stageEl = document.getElementById('stage');
 const timerEl = document.getElementById('timer');
-const livesContainer = document.getElementById('lives-container');
+const attacksContainer = document.getElementById('attacks-container');
 const activeEffectsDiv = document.getElementById('active-effects');
 const gameOverScreen = document.getElementById('game-over-screen');
 const startBtn = document.getElementById('start-btn');
@@ -108,7 +108,8 @@ const MAX_BLOCK_HP = 10;
 let gameState = {
     running: false,
     score: 0,
-    lives: 3,
+    attacks: 3,
+    respawnsLeft: 10,
     stage: 1,
     startTime: 0,
     elapsedTime: 0,
@@ -116,6 +117,7 @@ let gameState = {
     blocks: [],
     particles: [],
     items: [],
+    lasers: [],
     paddleX: canvas.width / 2 - PADDLE_WIDTH / 2,
     keys: { left: false, right: false },
     lastItemTime: Date.now(),
@@ -129,6 +131,34 @@ let gameState = {
         explodeRow: false
     }
 };
+
+class LaserBeam {
+    constructor(x, width) {
+        this.x = x;
+        this.width = width;
+        this.y = 0;
+        this.height = canvas.height;
+        this.life = 1.0;
+        this.decay = 0.05;
+        this.color = '#0ff';
+    }
+    update() {
+        this.life -= this.decay;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Outer glow
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x + 2, this.y, this.width - 4, this.height);
+        ctx.restore();
+    }
+}
 
 // --- CLASSES (Particle, Item, Ball, Block) ---
 class Particle {
@@ -150,9 +180,9 @@ class Item {
     constructor() {
         this.size = 30; this.x = Math.random() * (canvas.width - this.size * 2) + this.size;
         this.y = -this.size; this.speed = 3; this.angle = 0;
-        const items = ['A', 'B', 'C', 'D', 'E'];
+        const items = ['A', 'B', 'C', 'D', 'E', 'R'];
         this.type = items[Math.floor(Math.random() * items.length)];
-        this.colors = { 'A': '#FF3333', 'B': '#FFFFFF', 'C': '#33FFFF', 'D': '#FFFF33', 'E': '#FF33FF' };
+        this.colors = { 'A': '#FF3333', 'B': '#FFFFFF', 'C': '#33FFFF', 'D': '#FFFF33', 'E': '#FF33FF', 'R': '#00FF00' };
         this.color = this.colors[this.type];
     }
     update() { this.y += this.speed; this.angle += 0.05; this.x += Math.sin(this.angle) * 1.0; }
@@ -198,9 +228,11 @@ class Ball {
     triggerExplosionRow() {
         const hitBlocks = gameState.blocks.filter(b => b.active && this.x >= b.x && this.x <= b.x + b.width);
         hitBlocks.forEach(block => {
+            if (!block.active) return;
             block.hp = 0; block.active = false;
             gameState.score += 100 * gameState.stage;
             createExplosion(block.x + block.width/2, block.y + block.height/2, '#fff');
+            checkNeighboringBlocks(block.x, block.y);
         });
         updateUI();
     }
@@ -234,6 +266,7 @@ class Block {
 function initStage(stageNum) {
     gameState.stage = stageNum; gameState.balls = []; gameState.blocks = []; gameState.particles = [];
     gameState.paddleX = canvas.width / 2 - PADDLE_WIDTH / 2; gameState.lastItemTime = Date.now();
+    gameState.respawning = false;
     resetEffects();
     gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120));
     let baseHp = 3 + ((gameState.stage - 1) * 2);
@@ -246,7 +279,7 @@ function initStage(stageNum) {
             gameState.blocks.push(new Block(x, y, hp));
         }
     }
-    updateUI(); updateLivesUI();
+    updateUI(); updateAttacksUI();
 }
 function spawnNewBall(x, y, dx, dy) {
     if (gameState.balls.length < 10) {
@@ -254,7 +287,10 @@ function spawnNewBall(x, y, dx, dy) {
         newBall.active = true; gameState.balls.push(newBall);
     }
 }
-function createExplosion(x, y, color) { for (let i = 0; i < 15; i++) gameState.particles.push(new Particle(x, y, color)); }
+function createExplosion(x, y, color) { 
+    if (gameState.particles.length > 500) return; // Prevent performance freeze
+    for (let i = 0; i < 15; i++) gameState.particles.push(new Particle(x, y, color)); 
+}
 function applyItemEffect(itemType) {
     let duration = 5000; let effectText = "";
     gameState.itemTimer = Date.now() + duration; gameState.currentItem = itemType;
@@ -264,12 +300,31 @@ function applyItemEffect(itemType) {
         case 'C': gameState.effects.halfSpeed = true; effectText = "Slow Motion (0.7x)"; break;
         case 'D': gameState.effects.doubleDamage = true; effectText = "Double Damage"; break;
         case 'E': gameState.effects.explodeRow = true; effectText = "Row Explosion Ready"; break;
+        case 'R': 
+            gameState.attacks = 3; 
+            updateAttacksUI(); 
+            effectText = "Attacks Reloaded!"; 
+            break;
     }
     addActiveEffect(effectText);
 }
 function addActiveEffect(text) {
     const div = document.createElement('div'); div.className = 'effect-text'; div.innerText = text;
     activeEffectsDiv.appendChild(div); setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 5000);
+}
+function removeActiveEffect(type) {
+    // Current UI doesn't track effects by type for individual removal,
+    // so we just clear the container or let the timeout handle it.
+    // This function prevents ReferenceError.
+    if (type === 'E') {
+        const effects = activeEffectsDiv.getElementsByClassName('effect-text');
+        for (let i = 0; i < effects.length; i++) {
+            if (effects[i].innerText.includes("Row Explosion")) {
+                effects[i].remove();
+                break;
+            }
+        }
+    }
 }
 function resetEffects() {
     gameState.effects.doubleSpeed = false; gameState.effects.invincibleBlocks = false;
@@ -312,17 +367,25 @@ function checkCollisions() {
 function checkNeighboringBlocks(blockX, blockY) {
     if (gameState.effects.invincibleBlocks) return;
     const neighbors = [
-        { x: blockX + BLOCK_SIZE + BLOCK_PADDING, y: blockY }, { x: blockX - (BLOCK_SIZE + BLOCK_PADDING), y: blockY },
-        { x: blockX, y: blockY + BLOCK_SIZE + BLOCK_PADDING }, { x: blockX, y: blockY - (BLOCK_SIZE + BLOCK_PADDING) }
+        { x: blockX + BLOCK_SIZE + BLOCK_PADDING, y: blockY }, 
+        { x: blockX - (BLOCK_SIZE + BLOCK_PADDING), y: blockY },
+        { x: blockX, y: blockY + BLOCK_SIZE + BLOCK_PADDING }, 
+        { x: blockX, y: blockY - (BLOCK_SIZE + BLOCK_PADDING) }
     ];
     neighbors.forEach(pos => {
-        let target = gameState.blocks.find(b => b.x === pos.x && b.y === pos.y && b.active);
+        // Use a small epsilon for coordinate comparison
+        let target = gameState.blocks.find(b => Math.abs(b.x - pos.x) < 5 && Math.abs(b.y - pos.y) < 5 && b.active);
         if (target) {
             target.hp--;
             if (target.hp <= 0) {
-                target.active = false; gameState.score += 50 * gameState.stage;
+                target.active = false; 
+                gameState.score += 50 * gameState.stage;
                 createExplosion(target.x + target.width/2, target.y + target.height/2, '#fff');
-            } else { target.color = NEON_COLORS[target.hp]; }
+                // Recursive call for chain reaction
+                checkNeighboringBlocks(target.x, target.y);
+            } else { 
+                target.color = NEON_COLORS[target.hp]; 
+            }
         }
     });
 }
@@ -343,10 +406,28 @@ function update() {
     checkCollisions();
     gameState.particles.forEach(p => p.update());
     gameState.particles = gameState.particles.filter(p => p.life > 0);
-    if (gameState.balls.length === 0) {
-        gameState.lives--; updateLivesUI();
-        if (gameState.lives <= 0) { gameOver(); }
-        else { setTimeout(() => { if (gameState.running && gameState.lives > 0) gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120)); }, 1000); }
+    
+    // Update lasers
+    gameState.lasers.forEach(l => l.update());
+    gameState.lasers = gameState.lasers.filter(l => l.life > 0);
+
+    if (gameState.balls.length === 0 && !gameState.respawning) {
+        gameState.respawning = true;
+        // Decrement respawns left
+        if (gameState.respawnsLeft > 0) {
+            gameState.respawnsLeft--;
+            if (gameState.respawnsLeft <= 0) {
+                gameOver();
+            } else {
+                // Respawn ball
+                setTimeout(() => { 
+                    if (gameState.running && gameState.balls.length === 0 && gameState.respawnsLeft > 0) {
+                        gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120)); 
+                        gameState.respawning = false;
+                    }
+                }, 1000);
+            }
+        }
     }
     if (gameState.running) {
         gameState.elapsedTime = Math.floor((Date.now() - gameState.startTime) / 1000);
@@ -365,6 +446,14 @@ function draw() {
     gameState.items.forEach(item => item.draw());
     gameState.balls.forEach(b => b.draw());
     gameState.particles.forEach(p => p.draw());
+    gameState.lasers.forEach(l => l.draw());
+    
+    // Draw remaining respawns in bottom right
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(`BALL LOSSES LEFT: ${gameState.respawnsLeft}`, canvas.width - 20, canvas.height - 20);
+    
     if (gameState.currentItem) {
         let timeLeft = Math.ceil((gameState.itemTimer - Date.now()) / 1000);
         if (timeLeft > 0) { ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.fillText(`Effect Time: ${timeLeft}s`, canvas.width / 2, 60); }
@@ -372,12 +461,59 @@ function draw() {
 }
 function gameLoop() { if (gameState.running) { update(); draw(); requestAnimationFrame(gameLoop); } }
 function updateUI() { scoreEl.innerText = gameState.score; stageEl.innerText = gameState.stage; }
-function updateLivesUI() {
-    livesContainer.innerHTML = '';
-    for (let i = 0; i < gameState.lives; i++) {
-        const heart = document.createElement('div'); heart.className = 'heart'; heart.style = "width:15px; height:15px; background-color:#f0f; border-radius:50%; box-shadow:0 0 5px #f0f;";
-        livesContainer.appendChild(heart);
+function updateAttacksUI() {
+    attacksContainer.innerHTML = '';
+    for (let i = 0; i < gameState.attacks; i++) {
+        const attackIcon = document.createElement('div'); 
+        attackIcon.className = 'attack-icon'; 
+        attackIcon.style = "width:10px; height:20px; background-color:#0ff; border:1px solid #fff; box-shadow:0 0 8px #0ff; display:inline-block; margin-right:5px; border-radius:2px;";
+        attacksContainer.appendChild(attackIcon);
     }
+}
+
+function fireLaser() {
+    if (!gameState.running || gameState.attacks <= 0) return;
+    
+    gameState.attacks--;
+    updateAttacksUI();
+    
+    const beamWidth = BLOCK_SIZE * 2;
+    const beamX = gameState.paddleX + (PADDLE_WIDTH / 2) - (beamWidth / 2);
+    
+    gameState.lasers.push(new LaserBeam(beamX, beamWidth));
+    
+    // Play sound (using existing hit sound logic with custom values)
+    if (audioCtx) {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(150, audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.5);
+        g.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + 0.5);
+    }
+    
+    // Check collisions with blocks
+    gameState.blocks.forEach(block => {
+        if (block.active && block.x + block.width > beamX && block.x < beamX + beamWidth) {
+            if (!block.active) return;
+            block.hp -= 3;
+            createExplosion(block.x + block.width / 2, block.y + block.height / 2, block.color);
+            if (block.hp <= 0) {
+                block.active = false;
+                gameState.score += 100 * gameState.stage;
+                createExplosion(block.x + block.width / 2, block.y + block.height / 2, '#fff');
+                checkNeighboringBlocks(block.x, block.y);
+            } else {
+                block.color = NEON_COLORS[block.hp] || NEON_COLORS[1];
+            }
+        }
+    });
+    updateUI();
 }
 
 // --- PORTAL INTEGRATION ---
@@ -438,6 +574,7 @@ btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); gameState.ke
 btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); gameState.keys.left = false; });
 btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); gameState.keys.right = true; });
 btnRight.addEventListener('touchend', (e) => { e.preventDefault(); gameState.keys.right = false; });
+canvas.addEventListener('click', fireLaser);
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault(); let touch = e.touches[0]; let rect = canvas.getBoundingClientRect();
     let x = touch.clientX - rect.left; let scaleX = canvas.width / rect.width;
@@ -445,7 +582,7 @@ canvas.addEventListener('touchmove', (e) => {
     if (gameState.paddleX < 0) gameState.paddleX = 0; if (gameState.paddleX + PADDLE_WIDTH > canvas.width) gameState.paddleX = canvas.width - PADDLE_WIDTH;
 }, { passive: false });
 
-updateLivesUI(); setupStageButtons(); draw();
+updateAttacksUI(); setupStageButtons(); draw();
 function incrementAttempts() {
     fetch('/api/increment-attempts', {
         method: 'POST',
@@ -473,6 +610,6 @@ function initBrickAudio() {
     }
 }
 
-startBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.lives = 3; gameState.startTime = Date.now(); initStage(gameState.selectedStage); gameState.running = true; gameLoop(); incrementAttempts(); };
-restartBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.lives = 3; gameState.startTime = Date.now(); initStage(gameState.stage); gameState.running = true; gameLoop(); incrementAttempts(); };
+startBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.attacks = 3; gameState.respawnsLeft = 10; gameState.respawning = false; gameState.startTime = Date.now(); initStage(gameState.selectedStage); gameState.running = true; gameLoop(); incrementAttempts(); };
+restartBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.attacks = 3; gameState.respawnsLeft = 10; gameState.respawning = false; gameState.startTime = Date.now(); initStage(gameState.stage); gameState.running = true; gameLoop(); incrementAttempts(); };
 menuBtn.onclick = () => { gameOverScreen.style.display = "flex"; gameOverContentDiv.classList.add('hidden'); stageSelectionDiv.classList.remove('hidden'); gameTitle.innerText = "NEON BREAKOUT"; };
