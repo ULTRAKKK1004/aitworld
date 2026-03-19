@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brick-Crasher - AI-TWorld</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/game-layout.css">
+</head>
+<body>
+    <div class="game-layout">
+        <aside class="sidebar left-sidebar">
+            <div class="user-profile">
+                <p>플레이어: <strong><%= user.username %></strong></p>
+                <p>내 최고 점수: <span id="my-best-score"><%= user.best_score %></span></p>
+                <p>플레이 횟수: <span id="my-attempts"><%= user.brick_attempts %></span></p>
+                <p>내 현재 순위: <span id="my-rank">-</span></p>
+            </div>
+            <div class="motivational-phrases" id="motivation">
+                <!-- Phrases injected here -->
+            </div>
+        </aside>
+
+        <main class="game-area">
+            <div id="game-container">
+                <canvas id="gameCanvas" width="450" height="800"></canvas>
+                <!-- UI elements will be injected here via the game script -->
+                <!-- (Reusing the UI from brick_crash.html) -->
+                <div id="ui-layer">
+                    <div class="top-bar">
+                        <div class="stat-box">
+                            <span class="stat-label">TIME</span>
+                            <span class="stat-value" id="timer">00:00</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">STAGE</span>
+                            <span class="stat-value" id="stage">1</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">SCORE</span>
+                            <span class="stat-value" id="score">0</span>
+                        </div>
+                    </div>
+                    <div id="active-effects"></div>
+                    <div class="bottom-bar">
+                        <div class="stat-box">
+                            <span class="stat-label">LIVES</span>
+                            <div id="lives-container"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="game-over-screen">
+                    <h1 id="game-title">NEON BREAKOUT</h1>
+                    <div id="stage-selection">
+                        <p style="color:#fff; margin-bottom:15px; font-size:16px;">난이도를 선택하세요</p>
+                        <div class="stage-select" id="stageGrid"></div>
+                        <button class="main-btn" id="start-btn">게임 시작</button>
+                    </div>
+                    <div id="game-over-content" class="hidden" style="text-align:center;">
+                        <h2 style="font-size: 32px; color: #f00; text-shadow: 0 0 20px #f00;">GAME OVER</h2>
+                        <p style="font-size: 18px; margin: 10px 0;">Final Score: <span id="final-score" style="color:#fff">0</span></p>
+                        <p style="font-size: 18px; margin: 10px 0;">Max Stage: <span id="final-stage" style="color:#0ff">1</span></p>
+                        <button class="main-btn" id="restart-btn" style="margin-top:20px;">Retry</button>
+                        <button class="main-btn" id="menu-btn" style="margin-top:10px; border-color:#0ff; color:#0ff; font-size: 16px; padding: 10px 30px;">Stage Select</button>
+                        <a href="/dashboard" class="main-btn" style="display:block; margin-top:10px; border-color:#fff; color:#fff; font-size: 14px;">Back to Dashboard</a>
+                    </div>
+                    <div class="controls-hint">PC: 방향키 / 모바일: 화면 좌우 터치</div>
+                    <div class="mobile-controls">
+                        <div class="touch-btn" id="btn-left">←</div>
+                        <div class="touch-btn" id="btn-right">→</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="sidebar right-sidebar">
+            <h3>명예의 전당 (Top 10)</h3>
+            <div class="leaderboard" id="top10">
+                <!-- Top 10 users -->
+            </div>
+            
+            <h3>내 경쟁자들</h3>
+            <div class="leaderboard" id="rivals">
+                <!-- Similar score users -->
+            </div>
+        </aside>
+    </div>
+
+    <script src="/js/game-logic.js"></script>
+    <script src="/js/scoreboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Username Setup - AI-TWorld</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>회원 정보 설정</h1>
+            <p>사용하실 닉네임을 설정해 주세요.</p>
+        </header>
+        <main>
+            <form action="/setup-username" method="POST" class="setup-form">
+                <div class="input-group">
+                    <label for="username">닉네임</label>
+                    <input type="text" id="username" name="username" required minlength="2" maxlength="20" placeholder="닉네임을 입력하세요">
+                </div>
+                <% if (locals.error) { %>
+                    <p class="error"><%= error %></p>
+                <% } %>
+                <button type="submit" class="main-btn">저장 및 시작하기</button>
+            </form>
+        </main>
+    </div>
+</body>
+</html>

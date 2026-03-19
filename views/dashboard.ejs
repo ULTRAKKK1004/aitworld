@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI-TWorld</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="user-info">
+                <span>반갑습니다, <strong><%= user.username %></strong> 님!</span>
+                <a href="/logout" class="logout-link">로그아웃</a>
+            </div>
+            <h1>AI-TWORLD SERVICES</h1>
+        </header>
+        <main>
+            <div class="service-grid">
+                <% if (user.role === 'ADMIN') { %>
+                <a href="/admin" class="service-card" style="border-color: #f1c40f;">
+                    <div class="icon-box" style="color: #f1c40f; text-shadow: 0 0 20px #f1c40f;">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h2>ADMIN MODE</h2>
+                    <p>관리자 대시보드</p>
+                </a>
+                <% } %>
+                <a href="/games/brick-crasher" class="service-card">
+                    <div class="icon-box">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <h2>BRICK CRASHER</h2>
+                    <p>NEON BREAKOUT</p>
+                </a>
+                <a href="/games/fighter" class="service-card" style="border-color: var(--secondary);">
+                    <div class="icon-box" style="color: var(--secondary); text-shadow: 0 0 20px var(--secondary);">
+                        <i class="fas fa-user-ninja"></i>
+                    </div>
+                    <h2>CLAW FIGHTER</h2>
+                    <p>ARENA BATTLE</p>
+                </a>
+                <!-- Future services can be added here -->
+            </div>
+        </main>
+    </div>
+</body>
+</html>

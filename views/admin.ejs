@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - AI-TWorld</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .admin-container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .admin-section { background: var(--card-bg); border-radius: 15px; padding: 25px; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .admin-section h2 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #fff; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        th { color: var(--primary); }
+        
+        .role-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .role-ADMIN { background: #f1c40f; color: #000; }
+        .role-GENERAL { background: #2ecc71; color: #000; }
+        .role-PENDING { background: #95a5a6; color: #000; }
+        
+        .action-form { display: inline-block; }
+        select { background: #222; color: #fff; border: 1px solid #444; padding: 5px; border-radius: 4px; }
+        .btn-small { padding: 5px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid; background: transparent; transition: 0.3s; }
+        .btn-update { color: var(--primary); border-color: var(--primary); }
+        .btn-update:hover { background: var(--primary); color: #000; }
+        .btn-reset { color: #e74c3c; border-color: #e74c3c; }
+        .btn-reset:hover { background: #e74c3c; color: #fff; }
+        
+        .score-list { max-height: 400px; overflow-y: auto; }
+        .score-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .score-time { color: var(--text-dim); font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <header>
+            <div class="user-info">
+                <span>관리자: <strong><%= user.username %></strong></span>
+                <a href="/dashboard" class="logout-link">대시보드로 돌아가기</a>
+            </div>
+            <h1 style="color: #f1c40f; text-shadow: 0 0 20px #f1c40f;">ADMINISTRATOR MODE</h1>
+        </header>
+
+        <main>
+            <div class="admin-section">
+                <h2><i class="fas fa-users"></i> 회원 관리</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>이메일</th>
+                            <th>닉네임</th>
+                            <th>레벨</th>
+                            <th>Brick(R)</th>
+                            <th>Fighter(R)</th>
+                            <th>최고점수</th>
+                            <th>전적(W/L)</th>
+                            <th>액션</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% users.forEach(u => { %>
+                        <tr>
+                            <td><%= u.id %></td>
+                            <td><%= u.email %></td>
+                            <td><%= u.username || '(미설정)' %></td>
+                            <td>
+                                <span class="role-badge role-<%= u.role %>"><%= u.role %></span>
+                            </td>
+                            <td><%= u.brick_attempts %></td>
+                            <td><%= u.fighter_attempts %></td>
+                            <td><%= u.best_score %></td>
+                            <td><%= u.wins %>W / <%= u.losses %>L</td>
+                            <td>
+                                <form action="/admin/update-role" method="POST" class="action-form">
+                                    <input type="hidden" name="user_id" value="<%= u.id %>">
+                                    <select name="role" onchange="this.form.submit()">
+                                        <option value="PENDING" <%= u.role === 'PENDING' ? 'selected' : '' %>>보류</option>
+                                        <option value="GENERAL" <%= u.role === 'GENERAL' ? 'selected' : '' %>>일반</option>
+                                        <option value="ADMIN" <%= u.role === 'ADMIN' ? 'selected' : '' %>>관리자</option>
+                                    </select>
+                                </form>
+                                <form action="/admin/reset-data" method="POST" class="action-form" onsubmit="return confirm('정말 이 회원의 게임 데이터를 초기화하시겠습니까?')">
+                                    <input type="hidden" name="user_id" value="<%= u.id %>">
+                                    <button type="submit" class="btn-small btn-reset">데이터 초기화</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="admin-section">
+                <h2><i class="fas fa-chart-line"></i> 실시간 게임 스코어 (최근 50건)</h2>
+                <div class="score-list">
+                    <% recentScores.forEach(s => { %>
+                    <div class="score-item">
+                        <span><strong><%= s.username %></strong>님이 <strong><%= s.score %></strong>점을 기록했습니다.</span>
+                        <span class="score-time"><%= new Date(s.created_at).toLocaleString() %></span>
+                    </div>
+                    <% }) %>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

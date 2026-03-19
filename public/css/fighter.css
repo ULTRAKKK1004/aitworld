@@ -1,0 +1,53 @@
+body { margin: 0; padding: 0; background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; touch-action: none; }
+.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+.screen { text-align: center; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 10px; box-sizing: border-box; }
+
+h1 { font-size: 3em; color: #ff3e3e; text-shadow: 0 0 15px #ff0000; margin: 10px 0; font-weight: 900; }
+input { display: block; margin: 8px auto; padding: 12px; width: 240px; border-radius: 8px; background: #222; color: #fff; border: 2px solid #444; font-size: 16px; }
+button { background: #ff3e3e; color: #fff; padding: 14px 28px; font-size: 18px; cursor: pointer; border-radius: 8px; border: 2px solid #fff; font-weight: bold; margin: 5px; text-transform: uppercase; }
+button:hover { background: #fff; color: #ff3e3e; transform: scale(1.05); }
+button:disabled { background: #333; color: #777; border-color: #444; cursor: not-allowed; }
+
+/* 캐릭터 그리드 개선 - 얼굴 아이콘 */
+.char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; max-width: 600px; margin: 15px auto; }
+.char-card { background: #111; padding: 10px; border-radius: 15px; border: 4px solid #333; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; }
+.char-card:hover { border-color: #ff3e3e; transform: translateY(-5px); }
+.char-card.selected { border-color: #f1c40f; background: #332200; box-shadow: 0 0 20px #f1c40f; transform: scale(1.1); }
+
+.face-icon { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 8px; position: relative; border: 2px solid #555; background: #f3c1a3; overflow: hidden; }
+.face-feature { position: absolute; width: 100%; height: 100%; top: 0; left: 0; }
+.char-name { font-size: 14px; font-weight: bold; color: #fff; }
+
+/* 게임 UI */
+.canvas-container { position: relative; width: 100%; display: flex; justify-content: center; align-items: center; flex-grow: 1; }
+#gameCanvas { background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e); border: 4px solid #444; border-radius: 15px; width: auto; height: auto; max-width: 100%; max-height: 75vh; aspect-ratio: 2/1; }
+
+.hud { position: absolute; top: 15px; width: 95%; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+.health-bar-container { width: 38%; }
+.health-bar { height: 20px; background: #222; border: 2px solid #fff; border-radius: 10px; overflow: hidden; }
+.health-fill { height: 100%; background: linear-gradient(90deg, #ff3e3e, #ff8e8e); width: 100%; transition: width 0.1s; }
+.skill-bar { height: 8px; background: #000; margin-top: 5px; border-radius: 4px; border: 1px solid #555; overflow: hidden; }
+.skill-fill { height: 100%; background: #f1c40f; width: 0%; box-shadow: 0 0 10px #f1c40f; }
+.timer { font-size: 3em; font-weight: bold; text-shadow: 3px 3px #000; color: #fff; }
+
+/* 모바일 컨트롤 */
+#mobile-controls { position: fixed; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; z-index: 1000; }
+.mobile-only { display: none; }
+@media (max-width: 1024px) { .mobile-only { display: flex; } }
+
+.d-pad { display: grid; grid-template-areas: ". up ." "left down right"; gap: 8px; pointer-events: auto; }
+.m-btn { width: 65px; height: 65px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 3px solid #fff; color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; user-select: none; backdrop-filter: blur(5px); }
+.m-btn:active { background: #ff3e3e; transform: scale(0.9); }
+
+.action-pad { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; pointer-events: auto; align-items: flex-end; }
+.m-btn.big { width: 85px; height: 85px; font-size: 35px; background: rgba(255, 62, 62, 0.3); border-color: #ff3e3e; }
+.m-btn.special { background: rgba(241, 196, 15, 0.4); border-color: #f1c40f; grid-column: span 2; width: 100%; height: 55px; border-radius: 12px; font-size: 20px; }
+
+#game-over-msg { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); font-size: 4em; color: #f1c40f; text-shadow: 5px 5px #000; pointer-events: none; font-weight: 900; }
+
+@media (orientation: landscape) and (max-height: 500px) {
+    h1 { display: none; }
+    #gameCanvas { max-height: 88vh; }
+    .m-btn { width: 55px; height: 55px; }
+    .m-btn.big { width: 70px; height: 70px; }
+}.hidden { display: none !important; }

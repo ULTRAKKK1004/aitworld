@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Claw Fighter - AI-TWorld</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/fighter.css">
+    <style>
+        /* Overriding some fighter.css to fit in portal */
+        body { overflow: auto; display: block; }
+        .screen { min-height: 80vh; }
+        #game-container-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid var(--primary);
+            margin: 20px auto;
+            max-width: 900px;
+            position: relative;
+        }
+        .logout-link { position: absolute; top: 20px; right: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="user-info">
+                <span>플레이어: <strong><%= user.username %></strong></span>
+                <span>전적: <span id="user-stats"><%= user.wins %>W <%= user.losses %>L</span></span>
+                <span>플레이 횟수: <span id="my-attempts"><%= user.fighter_attempts %></span></span>
+                <a href="/dashboard" class="logout-link" style="position:static; margin-left: 20px;">대시보드로</a>
+            </div>
+            <h1>CLAW FIGHTER: ARENA</h1>
+        </header>
+
+        <main>
+            <div id="start-overlay" class="overlay">
+                <button onclick="initAudioAndStart()">TAP TO START ARENA</button>
+            </div>
+
+            <!-- Auth screen removed as we are already logged in -->
+
+            <div id="lobby-screen" class="screen" style="display: none;">
+                <h2 id="welcome-msg">HI, <%= user.username %>! 준비되셨나요?</h2>
+                <div class="char-selection">
+                    <div id="char-grid" class="char-grid"></div>
+                    <p id="skill-description" style="color: #f1c40f; font-size: 14px; margin: 5px 0; min-height: 20px;"></p>
+                </div>
+                <div class="lobby-container">
+                    <button id="ai-btn" onclick="startAIGame()" disabled>VERSUS AI</button>
+                    <div style="margin-top: 20px;">
+                        <h3 style="font-size: 16px; color: var(--primary);">ONLINE PLAYERS (Coming Soon)</h3>
+                        <ul id="user-list" style="list-style: none; padding: 0; max-height: 120px; overflow-y: auto;">
+                            <li style="color: #666; font-style: italic;">멀티플레이어 기능 준비 중...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="game-screen" class="screen" style="display: none;">
+                <div id="game-container-wrapper">
+                    <div class="canvas-container">
+                        <div class="hud">
+                            <div class="health-bar-container">
+                                <div id="p1-name" style="font-size: 14px; font-weight: bold; color: #fff; text-align: left;"><%= user.username %></div>
+                                <div class="health-bar"><div id="p1-health" class="health-fill"></div></div>
+                                <div class="skill-bar"><div id="p1-skill" class="skill-fill"></div></div>
+                            </div>
+                            <div id="fight-timer" class="timer" style="font-size: 2.5em;">99</div>
+                            <div class="health-bar-container" style="text-align: right;">
+                                <div id="p2-name" style="font-size: 14px; font-weight: bold; color: #fff;">CPU</div>
+                                <div class="health-bar"><div id="p2-health" class="health-fill"></div></div>
+                                <div class="skill-bar"><div id="p2-skill" class="skill-fill" style="float: right;"></div></div>
+                            </div>
+                        </div>
+                        <canvas id="gameCanvas" width="800" height="400"></canvas>
+                        <div id="game-over-msg"></div>
+                    </div>
+
+                    <!-- Mobile Controls -->
+                    <div id="mobile-controls" class="mobile-only">
+                        <div class="d-pad">
+                            <button id="btn-up" class="m-btn" style="grid-area: up;">▲</button>
+                            <button id="btn-left" class="m-btn" style="grid-area: left;">◀</button>
+                            <button id="btn-down" class="m-btn" style="grid-area: down;">▼</button>
+                            <button id="btn-right" class="m-btn" style="grid-area: right;">▶</button>
+                        </div>
+                        <div class="action-pad">
+                            <button id="btn-punch" class="m-btn big">👊</button>
+                            <button id="btn-kick" class="m-btn big">🦵</button>
+                            <button id="btn-special" class="m-btn special">SPECIAL 🔥</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="main-btn" onclick="location.reload()" style="max-width: 200px; margin: 20px auto;">나가기</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Injecting user data from EJS
+        const currentUser = {
+            username: "<%= user.username %>",
+            wins: <%= user.wins %>,
+            losses: <%= user.losses %>
+        };
+    </script>
+    <script src="/js/fighter-logic.js"></script>
+</body>
+</html>
