@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - AI-TWorld</title>
+    <title>Admin Dashboard - Tor-AI</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -55,6 +55,7 @@
                             <th>레벨</th>
                             <th>Brick(R)</th>
                             <th>Fighter(R)</th>
+                            <th>Hero(R)</th>
                             <th>최고점수</th>
                             <th>전적(W/L)</th>
                             <th>액션</th>
@@ -71,6 +72,7 @@
                             </td>
                             <td><%= u.brick_attempts %></td>
                             <td><%= u.fighter_attempts %></td>
+                            <td><%= u.hero_attempts %></td>
                             <td><%= u.best_score %></td>
                             <td><%= u.wins %>W / <%= u.losses %>L</td>
                             <td>

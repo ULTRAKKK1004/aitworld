@@ -1,5 +1,5 @@
 /**
-* NEON BREAKOUT - Integrated with AI-TWorld Portal
+* NEON BREAKOUT - Integrated with Tor-AI Portal
 */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');

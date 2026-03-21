@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hero's Quest - Tor-AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/game-layout.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #game-container {
+            background-color: #222;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+    </style>
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div class="game-layout">
+        <aside class="sidebar left-sidebar">
+            <div class="user-profile">
+                <p>플레이어: <strong><%= user.username %></strong></p>
+                <p>내 최고 점수: <span id="my-best-score"><%= user.best_score %></span></p>
+                <p>플레이 횟수: <span id="my-attempts"><%= user.hero_attempts %></span></p>
+                <p>내 현재 순위: <span id="my-rank">-</span></p>
+            </div>
+            <div class="motivational-phrases" id="motivation">
+                <p>"영웅이여, 전설을 써 내려가라!"</p>
+                <p>"끝까지 포기하지 마세요!"</p>
+            </div>
+            <div style="margin-top: 20px;">
+                <a href="/dashboard" class="main-btn" style="text-decoration:none; display:inline-block; border:1px solid #fff; color:#fff; padding:5px 15px; font-size:12px;">대시보드로 돌아가기</a>
+            </div>
+        </aside>
+
+        <main class="game-area">
+            <div id="game-container"></div>
+        </main>
+
+        <aside class="sidebar right-sidebar">
+            <h3>명예의 전당 (Top 10)</h3>
+            <div class="leaderboard" id="top10">
+                <!-- Top 10 users -->
+            </div>
+            
+            <h3>내 경쟁자들</h3>
+            <div class="leaderboard" id="rivals">
+                <!-- Similar score users -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="/games/hero-quest/js/audio.js"></script>
+    <script src="/games/hero-quest/js/assets.js"></script>
+    <script src="/games/hero-quest/js/levels.js"></script>
+    <script src="/games/hero-quest/js/entities.js"></script>
+    <script src="/games/hero-quest/js/game.js"></script>
+    
+    <script src="/js/scoreboard.js"></script>
+    <script>
+        // Track attempts for this game
+        fetch('/api/increment-attempts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game: 'hero' })
+        });
+    </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 {
-  "name": "ai-tworld-portal",
+  "name": "tor-ai-portal",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -17,8 +17,10 @@
     "ejs": "^5.0.1",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
+    "jsdom": "^29.0.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "puppeteer": "^24.40.0",
     "socket.io": "^4.8.3"
   }
 }

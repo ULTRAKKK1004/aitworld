@@ -14,6 +14,7 @@ db.exec(`
     best_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
     fighter_attempts INTEGER DEFAULT 0,
+    hero_attempts INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP

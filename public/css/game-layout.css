@@ -38,11 +38,13 @@
 
 #game-container {
     position: relative;
-    max-width: 450px;
-    aspect-ratio: 9/16;
-    height: 90vh;
+    max-width: 800px;
+    width: 100%;
+    aspect-ratio: 2/1; /* Matches 800x400 */
+    height: auto;
     border: 2px solid #333;
     overflow: hidden;
+    background: #222;
 }
 
 canvas {
@@ -241,17 +243,90 @@ h3 {
     user-select: none;
 }
 
-@media (max-width: 1000px) {
-    .game-layout {
-        flex-direction: column;
-        overflow-y: auto;
+/* ----------------- MOBILE & RESPONSIVE FIXES ----------------- */
+@media (max-width: 1100px) {
+    /* 전체 초기화 */
+    html, body {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        position: fixed; /* 바운스 스크롤 방지 */
     }
+
+    .game-layout {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important; /* flex 해제 */
+        background: #000 !important;
+        z-index: 999;
+    }
+
     .sidebar {
-        flex: none;
-        width: 100%;
+        display: none !important; 
+        width: 0 !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        position: absolute;
+    }
+
+    .game-area {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        background: #000 !important;
+    }
+
+    #game-container {
+        position: relative !important;
+        width: 98vw !important;
+        height: 58.8vw !important; /* 800:480 비율 */
+        max-width: 800px !important;
+        max-height: 480px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        transform: none !important; /* 위에서 flex로 맞춤 */
+        border: 1px solid #333 !important;
+        background: #111 !important;
+        box-shadow: 0 0 30px rgba(0,0,0,0.8) !important;
+    }
+}
+
+/* 가로 모드: 전체 화면 꽉 채우기 */
+@media (max-width: 1100px) and (orientation: landscape) {
+    #game-container {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        max-height: none !important;
+        border: none !important;
+    }
+}
+
+/* 세로 모드: 화면 중앙보다 약간 위에 배치 (모바일 컨트롤러 배려) */
+@media (max-width: 600px) and (orientation: portrait) {
+    .game-area {
+        align-items: center !important;
     }
     #game-container {
-        height: 700px;
+        width: 100vw !important;
+        height: 60vw !important;
+        max-height: 50vh !important;
     }
 }
 
