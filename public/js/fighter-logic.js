@@ -181,14 +181,18 @@ class Fighter {
         ctx.restore();
     }
 
-    update() {
+    update(onPlatParam) {
         this.x += this.velocity.x; this.y += this.velocity.y;
-        let onPlat = false;
-        PLATFORMS.forEach(p => {
-            if(this.x+this.width > p.x && this.x < p.x+p.w && this.y+this.height >= p.y && this.y+this.height <= p.y+p.h+10){
-                this.y = p.y - this.height; this.velocity.y = 0; onPlat = true;
-            }
-        });
+        let onPlat = onPlatParam !== undefined ? onPlatParam : false;
+        
+        if (onPlatParam === undefined) {
+            PLATFORMS.forEach(p => {
+                if(this.x+this.width > p.x && this.x < p.x+p.w && this.y+this.height >= p.y && this.y+this.height <= p.y+p.h+10){
+                    this.y = p.y - this.height; this.velocity.y = 0; onPlat = true;
+                }
+            });
+        }
+
         if(!onPlat) {
             if (this.y + this.height < 400) { this.velocity.y += 0.8; this.isJumping = true; }
             else { this.velocity.y = 0; this.y = 400 - this.height; this.isJumping = false; }
@@ -219,7 +223,7 @@ class Fighter {
 
 // 4. 게임 엔진
 let particles = [], screenShake = 0, arenaStarted = false, selectedChar = null, gameMode = '', p1, p2, gameLoopId;
-const inputs = { left:false, right:false, up:false, punch:false, kick:false, special:false };
+const inputs = { left:false, right:false, up:false, down:false, punch:false, kick:false, special:false };
 const myUsername = (typeof currentUser !== 'undefined') ? currentUser.username : "Guest";
 
 function createHitFX(x, y, color) {
@@ -264,6 +268,17 @@ function animate() {
     if(inputs.left) { p1.velocity.x = -p1.char.speed; p1.facingRight = false; }
     if(inputs.right) { p1.velocity.x = p1.char.speed; p1.facingRight = true; }
     if(inputs.up && !p1.isJumping) p1.velocity.y = -p1.char.jump;
+    
+    // Fall through platforms when down is pressed
+    let currentOnPlat = false;
+    PLATFORMS.forEach(p => {
+        if(p1.x+p1.width > p.x && p1.x < p.x+p.w && p1.y+p1.height >= p.y && p1.y+p1.height <= p.y+p.h+10){
+            if(!inputs.down) {
+                p1.y = p.y - p1.height; p1.velocity.y = 0; currentOnPlat = true;
+            }
+        }
+    });
+
     if(inputs.punch) p1.attack('punch');
     if(inputs.kick) p1.attack('kick');
     if(inputs.special) p1.attack('special');
@@ -274,7 +289,7 @@ function animate() {
         else { p2.velocity.x = 0; if(Math.random() < 0.04) p2.attack('punch'); }
     }
 
-    p1.update(); p2.update();
+    p1.update(currentOnPlat); p2.update();
     checkCollision(p1, p2); checkCollision(p2, p1);
     p1.draw(ctx); p2.draw(ctx);
 
@@ -386,7 +401,8 @@ if(socket) {
 const updateInput = (k, v) => {
     if(['ArrowLeft','KeyA'].includes(k)) inputs.left = v;
     if(['ArrowRight','KeyD'].includes(k)) inputs.right = v;
-    if(['ArrowUp','KeyW','KeyW'].includes(k)) inputs.up = v;
+    if(['ArrowUp','KeyW'].includes(k)) inputs.up = v;
+    if(['ArrowDown','KeyS'].includes(k)) inputs.down = v;
     if(k === 'Space') inputs.punch = v;
     if(k === 'KeyK') inputs.kick = v;
     if(k === 'KeyL') inputs.special = v;
@@ -399,13 +415,15 @@ const bind = (id, k) => {
     const e = document.getElementById(id);
     if(e) {
         const set = (v) => { inputs[k] = v; };
-        e.addEventListener('touchstart', ev => { ev.preventDefault(); set(true); });
-        e.addEventListener('touchend', ev => { ev.preventDefault(); set(false); });
-        e.addEventListener('mousedown', () => set(true));
+        e.addEventListener('touchstart', ev => { ev.preventDefault(); set(true); }, { passive: false });
+        e.addEventListener('touchend', ev => { ev.preventDefault(); set(false); }, { passive: false });
+        e.addEventListener('touchcancel', ev => { ev.preventDefault(); set(false); }, { passive: false });
+        e.addEventListener('mousedown', (ev) => { if(ev.button === 0) set(true); });
         e.addEventListener('mouseup', () => set(false));
         e.addEventListener('mouseleave', () => set(false));
     }
 };
-bind('btn-up','up'); bind('btn-left','left'); bind('btn-right','right'); bind('btn-punch','punch'); bind('btn-kick','kick'); bind('btn-special','special');
+bind('btn-up','up'); bind('btn-left','left'); bind('btn-right','right'); bind('btn-down','down'); bind('btn-punch','punch'); bind('btn-kick','kick'); bind('btn-special','special');
 
 document.addEventListener('DOMContentLoaded', initCharSelection);
+

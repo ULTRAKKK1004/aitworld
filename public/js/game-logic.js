@@ -91,17 +91,16 @@ function playBlockHitSound(hitHP, maxHP) {
 }
 
 // --- CONFIGURATION ---
-const PADDLE_WIDTH = 80;
-const PADDLE_HEIGHT = 10;
-const PADDLE_Y_MARGIN = 100;
+const PADDLE_WIDTH = 100;
+const PADDLE_HEIGHT = 15;
+const PADDLE_Y_MARGIN = 80;
 const PADDLE_Y = canvas.height - PADDLE_Y_MARGIN;
 const BLOCK_SIZE = 40;
-const BLOCK_ROWS = 7;
+const BLOCK_ROWS = 4;
 const BLOCK_COLS = 8;
-const BLOCK_PADDING = 8;
-const BLOCK_OFFSET_TOP = Math.floor(canvas.height * 0.12);
-const BLOCK_OFFSET_LEFT = (canvas.width - (BLOCK_COLS * (BLOCK_SIZE + BLOCK_PADDING))) / 2;
-const NEON_COLORS = { 7: '#00FFFF', 6: '#39FF14', 5: '#FFFF33', 4: '#FF7518', 3: '#FF6EC7', 2: '#BD00FF', 1: '#FF0055' };
+const BLOCK_PADDING = 6;
+const BLOCK_OFFSET_TOP = 70;
+const BLOCK_OFFSET_LEFT = (canvas.width - (BLOCK_COLS * (BLOCK_SIZE + BLOCK_PADDING) - BLOCK_PADDING)) / 2;
 const MAX_BLOCK_HP = 10; 
 
 // --- STATE ---
@@ -244,21 +243,56 @@ class Ball {
         ctx.fill(); ctx.closePath();
     }
 }
+function getNeonColor(hp) {
+    const colors = [
+        '#FF0033', // 1: Red
+        '#9D00FF', // 2: Purple
+        '#FF00FF', // 3: Magenta
+        '#FF9900', // 4: Orange
+        '#FFFF00', // 5: Yellow
+        '#00FF00', // 6: Green
+        '#00FFFF', // 7: Cyan
+        '#0099FF', // 8: Azure
+        '#FFFFFF'  // 9+: White/Glow
+    ];
+    if (hp <= 0) return colors[0];
+    if (hp >= colors.length) return colors[colors.length - 1];
+    return colors[hp - 1];
+}
+
 class Block {
     constructor(x, y, hp) {
         this.x = x; this.y = y; this.width = BLOCK_SIZE; this.height = BLOCK_SIZE;
-        this.hp = hp; this.baseHp = hp; this.color = NEON_COLORS[hp]; this.active = true;
+        this.hp = hp; this.baseHp = hp; this.color = getNeonColor(hp); this.active = true;
     }
     draw() {
         if (!this.active) return;
         if (gameState.effects.invincibleBlocks && Math.floor(Date.now() / 200) % 2 === 0) return;
-        ctx.fillStyle = this.color; ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+        
+        // Block body
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+        
+        // Gloss effect
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
-        ctx.fillStyle = (this.hp <= 2) ? '#000' : '#FFF'; ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        
+        // Inner detail
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(this.x + 4, this.y + 4, this.width - 8, 4);
+        
+        // HP Text
+        ctx.fillStyle = (this.hp <= 2) ? '#000' : '#FFF';
+        ctx.font = 'bold 16px Courier New';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 0;
         ctx.fillText(this.hp, this.x + this.width / 2, this.y + this.height / 2);
+        ctx.restore();
     }
 }
 
@@ -354,7 +388,7 @@ function checkCollisions() {
                     block.active = false; gameState.score += 100 * gameState.stage;
                     createExplosion(block.x + block.width/2, block.y + block.height/2, '#fff');
                     checkNeighboringBlocks(block.x, block.y);
-                } else { block.color = NEON_COLORS[block.hp]; }
+                } else { block.color = getNeonColor(block.hp); }
                 updateUI();
             }
         });
@@ -384,7 +418,7 @@ function checkNeighboringBlocks(blockX, blockY) {
                 // Recursive call for chain reaction
                 checkNeighboringBlocks(target.x, target.y);
             } else { 
-                target.color = NEON_COLORS[target.hp]; 
+                target.color = getNeonColor(target.hp); 
             }
         }
     });
@@ -509,7 +543,7 @@ function fireLaser() {
                 createExplosion(block.x + block.width / 2, block.y + block.height / 2, '#fff');
                 checkNeighboringBlocks(block.x, block.y);
             } else {
-                block.color = NEON_COLORS[block.hp] || NEON_COLORS[1];
+                block.color = getNeonColor(block.hp);
             }
         }
     });

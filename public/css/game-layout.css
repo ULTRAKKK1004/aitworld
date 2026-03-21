@@ -38,9 +38,9 @@
 
 #game-container {
     position: relative;
-    max-width: 800px;
-    width: 100%;
-    aspect-ratio: 2/1; /* Matches 800x400 */
+    max-width: 500px;
+    width: 95%;
+    aspect-ratio: 450/800;
     height: auto;
     border: 2px solid #333;
     overflow: hidden;
@@ -294,13 +294,13 @@ h3 {
 
     #game-container {
         position: relative !important;
-        width: 98vw !important;
-        height: 58.8vw !important; /* 800:480 비율 */
-        max-width: 800px !important;
-        max-height: 480px !important;
+        width: 90vw !important;
+        height: 160vw !important; /* 9:16 ratio */
+        max-width: 450px !important;
+        max-height: 800px !important;
         margin: 0 !important;
         padding: 0 !important;
-        transform: none !important; /* 위에서 flex로 맞춤 */
+        transform: none !important; 
         border: 1px solid #333 !important;
         background: #111 !important;
         box-shadow: 0 0 30px rgba(0,0,0,0.8) !important;
@@ -310,8 +310,9 @@ h3 {
 /* 가로 모드: 전체 화면 꽉 채우기 */
 @media (max-width: 1100px) and (orientation: landscape) {
     #game-container {
-        width: 100vw !important;
+        width: auto !important;
         height: 100vh !important;
+        aspect-ratio: 450/800 !important;
         max-width: none !important;
         max-height: none !important;
         border: none !important;
@@ -324,9 +325,9 @@ h3 {
         align-items: center !important;
     }
     #game-container {
-        width: 100vw !important;
-        height: 60vw !important;
-        max-height: 50vh !important;
+        width: 90vw !important;
+        height: 160vw !important;
+        max-height: 80vh !important;
     }
 }
 
