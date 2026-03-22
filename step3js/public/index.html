@@ -6,114 +6,380 @@
     <title>3D CAD Viewer - Step3JS</title>
     <base href="/step3js/">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; }
-        #canvas-container { width: 100vw; height: 100vh; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Layout */
+        #tab-bar { 
+            height: 40px; 
+            background: #2c3e50; 
+            display: flex; 
+            align-items: center; 
+            padding: 0 10px; 
+            gap: 5px;
+            color: white;
+            border-bottom: 1px solid #1a252f;
+        }
+        #tabs { display: flex; gap: 2px; overflow-x: auto; }
+        .tab { 
+            padding: 8px 15px; 
+            background: #34495e; 
+            border-radius: 5px 5px 0 0; 
+            cursor: pointer; 
+            font-size: 0.85rem; 
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .tab.active { background: #ecf0f1; color: #2c3e50; font-weight: bold; }
+        .tab:hover:not(.active) { background: #456789; }
+        .tab-close { opacity: 0.5; font-size: 1.1rem; }
+        .tab-close:hover { opacity: 1; color: #e74c3c; }
+        #add-tab { 
+            padding: 5px 10px; 
+            cursor: pointer; 
+            font-size: 1.2rem; 
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        #add-tab:hover { background: rgba(255,255,255,0.2); }
+
+        #main-container { display: flex; flex: 1; overflow: hidden; }
+
+        /* Toolbar */
+        #toolbar { 
+            width: 50px; 
+            background: #34495e; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 10px 5px; 
+            gap: 10px; 
+            border-right: 1px solid #2c3e50;
+        }
+        .tool-btn { 
+            width: 40px; 
+            height: 40px; 
+            background: transparent; 
+            border: none; 
+            border-radius: 8px; 
+            color: #bdc3c7; 
+            cursor: pointer; 
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .tool-btn.active { background: #3498db; color: white; }
+
+        /* Sidebar */
+        #sidebar { 
+            width: 280px; 
+            background: white; 
+            border-right: 1px solid #ddd; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .sidebar-header { 
+            padding: 12px 15px; 
+            background: #f8f9fa; 
+            border-bottom: 1px solid #eee; 
+            font-weight: bold; 
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .sidebar-section { flex: 1; overflow-y: auto; padding: 10px; }
+        
+        /* Tree View */
+        .tree-root { list-style: none; padding-left: 0; margin: 0; }
+        .tree-item { 
+            padding: 6px 8px; 
+            cursor: pointer; 
+            font-size: 0.85rem; 
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            user-select: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tree-item:hover { background: #f0f0f0; }
+        .tree-item.selected { background: #e3f2fd; color: #1976d2; font-weight: 500; }
+        .tree-children { list-style: none; padding-left: 20px; border-left: 1px dashed #ccc; margin-left: 8px; }
+
+        /* Canvas & UI */
+        #canvas-container { flex: 1; position: relative; background: #eee; }
         #ui-container {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            max-width: 320px;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            width: 240px;
             z-index: 100;
+            backdrop-filter: blur(5px);
+            cursor: default;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            scrollbar-width: thin;
         }
-        h2 { margin-top: 0; color: #333; font-size: 1.2rem; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: #555; }
-        input[type="file"] { width: 100%; font-size: 0.8rem; }
+        #ui-header {
+            margin-top: 0;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        #ui-header h2 { margin: 0; color: #2c3e50; font-size: 1rem; border-bottom: none; }
+        
+        .control-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.8rem; color: #34495e; }
+        input[type="file"] { width: 100%; font-size: 0.75rem; }
+        
+        .cad-ops-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .cad-ops-grid button { margin-top: 0; font-size: 0.75rem; padding: 5px; }
+        
         button {
-            padding: 8px 15px;
-            background-color: #007bff;
+            padding: 8px 12px;
+            background-color: #3498db;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             width: 100%;
             margin-top: 5px;
-            transition: background 0.3s;
+            transition: background 0.2s;
         }
-        button:hover { background-color: #0056b3; }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
         .section-view-controls {
-            margin-top: 15px;
-            padding-top: 15px;
+            margin-top: 12px;
+            padding-top: 12px;
             border-top: 1px solid #eee;
         }
-        .slider-group { margin-bottom: 10px; }
-        input[type="range"] { width: 100%; }
-        .stats { font-size: 0.8rem; color: #777; margin-top: 10px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        #measure-label {
+            position: absolute;
+            background: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+            white-space: nowrap;
+        }
+
         #loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.7);
+            background: rgba(44, 62, 80, 0.9);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 15px 25px;
+            border-radius: 30px;
             display: none;
-            z-index: 200;
+            z-index: 2000;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
+        
         .controls-info {
             position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 0.75rem;
-            color: #555;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            color: #7f8c8d;
             pointer-events: none;
+            line-height: 1.4;
         }
+
+        /* Property Panel (Bottom Sidebar) */
+        #property-panel {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            background: #fafafa;
+            font-size: 0.8rem;
+        }
+        .prop-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .prop-label { color: #7f8c8d; }
+        .prop-value { font-family: monospace; color: #2c3e50; }
+
+        .sketch-ui {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(44, 62, 80, 0.9);
+            padding: 10px 20px;
+            border-radius: 40px;
+            display: none;
+            gap: 15px;
+            z-index: 500;
+            color: white;
+            align-items: center;
+        }
+        .sketch-ui button { width: auto; background: #3498db; margin: 0; border-radius: 20px; }
     </style>
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.3/build/index.module.js",
+            "three-bvh-csg": "https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.16/build/index.module.js"
         }
     }
     </script>
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('Global Error: ' + msg + '\nURL: ' + url + '\nLine: ' + lineNo + '\nColumn: ' + columnNo + '\nError object: ' + JSON.stringify(error));
+            alert('오류 발생: ' + msg);
+            return false;
+        };
+    </script>
 </head>
 <body>
-    <div id="ui-container">
-        <h2>3D 설계 뷰어</h2>
-        <div class="control-group">
-            <label for="file-upload">파일 업로드 (STEP, STP, STL, OBJ)</label>
-            <input type="file" id="file-upload" accept=".step,.stp,.stl,.obj">
+    <div id="tab-bar">
+        <div id="tabs" style="display: flex; gap: 5px;">
+            <!-- Tabs dynamically added here -->
         </div>
-        <div class="control-group">
-            <button id="load-sample">샘플 파일 로드 (STEP)</button>
+        <div id="add-tab" title="새 탭 추가">+</div>
+    </div>
+
+    <div id="main-container">
+        <div id="toolbar">
+            <button class="tool-btn active" id="tool-select" title="선택 (Q)">🖱️</button>
+            <button class="tool-btn" id="tool-move" title="이동 (W)">✥</button>
+            <button class="tool-btn" id="tool-rotate" title="회전 (E)">🔄</button>
+            <button class="tool-btn" id="tool-scale" title="크기 (R)">⤢</button>
+            <button class="tool-btn" id="tool-measure" title="측정 (M)">📏</button>
+            <button class="tool-btn" id="tool-sketch" title="스케치 (S)">✍️</button>
+            <button class="tool-btn" id="tool-copy" title="복사 (Ctrl+C)">📂</button>
+            <button class="tool-btn" id="tool-delete" title="삭제 (Del)" style="color: #e74c3c;">🗑️</button>
+            <div style="flex: 1;"></div>
+            <button class="tool-btn" id="tool-axis" title="좌표축 (A)">🌐</button>
         </div>
-        <div class="section-view-controls">
-            <label>섹션 뷰 (Clipping Plane)</label>
-            <div class="slider-group">
-                <label>X축 절단: <span id="x-val">OFF</span></label>
-                <input type="range" id="clip-x" min="-100" max="100" value="100">
+
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <span>객체 트리</span>
+                <button id="refresh-tree" style="width: auto; padding: 2px 6px; background: none; color: #333;">🔄</button>
             </div>
-            <div class="slider-group">
-                <label>Y축 절단: <span id="y-val">OFF</span></label>
-                <input type="range" id="clip-y" min="-100" max="100" value="100">
+            <div class="sidebar-section">
+                <ul id="tree-view" class="tree-root">
+                    <!-- Tree items dynamically added here -->
+                </ul>
             </div>
-            <div class="slider-group">
-                <label>Z축 절단: <span id="z-val">OFF</span></label>
-                <input type="range" id="clip-z" min="-100" max="100" value="100">
+            <div id="property-panel">
+                <div style="font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px;">속성</div>
+                <div id="prop-content">선택된 객체 없음</div>
             </div>
-            <button id="reset-view">뷰 초기화</button>
         </div>
-        <div class="stats" id="stats">객체 정보: 없음</div>
+
+        <div id="canvas-container">
+            <div id="measure-label">0.00 mm</div>
+            
+            <div id="sketch-toolbar" class="sketch-ui">
+                <span>스케치 모드</span>
+                <button id="sketch-line">📏 선</button>
+                <button id="sketch-rect">⬜ 사각형</button>
+                <button id="sketch-circle">⭕ 원</button>
+                <button id="sketch-finish" style="background: #27ae60;">완료 (Esc)</button>
+            </div>
+
+            <div id="ui-container">
+                <div id="ui-header">
+                    <h2>설계 제어</h2>
+                    <span style="font-size: 0.8rem; opacity: 0.5;">::</span>
+                </div>
+                
+                <div class="control-group">
+                    <label>CAD 연산 (두 개 이상 선택 필요)</label>
+                    <div class="cad-ops-grid">
+                        <button id="op-union">합 (Union)</button>
+                        <button id="op-subtract">차 (Subtract)</button>
+                        <button id="op-intersect">교차 (Intersect)</button>
+                        <button id="op-xor">교차 외</button>
+                    </div>
+                    <button id="op-extrude" disabled>Extrude (스케치 선택)</button>
+                </div>
+
+                <div class="control-group">
+                    <label>좌표계 관리</label>
+                    <button id="add-axis" style="background-color: #9b59b6;">새 좌표계 추가</button>
+                </div>
+
+                <div style="height: 1px; background: #eee; margin: 15px 0;"></div>
+
+                <div class="control-group">
+                    <label for="file-upload">파일 불러오기</label>
+                    <input type="file" id="file-upload" accept=".step,.stp,.stl,.obj" multiple>
+                </div>
+                <div class="control-group">
+                    <button id="load-sample">샘플 로드</button>
+                    <button id="clear-all" style="background-color: #e74c3c; margin-top: 5px;">모두 삭제</button>
+                </div>
+                <div class="section-view-controls">
+                    <label>단면 보기 (Clipping)</label>
+                    <div style="font-size: 0.75rem; margin-bottom: 5px;">
+                        X: <span id="x-val">OFF</span>
+                        <input type="range" id="clip-x" min="-100" max="100" value="100">
+                    </div>
+                    <div style="font-size: 0.75rem; margin-bottom: 5px;">
+                        Y: <span id="y-val">OFF</span>
+                        <input type="range" id="clip-y" min="-100" max="100" value="100">
+                    </div>
+                    <div style="font-size: 0.75rem; margin-bottom: 5px;">
+                        Z: <span id="z-val">OFF</span>
+                        <input type="range" id="clip-z" min="-100" max="100" value="100">
+                    </div>
+                    <button id="reset-view">뷰 초기화</button>
+                </div>
+                <div id="stats" style="font-size: 0.75rem; color: #777; margin-top: 10px;">준비됨</div>
+            </div>
+
+            <div class="controls-info">
+                마우스 왼쪽: 회전<br>
+                마우스 중간/휠: 확대/축소<br>
+                마우스 오른쪽/Ctrl+드래그: 이동 (Pan)
+            </div>
+        </div>
     </div>
 
     <div id="loading">모델 로딩 중...</div>
-    <div id="canvas-container"></div>
-
-    <div class="controls-info">
-        마우스 왼쪽: 회전<br>
-        마우스 중간/휠: 확대/축소<br>
-        마우스 오른쪽/Ctrl+드래그: 이동 (Pan)
-    </div>
 
     <script src="js/occt-import-js.js"></script>
     <script type="module" src="main.js"></script>
