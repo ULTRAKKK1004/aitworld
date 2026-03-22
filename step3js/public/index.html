@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D CAD Viewer - Step3JS</title>
+    <base href="/step3js/">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 320px;
+            z-index: 100;
+        }
+        h2 { margin-top: 0; color: #333; font-size: 1.2rem; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: #555; }
+        input[type="file"] { width: 100%; font-size: 0.8rem; }
+        button {
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            width: 100%;
+            margin-top: 5px;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #0056b3; }
+        .section-view-controls {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .slider-group { margin-bottom: 10px; }
+        input[type="range"] { width: 100%; }
+        .stats { font-size: 0.8rem; color: #777; margin-top: 10px; }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            z-index: 200;
+        }
+        .controls-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            color: #555;
+            pointer-events: none;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="ui-container">
+        <h2>3D 설계 뷰어</h2>
+        <div class="control-group">
+            <label for="file-upload">파일 업로드 (STEP, STP, STL, OBJ)</label>
+            <input type="file" id="file-upload" accept=".step,.stp,.stl,.obj">
+        </div>
+        <div class="control-group">
+            <button id="load-sample">샘플 파일 로드 (STEP)</button>
+        </div>
+        <div class="section-view-controls">
+            <label>섹션 뷰 (Clipping Plane)</label>
+            <div class="slider-group">
+                <label>X축 절단: <span id="x-val">OFF</span></label>
+                <input type="range" id="clip-x" min="-100" max="100" value="100">
+            </div>
+            <div class="slider-group">
+                <label>Y축 절단: <span id="y-val">OFF</span></label>
+                <input type="range" id="clip-y" min="-100" max="100" value="100">
+            </div>
+            <div class="slider-group">
+                <label>Z축 절단: <span id="z-val">OFF</span></label>
+                <input type="range" id="clip-z" min="-100" max="100" value="100">
+            </div>
+            <button id="reset-view">뷰 초기화</button>
+        </div>
+        <div class="stats" id="stats">객체 정보: 없음</div>
+    </div>
+
+    <div id="loading">모델 로딩 중...</div>
+    <div id="canvas-container"></div>
+
+    <div class="controls-info">
+        마우스 왼쪽: 회전<br>
+        마우스 중간/휠: 확대/축소<br>
+        마우스 오른쪽/Ctrl+드래그: 이동 (Pan)
+    </div>
+
+    <script src="js/occt-import-js.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
