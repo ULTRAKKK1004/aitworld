@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tactical Airplane Shooter 1987 - Tor-AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/airplane.css">
+    <style>
+        body { 
+            overflow: hidden; 
+            background: #000; 
+            margin: 0; 
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none; /* Prevents browser zoom/pan */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 90vh; /* 90% of screen height */
+            margin-top: 0; /* Align to top */
+            background: #000;
+            overflow: hidden;
+            box-shadow: 0 5px 30px rgba(0, 255, 0, 0.1);
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            image-rendering: pixelated;
+            z-index: 1;
+        }
+
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #0f0;
+            font-size: 18px;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .stats-panel {
+            background: rgba(0, 20, 0, 0.7);
+            padding: 10px;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+        }
+
+        .hp-bar-container {
+            width: 200px;
+            height: 20px;
+            border: 2px solid #0f0;
+            margin-top: 5px;
+            position: relative;
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: #0f0;
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: #0f0;
+            text-align: center;
+        }
+
+        .overlay h1 { font-size: 48px; margin-bottom: 20px; }
+        .overlay p { font-size: 20px; margin-bottom: 30px; }
+        
+        .start-btn {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 0 15px #0f0;
+        }
+
+        .start-btn:hover {
+            background: #fff;
+            box-shadow: 0 0 25px #fff;
+        }
+
+        /* CRT Effect */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .crt::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: rgba(18, 16, 16, 0.1);
+            opacity: 0;
+            z-index: 2;
+            pointer-events: none;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.27861; }
+            5% { opacity: 0.34769; }
+            10% { opacity: 0.23604; }
+            15% { opacity: 0.90626; }
+            20% { opacity: 0.18128; }
+            25% { opacity: 0.83891; }
+            30% { opacity: 0.65583; }
+            35% { opacity: 0.57807; }
+            40% { opacity: 0.26559; }
+            45% { opacity: 0.84693; }
+            50% { opacity: 0.96019; }
+            55% { opacity: 0.08523; }
+            60% { opacity: 0.71056; }
+            65% { opacity: 0.73437; }
+            70% { opacity: 0.28574; }
+            75% { opacity: 0.96387; }
+            80% { opacity: 0.11453; }
+            85% { opacity: 0.39905; }
+            90% { opacity: 0.61335; }
+            95% { opacity: 0.61053; }
+            100% { opacity: 0.52208; }
+        }
+
+        .back-link {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #0f0;
+            text-decoration: none;
+            border: 1px solid #0f0;
+            padding: 5px 10px;
+            z-index: 20;
+        }
+
+        .back-link:hover { background: rgba(0, 255, 0, 0.2); }
+        /* Mobile Controls */
+        #mobile-controls {
+            position: absolute;
+            bottom: 120px; /* Increased from 30px */
+            left: 0;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .touch-zone {
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .joystick-base {
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(0, 255, 0, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .joystick-stick {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 0, 0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: flex-end;
+        }
+
+        .btn-round {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 3px solid #0f0;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #0f0;
+            font-size: 24px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .btn-round:active {
+            background: rgba(0, 255, 0, 0.6);
+            transform: scale(0.9);
+        }
+
+        .btn-magic {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 0, 0.2);
+            border-color: #ff0;
+            color: #ff0;
+            font-size: 18px;
+        }
+
+        @media (max-width: 1024px) {
+            #mobile-controls { display: flex; }
+        }
+    </style>
+</head>
+<body class="crt">
+    <div id="game-container">
+        <div class="hud">
+            <div class="stats-panel">
+                <div>SCORE: <span id="score">000000</span></div>
+                <div>STAGE: <span id="stage">1/20</span></div>
+                <div>LIVES: <span id="lives">3</span></div>
+                <div class="hp-bar-container">
+                    <div id="hp-fill" class="hp-bar-fill"></div>
+                    <div style="position:absolute; top:0; width:100%; text-align:center; font-size:12px; color:#000; font-weight:bold;">HP</div>
+                </div>
+            </div>
+            <div class="stats-panel">
+                <div>WEAPON: <span id="weapon-type">NORMAL</span></div>
+                <div>SHIELD: <span id="shield-status">OFF</span></div>
+                <div id="magic-indicator" style="color: #ff0; display: none;">TACTICAL MAGIC READY!</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Mobile Overlays -->
+        <div id="mobile-controls">
+            <div id="joystick-zone" class="touch-zone">
+                <div class="joystick-base">
+                    <div id="joystick-stick" class="joystick-stick"></div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <div id="btn-magic-touch" class="touch-zone btn-round btn-magic">M</div>
+                <div id="btn-shoot-touch" class="touch-zone btn-round">FIRE</div>
+            </div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1>TACTICAL AIRPLANE 1987</h1>
+            <p>상하좌우(WASD/Arrow) 이동 | 발사(Space/Click) | 특수마법(X/R-Click)</p>
+            <button class="start-btn" onclick="startGame()">MISSION START</button>
+            <p style="margin-top: 20px; font-size: 14px; color: #888;">PLAYER: <%= user.username %> | ATTEMPTS: <%= user.airplane_attempts %></p>
+        </div>
+
+        <div id="game-over-screen" class="overlay" style="display: none;">
+            <h1 id="result-title">MISSION FAILED</h1>
+            <p>FINAL SCORE: <span id="final-score">0</span></p>
+            <p id="result-msg">조국은 당신의 헌신을 기억할 것입니다.</p>
+            <button class="start-btn" onclick="location.reload()">RETRY MISSION</button>
+        </div>
+
+        <a href="/dashboard" class="back-link">EXIT TO DASHBOARD</a>
+    </div>
+
+    <script>
+        const currentUser = {
+            username: "<%= user.username %>",
+            attempts: <%= user.airplane_attempts %>
+        };
+    </script>
+    <script src="/js/airplane-logic.js"></script>
+</body>
+</html>

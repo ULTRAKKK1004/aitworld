@@ -137,8 +137,8 @@ app.get('/games/brick-crasher', isAuth, isPending, (req, res) => {
   res.render('game-page', { user: req.user });
 });
 
-app.get('/games/fighter', isAuth, isPending, (req, res) => {
-  res.render('fighter', { user: req.user });
+app.get('/games/airplane-shooter', isAuth, isPending, (req, res) => {
+  res.render('airplane-shooter', { user: req.user });
 });
 
 app.get('/games/hero-quest', isAuth, isPending, (req, res) => {
@@ -163,8 +163,8 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
   const user_id = req.user.id;
   if (game === 'brick') {
     db.prepare('UPDATE users SET brick_attempts = brick_attempts + 1 WHERE id = ?').run(user_id);
-  } else if (game === 'fighter') {
-    db.prepare('UPDATE users SET fighter_attempts = fighter_attempts + 1 WHERE id = ?').run(user_id);
+  } else if (game === 'airplane-shooter') {
+    db.prepare('UPDATE users SET airplane_attempts = airplane_attempts + 1 WHERE id = ?').run(user_id);
   } else if (game === 'hero') {
     db.prepare('UPDATE users SET hero_attempts = hero_attempts + 1 WHERE id = ?').run(user_id);
   }
@@ -173,7 +173,7 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
 
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   const { user_id } = req.body;
-  db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, fighter_attempts = 0, hero_attempts = 0 WHERE id = ?").run(user_id);
+  db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0 WHERE id = ?").run(user_id);
   db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
   res.redirect('/admin');
 });
