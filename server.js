@@ -145,6 +145,10 @@ app.get('/games/hero-quest', isAuth, isPending, (req, res) => {
   res.render('hero-quest', { user: req.user });
 });
 
+app.get('/games/mc-world', isAuth, isPending, (req, res) => {
+  res.render('mc-world', { user: req.user });
+});
+
 // Admin Routes
 app.get('/admin', isAdmin, (req, res) => {
   const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
@@ -167,6 +171,8 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
     db.prepare('UPDATE users SET airplane_attempts = airplane_attempts + 1 WHERE id = ?').run(user_id);
   } else if (game === 'hero') {
     db.prepare('UPDATE users SET hero_attempts = hero_attempts + 1 WHERE id = ?').run(user_id);
+  } else if (game === 'mc-world') {
+    db.prepare('UPDATE users SET mc_world_attempts = mc_world_attempts + 1 WHERE id = ?').run(user_id);
   }
   res.json({ success: true });
 });
