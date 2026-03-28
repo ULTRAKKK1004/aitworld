@@ -204,35 +204,77 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
 });
 
 app.get('/api/airplane-leaderboard', isAuth, isPending, (req, res) => {
-  const top10 = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND best_score > 0 ORDER BY best_score DESC LIMIT 10').all();
-  const allUsers = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY best_score DESC').all();
+  // Best score ranking (from users table)
+  const bestTop10 = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND best_score > 0 ORDER BY best_score DESC LIMIT 10').all();
+  const bestAllUsers = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY best_score DESC').all();
+  const bestUserIndex = bestAllUsers.findIndex(u => u.id === req.user.id);
+  const bestUserRank = bestUserIndex !== -1 ? bestUserIndex + 1 : null;
   
-  const userIndex = allUsers.findIndex(u => u.id === req.user.id);
-  const user = userIndex !== -1 ? allUsers[userIndex] : null;
-  const userRank = userIndex !== -1 ? userIndex + 1 : null;
+  // Current game score ranking (from scores table, airplane-shooter only)
+  const currentScores = db.prepare(`
+    SELECT user_id, MAX(score) as max_score 
+    FROM scores 
+    WHERE game_type = 'airplane-shooter' 
+    GROUP BY user_id 
+    ORDER BY max_score DESC
+  `).all();
   
-  let rivals = [];
-  if (userRank) {
-    const start = Math.max(0, userIndex - 2);
-    const end = Math.min(allUsers.length, userIndex + 3);
-    rivals = allUsers.slice(start, end).map((u, i) => ({
+  const currentTop10 = currentScores.slice(0, 10).map((s, i) => {
+    const user = db.prepare('SELECT username FROM users WHERE id = ?').get(s.user_id);
+    return { rank: i + 1, username: user?.username, score: s.max_score, user_id: s.user_id };
+  });
+  
+  const currentUserScore = currentScores.find(s => s.user_id === req.user.id);
+  const currentUserRank = currentUserScore ? currentScores.findIndex(s => s.user_id === req.user.id) + 1 : null;
+  
+  // Get rivals for best score
+  let bestRivals = [];
+  if (bestUserRank) {
+    const start = Math.max(0, bestUserIndex - 2);
+    const end = Math.min(bestAllUsers.length, bestUserIndex + 3);
+    bestRivals = bestAllUsers.slice(start, end).map((u, i) => ({
       ...u,
       rank: start + i + 1,
       isCurrent: u.id === req.user.id
     }));
-  } else if (allUsers.length > 0) {
-    const start = 0;
-    const end = Math.min(5, allUsers.length);
-    rivals = allUsers.slice(start, end).map((u, i) => ({
+  } else if (bestAllUsers.length > 0) {
+    bestRivals = bestAllUsers.slice(0, 5).map((u, i) => ({
       ...u,
       rank: i + 1,
       isCurrent: false
     }));
   }
+  
+  // Get rivals for current score
+  let currentRivals = [];
+  if (currentUserRank) {
+    const userIdx = currentScores.findIndex(s => s.user_id === req.user.id);
+    const start = Math.max(0, userIdx - 2);
+    const end = Math.min(currentScores.length, userIdx + 3);
+    currentRivals = currentScores.slice(start, end).map((s, i) => {
+      const user = db.prepare('SELECT username FROM users WHERE id = ?').get(s.user_id);
+      return {
+        rank: start + i + 1,
+        username: user?.username,
+        score: s.max_score,
+        user_id: s.user_id,
+        isCurrent: s.user_id === req.user.id
+      };
+    });
+  } else if (currentScores.length > 0) {
+    currentRivals = currentScores.slice(0, 5).map((s, i) => {
+      const user = db.prepare('SELECT username FROM users WHERE id = ?').get(s.user_id);
+      return { rank: i + 1, username: user?.username, score: s.max_score, user_id: s.user_id, isCurrent: false };
+    });
+  }
+  
+  const bestFirstPlace = bestTop10.length > 0 ? bestTop10[0] : null;
+  const currentFirstPlace = currentTop10.length > 0 ? currentTop10[0] : null;
 
-  const firstPlace = top10.length > 0 ? top10[0] : null;
-
-  res.json({ top10, rivals, userRank, firstPlace, userBestScore: user?.best_score || 0 });
+  res.json({ 
+    bestScore: { top10: bestTop10, rivals: bestRivals, userRank: bestUserRank, firstPlace: bestFirstPlace, userBestScore: bestAllUsers[bestUserIndex]?.best_score || 0 },
+    currentScore: { top10: currentTop10, rivals: currentRivals, userRank: currentUserRank, firstPlace: currentFirstPlace, userBestScore: currentUserScore?.max_score || 0 }
+  });
 });
 
 app.get('/api/leaderboard', isAuth, isPending, (req, res) => {

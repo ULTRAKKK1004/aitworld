@@ -649,25 +649,47 @@ function loadAirplaneRank(elementId) {
         .then(res => res.json())
         .then(data => {
             currentRankData = data;
-            let html = '<div class="rank-title">🏆 AIRPLANE SHOOTER RANKING 🏆</div>';
+            let html = '';
             
-            if (data.firstPlace) {
-                html += `<div class="top-score">1위: ${data.firstPlace.username} - ${data.firstPlace.best_score.toLocaleString()}점</div>`;
+            // Best Score Ranking
+            html += '<div class="rank-section">';
+            html += '<div class="rank-title">🏆 최고점수 순위 🏆</div>';
+            if (data.bestScore && data.bestScore.firstPlace) {
+                html += `<div class="top-score">1위: ${data.bestScore.firstPlace.username} - ${data.bestScore.firstPlace.best_score.toLocaleString()}점</div>`;
             }
-            
-            if (data.userRank) {
-                html += `<div class="my-rank">내 순위: ${data.userRank}위 (${data.userBestScore.toLocaleString()}점)</div>`;
+            if (data.bestScore && data.bestScore.userRank) {
+                html += `<div class="my-rank">내 순위: ${data.bestScore.userRank}위 (${data.bestScore.userBestScore.toLocaleString()}점)</div>`;
             } else {
                 html += '<div class="my-rank">순위권 진입 가능!</div>';
             }
-            
-            if (data.rivals && data.rivals.length > 0) {
+            if (data.bestScore && data.bestScore.rivals && data.bestScore.rivals.length > 0) {
                 html += '<div class="rivals-list">';
-                data.rivals.forEach(rival => {
+                data.bestScore.rivals.forEach(rival => {
                     html += `<div class="rival-item ${rival.isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.best_score || 0).toLocaleString()}점</div>`;
                 });
                 html += '</div>';
             }
+            html += '</div>';
+            
+            // Current Game Score Ranking
+            html += '<div class="rank-section" style="margin-top: 15px;">';
+            html += '<div class="rank-title" style="color: #0ff;">🎯 이번 게임 순위 🎯</div>';
+            if (data.currentScore && data.currentScore.firstPlace) {
+                html += `<div class="top-score" style="color: #0ff;">1위: ${data.currentScore.firstPlace.username} - ${data.currentScore.firstPlace.score.toLocaleString()}점</div>`;
+            }
+            if (data.currentScore && data.currentScore.userRank) {
+                html += `<div class="my-rank" style="color: #0ff;">내 순위: ${data.currentScore.userRank}위 (${data.currentScore.userBestScore.toLocaleString()}점)</div>`;
+            } else {
+                html += '<div class="my-rank" style="color: #0ff;">순위권 진입 가능!</div>';
+            }
+            if (data.currentScore && data.currentScore.rivals && data.currentScore.rivals.length > 0) {
+                html += '<div class="rivals-list">';
+                data.currentScore.rivals.forEach(rival => {
+                    html += `<div class="rival-item ${rival.isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.score || 0).toLocaleString()}점</div>`;
+                });
+                html += '</div>';
+            }
+            html += '</div>';
             
             container.innerHTML = html;
         })
