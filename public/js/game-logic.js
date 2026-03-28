@@ -96,7 +96,7 @@ const PADDLE_HEIGHT = 15;
 const PADDLE_Y_MARGIN = 80;
 const PADDLE_Y = canvas.height - PADDLE_Y_MARGIN;
 const BLOCK_SIZE = 40;
-const BLOCK_ROWS = 4;
+const BLOCK_ROWS = 7;
 const BLOCK_COLS = 8;
 const BLOCK_PADDING = 6;
 const BLOCK_OFFSET_TOP = 70;
@@ -118,6 +118,7 @@ let gameState = {
     items: [],
     lasers: [],
     paddleX: canvas.width / 2 - PADDLE_WIDTH / 2,
+    currentPaddleWidth: PADDLE_WIDTH,
     keys: { left: false, right: false },
     lastItemTime: Date.now(),
     currentItem: null,
@@ -127,7 +128,9 @@ let gameState = {
         invincibleBlocks: false,
         halfSpeed: false,
         doubleDamage: false,
-        explodeRow: false
+        explodeRow: false,
+        paddleDouble: false,
+        paddleHalf: false
     }
 };
 
@@ -179,9 +182,9 @@ class Item {
     constructor() {
         this.size = 30; this.x = Math.random() * (canvas.width - this.size * 2) + this.size;
         this.y = -this.size; this.speed = 3; this.angle = 0;
-        const items = ['A', 'B', 'C', 'D', 'E', 'R'];
+        const items = ['A', 'B', 'C', 'D', 'E', 'R', 'F', 'G'];
         this.type = items[Math.floor(Math.random() * items.length)];
-        this.colors = { 'A': '#FF3333', 'B': '#FFFFFF', 'C': '#33FFFF', 'D': '#FFFF33', 'E': '#FF33FF', 'R': '#00FF00' };
+        this.colors = { 'A': '#FF3333', 'B': '#FFFFFF', 'C': '#33FFFF', 'D': '#FFFF33', 'E': '#FF33FF', 'R': '#00FF00', 'F': '#FF6600', 'G': '#00CCFF' };
         this.color = this.colors[this.type];
     }
     update() { this.y += this.speed; this.angle += 0.05; this.x += Math.sin(this.angle) * 1.0; }
@@ -213,10 +216,10 @@ class Ball {
         if (this.x + this.radius > canvas.width || this.x - this.radius < 0) this.dx = -this.dx;
         if (this.y - this.radius < 0) { this.y = this.radius; this.dy = -this.dy; }
         if (this.y + this.radius >= PADDLE_Y && this.y - this.radius <= PADDLE_Y + PADDLE_HEIGHT &&
-            this.x >= gameState.paddleX && this.x <= gameState.paddleX + PADDLE_WIDTH) {
+            this.x >= gameState.paddleX && this.x <= gameState.paddleX + gameState.currentPaddleWidth) {
             if (gameState.effects.explodeRow) { this.triggerExplosionRow(); gameState.effects.explodeRow = false; removeActiveEffect('E'); }
-            let collidePoint = this.x - (gameState.paddleX + PADDLE_WIDTH / 2);
-            collidePoint = collidePoint / (PADDLE_WIDTH / 2);
+            let collidePoint = this.x - (gameState.paddleX + gameState.currentPaddleWidth / 2);
+            collidePoint = collidePoint / (gameState.currentPaddleWidth / 2);
             let angle = collidePoint * (Math.PI / 2.5);
             this.dx = this.baseSpeed * Math.sin(angle); this.dy = -this.baseSpeed * Math.cos(angle);
             this.updateSpeed();
@@ -299,7 +302,8 @@ class Block {
 // --- CORE FUNCTIONS ---
 function initStage(stageNum) {
     gameState.stage = stageNum; gameState.balls = []; gameState.blocks = []; gameState.particles = [];
-    gameState.paddleX = canvas.width / 2 - PADDLE_WIDTH / 2; gameState.lastItemTime = Date.now();
+    gameState.currentPaddleWidth = getStagePaddleWidth(stageNum);
+    gameState.paddleX = canvas.width / 2 - gameState.currentPaddleWidth / 2; gameState.lastItemTime = Date.now();
     gameState.respawning = false;
     resetEffects();
     gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120));
@@ -339,6 +343,16 @@ function applyItemEffect(itemType) {
             updateAttacksUI(); 
             effectText = "Attacks Reloaded!"; 
             break;
+        case 'F': 
+            gameState.effects.paddleHalf = true; 
+            gameState.currentPaddleWidth = PADDLE_WIDTH / 2;
+            effectText = "Paddle Half (0.5x)"; 
+            break;
+        case 'G': 
+            gameState.effects.paddleDouble = true; 
+            gameState.currentPaddleWidth = PADDLE_WIDTH * 2;
+            effectText = "Paddle Double (2x)"; 
+            break;
     }
     addActiveEffect(effectText);
 }
@@ -363,11 +377,24 @@ function removeActiveEffect(type) {
 function resetEffects() {
     gameState.effects.doubleSpeed = false; gameState.effects.invincibleBlocks = false;
     gameState.effects.halfSpeed = false; gameState.effects.doubleDamage = false;
-    gameState.effects.explodeRow = false; gameState.currentItem = null; activeEffectsDiv.innerHTML = '';
+    gameState.effects.explodeRow = false;
+    gameState.effects.paddleHalf = false; gameState.effects.paddleDouble = false;
+    gameState.currentItem = null;
+    gameState.currentPaddleWidth = getStagePaddleWidth(gameState.stage);
+    activeEffectsDiv.innerHTML = '';
+}
+
+function getStagePaddleWidth(stage) {
+    let width = PADDLE_WIDTH;
+    if (stage > 10) {
+        width -= (stage - 10) * 5;
+        if (width < 30) width = 30;
+    }
+    return width;
 }
 function checkItemCollision(item) {
     return (item.y + item.size/2 >= PADDLE_Y && item.y - item.size/2 <= PADDLE_Y + PADDLE_HEIGHT &&
-            item.x >= gameState.paddleX && item.x <= gameState.paddleX + PADDLE_WIDTH);
+            item.x >= gameState.paddleX && item.x <= gameState.paddleX + gameState.currentPaddleWidth);
 }
 function checkCollisions() {
     gameState.blocks.forEach(block => {
@@ -394,7 +421,7 @@ function checkCollisions() {
         });
     });
     if (gameState.blocks.filter(b => b.active).length === 0) {
-        if (gameState.stage < 10) { gameState.stage++; initStage(gameState.stage); }
+        if (gameState.stage < 20) { gameState.stage++; initStage(gameState.stage); }
         else { gameWin(); }
     }
 }
@@ -427,7 +454,7 @@ function update() {
     if (gameState.keys.left) gameState.paddleX -= 7;
     if (gameState.keys.right) gameState.paddleX += 7;
     if (gameState.paddleX < 0) gameState.paddleX = 0;
-    if (gameState.paddleX + PADDLE_WIDTH > canvas.width) gameState.paddleX = canvas.width - PADDLE_WIDTH;
+    if (gameState.paddleX + gameState.currentPaddleWidth > canvas.width) gameState.paddleX = canvas.width - gameState.currentPaddleWidth;
     if (gameState.currentItem && Date.now() > gameState.itemTimer) resetEffects();
     if (Date.now() - gameState.lastItemTime > 10000) { gameState.items.push(new Item()); gameState.lastItemTime = Date.now(); }
     for (let i = gameState.items.length - 1; i >= 0; i--) {
@@ -473,7 +500,7 @@ function update() {
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'; ctx.lineWidth = 2; ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-    ctx.fillStyle = '#0ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#0ff'; ctx.fillRect(gameState.paddleX, PADDLE_Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+    ctx.fillStyle = '#0ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#0ff'; ctx.fillRect(gameState.paddleX, PADDLE_Y, gameState.currentPaddleWidth, PADDLE_HEIGHT);
     ctx.shadowBlur = 0;
     if (!gameState.effects.invincibleBlocks) { gameState.blocks.forEach(b => b.draw()); }
     else { gameState.blocks.forEach(b => { if (b.active) { ctx.fillStyle = '#555'; ctx.fillRect(b.x, b.y, b.width, b.height); ctx.fillStyle = '#000'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(b.hp, b.x + b.width/2, b.y + b.height/2); } }); }
@@ -512,7 +539,7 @@ function fireLaser() {
     updateAttacksUI();
     
     const beamWidth = BLOCK_SIZE * 2;
-    const beamX = gameState.paddleX + (PADDLE_WIDTH / 2) - (beamWidth / 2);
+    const beamX = gameState.paddleX + (gameState.currentPaddleWidth / 2) - (beamWidth / 2);
     
     gameState.lasers.push(new LaserBeam(beamX, beamWidth));
     
@@ -585,14 +612,14 @@ function gameWin() {
     stageSelectionDiv.classList.add('hidden');
     gameOverContentDiv.classList.remove('hidden');
     finalScoreEl.innerText = gameState.score;
-    finalStageEl.innerText = "10 (CLEAR)";
+    finalStageEl.innerText = "20 (CLEAR)";
     gameTitle.innerText = "MISSION COMPLETE!";
     submitScore(gameState.score);
 }
 
 function setupStageButtons() {
     stageGrid.innerHTML = '';
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 20; i++) {
         let btn = document.createElement('div'); btn.className = 'stage-btn'; btn.innerText = i;
         if (i === 1) btn.classList.add('current');
         btn.onclick = () => { document.querySelectorAll('.stage-btn').forEach(b => b.classList.remove('current')); btn.classList.add('current'); gameState.selectedStage = i; };
@@ -612,8 +639,8 @@ canvas.addEventListener('click', fireLaser);
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault(); let touch = e.touches[0]; let rect = canvas.getBoundingClientRect();
     let x = touch.clientX - rect.left; let scaleX = canvas.width / rect.width;
-    let mouseX = (x) * scaleX; gameState.paddleX = mouseX - PADDLE_WIDTH / 2;
-    if (gameState.paddleX < 0) gameState.paddleX = 0; if (gameState.paddleX + PADDLE_WIDTH > canvas.width) gameState.paddleX = canvas.width - PADDLE_WIDTH;
+    let mouseX = (x) * scaleX; gameState.paddleX = mouseX - gameState.currentPaddleWidth / 2;
+    if (gameState.paddleX < 0) gameState.paddleX = 0; if (gameState.paddleX + gameState.currentPaddleWidth > canvas.width) gameState.paddleX = canvas.width - gameState.currentPaddleWidth;
 }, { passive: false });
 
 updateAttacksUI(); setupStageButtons(); draw();
