@@ -6,6 +6,27 @@
 let canvas, ctx;
 let scoreEl, stageEl, livesEl, hpFillEl, weaponEl, shieldEl, magicEl, startScreen, gameOverScreen;
 
+const victoryMessages = [
+    "조국은 당신의 용기에 자부심을 느낍니다!",
+    "적들은 당신의 위대함을 알았습니다!",
+    "하늘 위의 영웅, 이제 휴식을 취해도 좋습니다!",
+    "전투는 끝났지만 영예는 영원합니다!",
+    "공산주의 물갈퀴를 또 무찔렀습니다!",
+    "조국의 하늘을 지켰습니다 - 수고하셨습니다!",
+    "적군을 격파했습니다 - 우리의 승리입니다!",
+    "전투영웅이라는 칭호가 어울립니다!"
+];
+
+const defeatMessages = [
+    "조국은 당신의 헌신을 기억할 것입니다.",
+    "아쉬움이 남습니다... 다시 한 번 도전해보세요!",
+    "적군이 강했습니다. 분발하겠습니다!",
+    "下次는 반드시 승리하겠습니다!",
+    "패배는 성공의 어머니다 - 다시站起身來!",
+    "조국을 지켜내지 못한 것이 한입니다...",
+    "아직 인간의 수호자는 아닌 것 같습니다..."
+];
+
 // Game State
 let gameActive = false;
 let score = 0;
@@ -594,14 +615,67 @@ function spawnEnemy() {
 
 function endGame() {
     gameActive = false;
+    if (bgmInterval) clearInterval(bgmInterval);
     if (gameOverScreen) gameOverScreen.style.display = 'flex';
     const fs = document.getElementById('final-score');
     if (fs) fs.innerText = score;
-    fetch('/api/save-score', {
+    
+    fetch('/api/submit-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score: score })
+        body: JSON.stringify({ score: score, gameType: 'airplane-shooter' })
     });
+    
+    const resultTitle = document.getElementById('result-title');
+    const resultMsg = document.getElementById('result-msg');
+    
+    if (score >= stage * 5000 || score >= 10000) {
+        if (resultTitle) resultTitle.innerText = 'MISSION COMPLETE!';
+        if (resultMsg) resultMsg.innerText = victoryMessages[Math.floor(Math.random() * victoryMessages.length)];
+        playSFX('stage_up');
+    } else {
+        if (resultTitle) resultTitle.innerText = 'MISSION FAILED';
+        if (resultMsg) resultMsg.innerText = defeatMessages[Math.floor(Math.random() * defeatMessages.length)];
+    }
+    
+    loadAirplaneRank('end-rank-info');
+}
+
+let currentRankData = null;
+function loadAirplaneRank(elementId) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+    
+    fetch('/api/airplane-leaderboard')
+        .then(res => res.json())
+        .then(data => {
+            currentRankData = data;
+            let html = '<div class="rank-title">🏆 AIRPLANE SHOOTER RANKING 🏆</div>';
+            
+            if (data.firstPlace) {
+                html += `<div class="top-score">1위: ${data.firstPlace.username} - ${data.firstPlace.airplane_best_score.toLocaleString()}점</div>`;
+            }
+            
+            if (data.userRank) {
+                html += `<div class="my-rank">내 순위: ${data.userRank}위 (${data.userBestScore.toLocaleString()}점)</div>`;
+            } else {
+                html += '<div class="my-rank">순위권 진입 가능!</div>';
+            }
+            
+            if (data.rivals && data.rivals.length > 0) {
+                html += '<div class="rivals-list">';
+                data.rivals.forEach(rival => {
+                    const isCurrent = rival.id === undefined;
+                    html += `<div class="rival-item ${isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.airplane_best_score || 0).toLocaleString()}점</div>`;
+                });
+                html += '</div>';
+            }
+            
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = '<div style="color: #888;">순위 정보를 불러올 수 없습니다</div>';
+        });
 }
 
 function loop() {
@@ -722,19 +796,72 @@ function playSFX(type) {
     }
 }
 
+let bgmOscillators = [];
 function startBGM() {
     if (bgmInterval) clearInterval(bgmInterval);
+    bgmOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+    bgmOscillators = [];
+    
+    const bpm = 150;
+    const beatInterval = 60000 / bpm;
+    
     bgmInterval = setInterval(() => {
         if (!gameActive) return;
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        const sequence = [110, 130, 110, 165];
-        const freq = sequence[frameCount % 4] * (1 + (stage / 10));
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-    }, 200);
+        const now = audioCtx.currentTime;
+        
+        // Driving bass rhythm
+        const bassOsc = audioCtx.createOscillator();
+        const bassGain = audioCtx.createGain();
+        bassOsc.connect(bassGain);
+        bassGain.connect(audioCtx.destination);
+        bassOsc.type = 'square';
+        const bassFreq = [55, 55, 73.42, 55][(Math.floor(frameCount / 4) % 4)];
+        bassOsc.frequency.setValueAtTime(bassFreq, now);
+        bassGain.gain.setValueAtTime(0.15, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        bassOsc.start(now);
+        bassOsc.stop(now + 0.1);
+        bgmOscillators.push(bassOsc);
+        
+        // Lead melody with stage-based variation
+        if (frameCount % 2 === 0) {
+            const leadOsc = audioCtx.createOscillator();
+            const leadGain = audioCtx.createGain();
+            leadOsc.connect(leadGain);
+            leadGain.connect(audioCtx.destination);
+            leadOsc.type = 'sawtooth';
+            const baseNotes = [
+                [220, 261.63, 329.63, 392],
+                [261.63, 329.63, 392, 523.25],
+                [329.63, 392, 523.25, 659.25],
+                [392, 523.25, 659.25, 783.99]
+            ];
+            const noteSet = baseNotes[Math.min(3, Math.floor((stage - 1) / 5))];
+            const noteIndex = Math.floor(frameCount / 8) % 4;
+            const freq = noteSet[noteIndex] * (1 + (stage - 1) * 0.05);
+            leadOsc.frequency.setValueAtTime(freq, now);
+            leadGain.gain.setValueAtTime(0.06, now);
+            leadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            leadOsc.start(now);
+            leadOsc.stop(now + 0.15);
+            bgmOscillators.push(leadOsc);
+        }
+        
+        // Hi-hat accent
+        if (frameCount % 4 === 0) {
+            const hihatOsc = audioCtx.createOscillator();
+            const hihatGain = audioCtx.createGain();
+            hihatOsc.connect(hihatGain);
+            hihatGain.connect(audioCtx.destination);
+            hihatOsc.type = 'square';
+            hihatOsc.frequency.setValueAtTime(8000, now);
+            hihatGain.gain.setValueAtTime(0.03, now);
+            hihatGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+            hihatOsc.start(now);
+            hihatOsc.stop(now + 0.03);
+            bgmOscillators.push(hihatOsc);
+        }
+    }, 125);
 }
 
 function startGame() {
@@ -753,6 +880,7 @@ function startGame() {
     initTouchControls();
     updateHUD();
     updateMagicButton();
+    loadAirplaneRank('start-rank-info');
     fetch('/api/increment-attempts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -761,4 +889,7 @@ function startGame() {
     loop();
 }
 
-window.onload = initDOMElements;
+window.onload = function() {
+    initDOMElements();
+    loadAirplaneRank('start-rank-info');
+};

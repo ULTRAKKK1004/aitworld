@@ -12,6 +12,7 @@ db.exec(`
     username TEXT UNIQUE,
     role TEXT DEFAULT 'GENERAL', -- PENDING, GENERAL, ADMIN
     best_score INTEGER DEFAULT 0,
+    airplane_best_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
     airplane_attempts INTEGER DEFAULT 0,
     hero_attempts INTEGER DEFAULT 0,
@@ -25,9 +26,17 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     score INTEGER,
+    game_type TEXT DEFAULT 'general',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 `);
+
+// Add airplane_best_score column if not exists
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN airplane_best_score INTEGER DEFAULT 0').run();
+} catch (e) {
+  // Column already exists
+}
 
 module.exports = db;

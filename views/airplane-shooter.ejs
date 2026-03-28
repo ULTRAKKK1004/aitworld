@@ -103,6 +103,50 @@
         .overlay h1 { font-size: 48px; margin-bottom: 20px; }
         .overlay p { font-size: 20px; margin-bottom: 30px; }
         
+        .rank-info {
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid #0f0;
+            border-radius: 8px;
+            padding: 15px 25px;
+            margin: 15px 0;
+            text-align: center;
+            min-width: 300px;
+        }
+        
+        .rank-info .rank-title {
+            color: #ff0;
+            font-size: 16px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #ff0;
+        }
+        
+        .rank-info .my-rank {
+            color: #0ff;
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .rank-info .top-score {
+            color: #f0f;
+            font-size: 18px;
+        }
+        
+        .rank-info .rivals-list {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        
+        .rank-info .rival-item {
+            padding: 3px 0;
+        }
+        
+        .rank-info .rival-item.current {
+            color: #0ff;
+            font-weight: bold;
+        }
+        
         .start-btn {
             padding: 15px 40px;
             font-size: 24px;
@@ -319,13 +363,19 @@
             <h1>TACTICAL AIRPLANE 1987</h1>
             <p>상하좌우(WASD/Arrow) 이동 | 발사(Space/Click) | 특수마법(X/R-Click)</p>
             <button class="start-btn" onclick="startGame()">MISSION START</button>
+            <div class="rank-info" id="start-rank-info">
+                <div style="color: #888;">순위 정보를 불러오는 중...</div>
+            </div>
             <p style="margin-top: 20px; font-size: 14px; color: #888;">PLAYER: <%= user.username %> | ATTEMPTS: <%= user.airplane_attempts %></p>
         </div>
 
         <div id="game-over-screen" class="overlay" style="display: none;">
             <h1 id="result-title">MISSION FAILED</h1>
             <p>FINAL SCORE: <span id="final-score">0</span></p>
-            <p id="result-msg">조국은 당신의 헌신을 기억할 것입니다.</p>
+            <div class="rank-info" id="end-rank-info">
+                <div style="color: #888;">순위 정보를 확인하는 중...</div>
+            </div>
+            <p id="result-msg"></p>
             <button class="start-btn" onclick="location.reload()">RETRY MISSION</button>
         </div>
 
