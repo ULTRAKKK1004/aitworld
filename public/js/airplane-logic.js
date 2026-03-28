@@ -664,8 +664,7 @@ function loadAirplaneRank(elementId) {
             if (data.rivals && data.rivals.length > 0) {
                 html += '<div class="rivals-list">';
                 data.rivals.forEach(rival => {
-                    const isCurrent = rival.id === undefined;
-                    html += `<div class="rival-item ${isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.airplane_best_score || 0).toLocaleString()}점</div>`;
+                    html += `<div class="rival-item ${rival.isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.airplane_best_score || 0).toLocaleString()}점</div>`;
                 });
                 html += '</div>';
             }

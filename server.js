@@ -204,24 +204,33 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
 });
 
 app.get('/api/airplane-leaderboard', isAuth, isPending, (req, res) => {
-  const top10 = db.prepare('SELECT username, airplane_best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND airplane_best_score > 0 ORDER BY airplane_best_score DESC LIMIT 10').all();
+  const top10 = db.prepare('SELECT id, username, airplane_best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND airplane_best_score > 0 ORDER BY airplane_best_score DESC LIMIT 10').all();
   const allUsers = db.prepare('SELECT id, username, airplane_best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY airplane_best_score DESC').all();
   
-  const user = allUsers.find(u => u.id === req.user.id);
-  const userRank = user ? allUsers.findIndex(u => u.id === req.user.id) + 1 : null;
+  const userIndex = allUsers.findIndex(u => u.id === req.user.id);
+  const user = userIndex !== -1 ? allUsers[userIndex] : null;
+  const userRank = userIndex !== -1 ? userIndex + 1 : null;
   
   let rivals = [];
   if (userRank) {
-    const userIndex = userRank - 1;
     const start = Math.max(0, userIndex - 2);
     const end = Math.min(allUsers.length, userIndex + 3);
     rivals = allUsers.slice(start, end).map((u, i) => ({
       ...u,
-      rank: start + i + 1
+      rank: start + i + 1,
+      isCurrent: u.id === req.user.id
+    }));
+  } else if (allUsers.length > 0) {
+    const start = 0;
+    const end = Math.min(5, allUsers.length);
+    rivals = allUsers.slice(start, end).map((u, i) => ({
+      ...u,
+      rank: i + 1,
+      isCurrent: false
     }));
   }
 
-  const firstPlace = allUsers.length > 0 ? allUsers[0] : null;
+  const firstPlace = top10.length > 0 ? top10[0] : null;
 
   res.json({ top10, rivals, userRank, firstPlace, userBestScore: user?.airplane_best_score || 0 });
 });
