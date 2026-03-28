@@ -878,7 +878,6 @@ function startGame() {
     initTouchControls();
     updateHUD();
     updateMagicButton();
-    loadAirplaneRank('start-rank-info');
     fetch('/api/increment-attempts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -889,5 +888,4 @@ function startGame() {
 
 window.onload = function() {
     initDOMElements();
-    loadAirplaneRank('start-rank-info');
 };
