@@ -57,13 +57,19 @@ function initDOMElements() {
     startScreen = document.getElementById('start-screen');
     gameOverScreen = document.getElementById('game-over-screen');
     
-    resize();
+    setTimeout(resize, 100);
 }
 
 function resize() {
     if (!canvas) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight * 0.9;
+    const gameArea = document.getElementById('game-area');
+    if (gameArea) {
+        canvas.width = gameArea.clientWidth;
+        canvas.height = gameArea.clientHeight;
+    } else {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight * 0.6;
+    }
 }
 
 window.addEventListener('resize', resize);
@@ -198,7 +204,9 @@ class Player {
     useMagic() {
         magicCharged = false;
         magicEl.style.display = 'none';
+        updateMagicButton();
         playSFX('magic');
+        showSkullEffect();
         enemies.forEach(e => {
             e.hp = 0;
             createExplosion(e.x + e.width/2, e.y + e.height/2);
@@ -406,7 +414,7 @@ class Item {
         else if (this.type === 'H') hp = Math.min(100, hp + 40);
         else if (this.type === 'W') { weaponLevel++; weaponEl.innerText = weaponLevel >= 3 ? 'SPREAD' : 'DOUBLE'; }
         else if (this.type === 'S') { hasShield = true; shieldEl.innerText = 'ON'; }
-        else if (this.type === 'M') { magicCharged = true; magicEl.style.display = 'block'; }
+        else if (this.type === 'M') { magicCharged = true; magicEl.style.display = 'block'; updateMagicButton(); }
         updateHUD();
     }
 
@@ -487,6 +495,16 @@ function updateHUD() {
     }
 }
 
+function updateMagicButton() {
+    const btnMagic = document.getElementById('btn-magic-touch');
+    if (!btnMagic) return;
+    if (magicCharged) {
+        btnMagic.classList.add('active');
+    } else {
+        btnMagic.classList.remove('active');
+    }
+}
+
 function createExplosion(x, y) {
     playSFX('explode');
     for (let i = 0; i < 20; i++) {
@@ -494,6 +512,73 @@ function createExplosion(x, y) {
             x, y, vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14,
             life: 30, color: Math.random() > 0.5 ? '#ff4500' : '#ffff00'
         });
+    }
+}
+
+let skullEffect = { active: false, timer: 0, maxTimer: 45 };
+function showSkullEffect() {
+    skullEffect.active = true;
+    skullEffect.timer = 0;
+}
+
+function drawSkullEffect() {
+    if (!skullEffect.active) return;
+    skullEffect.timer++;
+    
+    const progress = skullEffect.timer / skullEffect.maxTimer;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    
+    ctx.save();
+    
+    if (progress < 0.3) {
+        const flash = progress / 0.3;
+        ctx.fillStyle = `rgba(255, 255, 255, ${flash})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    const scale = progress < 0.5 ? progress * 2 : 2 - (progress - 0.5) * 2;
+    const alpha = progress < 0.7 ? 1 : 1 - (progress - 0.7) / 0.3;
+    
+    ctx.globalAlpha = alpha;
+    ctx.translate(centerX, centerY);
+    ctx.scale(scale, scale);
+    
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#ff0000';
+    ctx.shadowBlur = 30;
+    
+    ctx.beginPath();
+    ctx.arc(0, -20, 50, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.ellipse(0, 40, 40, 50, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#000';
+    
+    ctx.beginPath();
+    ctx.ellipse(-18, -25, 12, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(18, -25, 12, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(-15, 10);
+    ctx.lineTo(-5, 25);
+    ctx.lineTo(0, 15);
+    ctx.lineTo(5, 25);
+    ctx.lineTo(15, 10);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
+    
+    if (skullEffect.timer >= skullEffect.maxTimer) {
+        skullEffect.active = false;
     }
 }
 
@@ -583,10 +668,13 @@ function loop() {
         if (ex.life <= 0) explosions.splice(i, 1);
     });
 
+    drawSkullEffect();
+
     requestAnimationFrame(loop);
 }
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let bgmInterval = null;
 function playSFX(type) {
     if (audioCtx.state === 'suspended') return;
     const osc = audioCtx.createOscillator();
@@ -635,7 +723,8 @@ function playSFX(type) {
 }
 
 function startBGM() {
-    setInterval(() => {
+    if (bgmInterval) clearInterval(bgmInterval);
+    bgmInterval = setInterval(() => {
         if (!gameActive) return;
         const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
@@ -650,16 +739,20 @@ function startBGM() {
 
 function startGame() {
     if (!canvas) initDOMElements();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    audioCtx.resume().then(() => {
+        startBGM();
+    });
     if (startScreen) startScreen.style.display = 'none';
     gameActive = true;
     player = new Player();
     enemies = []; enemyBullets = []; items = []; explosions = [];
     score = 0; stage = 1; lives = 3; hp = 100; weaponLevel = 1;
+    hasShield = false;
+    magicCharged = false;
     initBackground();
     initTouchControls();
     updateHUD();
-    startBGM();
+    updateMagicButton();
     fetch('/api/increment-attempts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

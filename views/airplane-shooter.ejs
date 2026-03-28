@@ -21,11 +21,20 @@
         #game-container {
             position: relative;
             width: 100vw;
-            height: 90vh; /* 90% of screen height */
-            margin-top: 0; /* Align to top */
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            margin-top: 0;
             background: #000;
             overflow: hidden;
             box-shadow: 0 5px 30px rgba(0, 255, 0, 0.1);
+        }
+
+        #game-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
         }
 
         #gameCanvas {
@@ -160,7 +169,7 @@
 
         .back-link {
             position: absolute;
-            bottom: 20px;
+            bottom: 230px;
             left: 20px;
             color: #0f0;
             text-decoration: none;
@@ -172,16 +181,21 @@
         .back-link:hover { background: rgba(0, 255, 0, 0.2); }
         /* Mobile Controls */
         #mobile-controls {
-            position: absolute;
-            bottom: 120px; /* Increased from 30px */
-            left: 0;
+            height: 180px;
             width: 100%;
             display: none;
             justify-content: space-between;
-            padding: 0 40px;
+            padding: 10px 40px;
             box-sizing: border-box;
             z-index: 50;
             pointer-events: none;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        #game-area canvas {
+            width: 100%;
+            height: 100%;
         }
 
         .touch-zone {
@@ -244,6 +258,20 @@
             border-color: #ff0;
             color: #ff0;
             font-size: 18px;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .btn-magic.active {
+            opacity: 1;
+            pointer-events: auto;
+            animation: magic-pulse 1s infinite;
+        }
+
+        @keyframes magic-pulse {
+            0% { box-shadow: 0 0 10px rgba(255, 255, 0, 0.5); }
+            50% { box-shadow: 0 0 25px rgba(255, 255, 0, 0.9); }
+            100% { box-shadow: 0 0 10px rgba(255, 255, 0, 0.5); }
         }
 
         @media (max-width: 1024px) {
@@ -270,7 +298,9 @@
             </div>
         </div>
 
-        <canvas id="gameCanvas"></canvas>
+        <div id="game-area">
+            <canvas id="gameCanvas"></canvas>
+        </div>
 
         <!-- Mobile Overlays -->
         <div id="mobile-controls">
