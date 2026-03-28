@@ -204,8 +204,8 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
 });
 
 app.get('/api/airplane-leaderboard', isAuth, isPending, (req, res) => {
-  const top10 = db.prepare('SELECT id, username, airplane_best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND airplane_best_score > 0 ORDER BY airplane_best_score DESC LIMIT 10').all();
-  const allUsers = db.prepare('SELECT id, username, airplane_best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY airplane_best_score DESC').all();
+  const top10 = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND best_score > 0 ORDER BY best_score DESC LIMIT 10').all();
+  const allUsers = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY best_score DESC').all();
   
   const userIndex = allUsers.findIndex(u => u.id === req.user.id);
   const user = userIndex !== -1 ? allUsers[userIndex] : null;
@@ -232,7 +232,7 @@ app.get('/api/airplane-leaderboard', isAuth, isPending, (req, res) => {
 
   const firstPlace = top10.length > 0 ? top10[0] : null;
 
-  res.json({ top10, rivals, userRank, firstPlace, userBestScore: user?.airplane_best_score || 0 });
+  res.json({ top10, rivals, userRank, firstPlace, userBestScore: user?.best_score || 0 });
 });
 
 app.get('/api/leaderboard', isAuth, isPending, (req, res) => {

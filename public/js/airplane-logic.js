@@ -652,7 +652,7 @@ function loadAirplaneRank(elementId) {
             let html = '<div class="rank-title">🏆 AIRPLANE SHOOTER RANKING 🏆</div>';
             
             if (data.firstPlace) {
-                html += `<div class="top-score">1위: ${data.firstPlace.username} - ${data.firstPlace.airplane_best_score.toLocaleString()}점</div>`;
+                html += `<div class="top-score">1위: ${data.firstPlace.username} - ${data.firstPlace.best_score.toLocaleString()}점</div>`;
             }
             
             if (data.userRank) {
@@ -664,7 +664,7 @@ function loadAirplaneRank(elementId) {
             if (data.rivals && data.rivals.length > 0) {
                 html += '<div class="rivals-list">';
                 data.rivals.forEach(rival => {
-                    html += `<div class="rival-item ${rival.isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.airplane_best_score || 0).toLocaleString()}점</div>`;
+                    html += `<div class="rival-item ${rival.isCurrent ? 'current' : ''}">${rival.rank}위 - ${rival.username}: ${(rival.best_score || 0).toLocaleString()}점</div>`;
                 });
                 html += '</div>';
             }
