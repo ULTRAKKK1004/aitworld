@@ -351,9 +351,11 @@ async function init() {
         if (intro.style.display === 'none') {
             const pObj = controls.getObject();
             const mVec = new THREE.Vector3(); camera.getWorldDirection(mVec); mVec.y = 0; mVec.normalize();
-            const sVec = new THREE.Vector3().crossVectors(camera.up, mVec).normalize();
+            // sVec을 (전방 x 위) 순서로 계산하여 '오른쪽' 방향 벡터를 얻음
+            const sVec = new THREE.Vector3().crossVectors(mVec, camera.up).normalize();
             
-            const moveDir = new THREE.Vector3().addScaledVector(mVec, keys.w - keys.s).addScaledVector(sVec, -(keys.a - keys.d));
+            // 전방(w-s)과 우측(d-a) 입력을 조합하여 이동 방향 결정
+            const moveDir = new THREE.Vector3().addScaledVector(mVec, keys.w - keys.s).addScaledVector(sVec, keys.d - keys.a);
             
             if (moveDir.lengthSq() > 0) {
                 moveDir.normalize();
