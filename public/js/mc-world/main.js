@@ -92,6 +92,7 @@ async function init() {
     const renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.autoClear = false;
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -100,6 +101,8 @@ async function init() {
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const cameraEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const minimapCamera = new THREE.OrthographicCamera(-35, 35, 35, -35, 1, 1000);
+    minimapCamera.up.set(0, 0, -1);
 
     const controls = new PointerLockControls(camera, document.body);
     const intro = document.getElementById('intro-overlay');
@@ -113,17 +116,17 @@ async function init() {
     canvas.width = 512; canvas.height = 32;
     const ctx = canvas.getContext('2d');
     const blockUrls = [
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/grass_block_side.png', // 1
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/dirt.png',             // 2
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/stone.png',            // 3
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_log.png',         // 4
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_leaves.png',      // 5
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/poppy.png',           // 6
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/cactus_side.png',      // 7
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/iron_block.png',       // 8
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_planks.png',      // 9
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/glass.png',           // 10
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/water_still.png',     // 11
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/grass_block_side.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/dirt.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/stone.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_log.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_leaves.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/poppy.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/cactus_side.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/iron_block.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_planks.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/glass.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/water_still.png',
     ];
     await Promise.all(blockUrls.map((url, i) => new Promise(res => {
         loader.load(url, img => { ctx.drawImage(img, i*32, 0, 32, 32); res(); }, undefined, () => {
@@ -194,7 +197,9 @@ async function init() {
             }
         }
     }
-    camera.position.set(spawnX, spawnY, spawnZ);
+    // 초기 위치 설정: 카메라가 아닌 controls 객체에 직접 설정
+    controls.getObject().position.set(spawnX, spawnY, spawnZ);
+    camera.position.set(0, 0, 0);
 
     const geometry = new THREE.BufferGeometry();
     const mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ map: texture, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide }));
@@ -210,12 +215,7 @@ async function init() {
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(10, 20, 10); scene.add(sun);
 
-    // Gameplay
-    const keys = {w:0,a:0,s:0,d:0,space:0};
     let curBlock = 1, score = 0, swinging = false, isBuild = false;
-    const modeBtn = document.getElementById('mode-btn');
-    if(modeBtn) modeBtn.addEventListener('click', () => { isBuild=!isBuild; modeBtn.innerText=isBuild?'BUILD':'REMOVE'; modeBtn.classList.toggle('build-mode', isBuild); });
-
     const select = (id) => {
         curBlock = id;
         document.querySelectorAll('.hotbar-item').forEach(el => el.classList.remove('active'));
@@ -224,9 +224,24 @@ async function init() {
         updateWeapons(id);
     };
 
+    document.querySelectorAll('.hotbar-item').forEach(el => {
+        el.addEventListener('touchstart', (e) => { e.stopPropagation(); select(parseInt(el.dataset.block)); }, {passive:false});
+        el.addEventListener('click', (e) => { e.stopPropagation(); select(parseInt(el.dataset.block)); });
+    });
+
+    const submitScore = (finalScore) => {
+        fetch('/api/submit-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score: finalScore, gameType: 'mc-world' })
+        }).catch(err => console.error('Score submission failed:', err));
+    };
+
     const attack = () => {
         if (swinging) return; swinging = true;
         const activeWeapon = curBlock === 10 ? sword : (curBlock === 8 ? gun : bow);
+        const range = curBlock === 10 ? 4 : (curBlock === 8 ? 20 : 15);
+        const damage = curBlock === 10 ? 2 : (curBlock === 8 ? 1 : 1.5);
         const startZ = activeWeapon.position.z;
         let startT = performance.now();
         const anim = () => {
@@ -234,28 +249,25 @@ async function init() {
             if(elap<1){ activeWeapon.position.z=startZ+Math.sin(elap*Math.PI)*0.2; requestAnimationFrame(anim); }
             else{ activeWeapon.position.z=startZ; swinging=false; }
         }; anim();
-        const ray = new THREE.Raycaster(); ray.setFromCamera({x:0,y:0}, camera);
+        const ray = new THREE.Raycaster(); ray.setFromCamera({x:0,y:0}, camera); ray.far = range;
         const hits = ray.intersectObjects(enemies, true);
         if(hits.length > 0) {
             let target = hits[0].object; while(target.parent && !target.userData.hp) target = target.parent;
             if(target.userData.hp) {
-                target.userData.hp--;
+                target.userData.hp -= damage;
                 target.traverse(c => { if(c.material){ c.material.emissive?.setHex(0xff0000); setTimeout(()=>c.material.emissive?.setHex(0), 100); } });
-                if(target.userData.hp<=0){ scene.remove(target); enemies.splice(enemies.indexOf(target), 1); score+=50; document.getElementById('score-val').innerText=score; }
+                if(target.userData.hp<=0){ 
+                    scene.remove(target); enemies.splice(enemies.indexOf(target), 1); 
+                    score += 100; document.getElementById('score-val').innerText = score;
+                    submitScore(score);
+                }
             }
         }
     };
 
-    // Advanced Touch Handling (Identifier tracking)
     const knob = document.getElementById('joystick-knob'), area = document.getElementById('joystick-area');
-    let moveTouchId = null, lookTouchId = null;
-    let lookLastX = 0, lookLastY = 0;
-    let longPressTimer = null;
-
-    const startLongPress = (x, y) => {
-        if(longPressTimer) clearTimeout(longPressTimer);
-        longPressTimer = setTimeout(() => { triggerInteraction(x, y); longPressTimer = null; }, 500);
-    };
+    let moveTouchId = null, lookTouchId = null, lookLastX = 0, lookLastY = 0;
+    const keys = {w:0,a:0,s:0,d:0,space:0};
 
     const triggerInteraction = (clientX, clientY) => {
         if (curBlock >= 8) { attack(); return; }
@@ -276,22 +288,23 @@ async function init() {
     window.addEventListener('touchstart', (e) => {
         for(let i=0; i<e.changedTouches.length; i++){
             const t = e.changedTouches[i];
+            const target = t.target;
+            if(target.closest('#hotbar') || target.closest('.action-btn')) continue;
+
             const r = area.getBoundingClientRect();
             const dx = t.clientX - (r.left + 50), dy = t.clientY - (r.top + 50);
-            if(Math.sqrt(dx*dx+dy*dy) < 60 && moveTouchId === null){
-                moveTouchId = t.identifier;
-            } else if(lookTouchId === null && t.clientX > window.innerWidth / 4){
+            if(Math.sqrt(dx*dx+dy*dy) < 60 && moveTouchId === null) moveTouchId = t.identifier;
+            else if(lookTouchId === null && t.clientX > window.innerWidth / 4){
                 lookTouchId = t.identifier; lookLastX = t.clientX; lookLastY = t.clientY;
-                if(intro.style.display === 'none') startLongPress(t.clientX, t.clientY);
             }
         }
     }, {passive:false});
 
     window.addEventListener('touchmove', (e) => {
-        e.preventDefault();
         for(let i=0; i<e.touches.length; i++){
             const t = e.touches[i];
             if(t.identifier === moveTouchId){
+                e.preventDefault();
                 const r = area.getBoundingClientRect();
                 const dx = t.clientX - (r.left + 50), dy = t.clientY - (r.top + 50);
                 const d = Math.min(Math.sqrt(dx*dx+dy*dy), 50), a = Math.atan2(dy,dx);
@@ -300,8 +313,7 @@ async function init() {
             }
             if(t.identifier === lookTouchId){
                 const dx = t.clientX - lookLastX, dy = t.clientY - lookLastY;
-                if(Math.abs(dx) > 5 || Math.abs(dy) > 5) { if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
-                cameraEuler.y -= dx * 0.004; cameraEuler.x -= dy * 0.004;
+                cameraEuler.y -= dx * 0.005; cameraEuler.x -= dy * 0.005;
                 cameraEuler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraEuler.x));
                 camera.quaternion.setFromEuler(cameraEuler);
                 lookLastX = t.clientX; lookLastY = t.clientY;
@@ -313,14 +325,11 @@ async function init() {
         for(let i=0; i<e.changedTouches.length; i++){
             const t = e.changedTouches[i];
             if(t.identifier === moveTouchId){ moveTouchId=null; knob.style.transform=''; Object.assign(keys, {w:0,a:0,s:0,d:0}); }
-            if(t.identifier === lookTouchId){ lookTouchId=null; if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } }
+            if(t.identifier === lookTouchId) lookTouchId=null;
         }
     });
 
-    window.addEventListener('mousedown', (e) => {
-        if(intro.style.display !== 'none' || (!controls.isLocked && !('ontouchstart' in window))) return;
-        triggerInteraction(e.clientX, e.clientY);
-    });
+    window.addEventListener('mousedown', (e) => { if(intro.style.display === 'none' && !e.target.closest('#hotbar') && !e.target.closest('.action-btn')) triggerInteraction(e.clientX, e.clientY); });
     window.addEventListener('keydown', (e) => {
         if(e.code === 'Digit0') select(10);
         else if(e.code.startsWith('Digit')) select(parseInt(e.code[5]));
@@ -328,9 +337,11 @@ async function init() {
     });
     window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = 0; });
     
-    document.getElementById('attack-btn').addEventListener('touchstart', (e) => { e.preventDefault(); attack(); });
-    document.getElementById('jump-btn').addEventListener('touchstart', (e) => { e.preventDefault(); keys.space = 1; });
+    document.getElementById('attack-btn').addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); attack(); });
+    document.getElementById('jump-btn').addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); keys.space = 1; });
     document.getElementById('jump-btn').addEventListener('touchend', () => keys.space = 0);
+    const modeBtn = document.getElementById('mode-btn');
+    if(modeBtn) modeBtn.addEventListener('click', (e) => { e.stopPropagation(); isBuild=!isBuild; modeBtn.innerText=isBuild?'BUILD':'REMOVE'; modeBtn.classList.toggle('build-mode', isBuild); });
 
     const vel = new THREE.Vector3();
     let lastT = performance.now();
@@ -338,27 +349,79 @@ async function init() {
         requestAnimationFrame(animate);
         const now = performance.now(), delta = Math.min((now - lastT)/1000, 0.1); lastT = now;
         if (intro.style.display === 'none') {
-            vel.y -= 20 * delta;
-            const dir = new THREE.Vector3();
-            if(keys.w) dir.z += 1; if(keys.s) dir.z -= 1; if(keys.a) dir.x -= 1; if(keys.d) dir.x += 1;
-            dir.normalize();
+            const pObj = controls.getObject();
             const mVec = new THREE.Vector3(); camera.getWorldDirection(mVec); mVec.y = 0; mVec.normalize();
             const sVec = new THREE.Vector3().crossVectors(camera.up, mVec).normalize();
-            controls.getObject().position.add(new THREE.Vector3().addScaledVector(mVec, dir.z).addScaledVector(sVec, -dir.x).multiplyScalar(8 * delta));
-            controls.getObject().position.y += vel.y * delta;
-            const px = Math.floor(camera.position.x), pz = Math.floor(camera.position.z);
-            let gr = 0; for(let y=40; y>=0; y--) { const v=world.getVoxel(px,y,pz); if(v!==0 && v!==11) { gr=y+1.8; break; } }
-            if(camera.position.y < gr) { camera.position.y = gr; vel.y = 0; if(keys.space) vel.y = 8; }
-            if(camera.position.y < -5) camera.position.set(spawnX, spawnY, spawnZ);
-            enemies.forEach(en => {
-                const dist = en.position.distanceTo(camera.position);
-                if(dist < 15 && dist > 1.2) {
-                    en.position.add(new THREE.Vector3().subVectors(camera.position, en.position).setY(0).normalize().multiplyScalar(2.2 * delta));
-                    en.lookAt(camera.position.x, en.position.y, camera.position.z);
+            
+            const moveDir = new THREE.Vector3().addScaledVector(mVec, keys.w - keys.s).addScaledVector(sVec, -(keys.a - keys.d));
+            
+            if (moveDir.lengthSq() > 0) {
+                moveDir.normalize();
+                const moveStep = moveDir.multiplyScalar(8 * delta);
+
+                const checkCollision = (nx, ny, nz) => {
+                    const pad = 0.3;
+                    for (let ox of [-pad, pad]) {
+                        for (let oz of [-pad, pad]) {
+                            // 눈 아래 0.3m(이마/코)와 0.8m(가슴)만 체크하여 바닥(1.8m 아래) 걸림 방지
+                            const b1 = world.getVoxel(Math.floor(nx + ox), Math.floor(ny - 0.3), Math.floor(nz + oz));
+                            const b2 = world.getVoxel(Math.floor(nx + ox), Math.floor(ny - 0.8), Math.floor(nz + oz));
+                            if ((b1 !== 0 && b1 !== 11) || (b2 !== 0 && b2 !== 11)) return true;
+                        }
+                    }
+                    return false;
+                };
+
+                if (!checkCollision(pObj.position.x + moveStep.x, pObj.position.y, pObj.position.z)) pObj.position.x += moveStep.x;
+                if (!checkCollision(pObj.position.x, pObj.position.y, pObj.position.z + moveStep.z)) pObj.position.z += moveStep.z;
+            }
+
+            vel.y -= 22 * delta;
+            pObj.position.y += vel.y * delta;
+            let floorY = -10;
+            for (let ox of [-0.2, 0.2]) {
+                for (let oz of [-0.2, 0.2]) {
+                    for (let y = Math.floor(pObj.position.y - 1.5); y <= Math.floor(pObj.position.y + 0.5); y++) {
+                        const v = world.getVoxel(Math.floor(pObj.position.x + ox), y, Math.floor(pObj.position.z + oz));
+                        if (v !== 0 && v !== 11) { floorY = Math.max(floorY, y + 1.8); }
+                    }
                 }
+            }
+            if (pObj.position.y < floorY) { pObj.position.y = floorY; vel.y = 0; if (keys.space) vel.y = 9; }
+            if (pObj.position.y < -5) pObj.position.set(spawnX, spawnY, spawnZ);
+
+            enemies.forEach(en => {
+                const dist = en.position.distanceTo(pObj.position);
+                if (dist < 1.2 && performance.now() % 1000 < 20) {
+                    score = Math.max(0, score - 5); document.getElementById('score-val').innerText = score;
+                }
+                if (dist < 15 && dist > 1.2) {
+                    en.position.add(new THREE.Vector3().subVectors(pObj.position, en.position).setY(0).normalize().multiplyScalar(2.2 * delta));
+                    en.lookAt(pObj.position.x, en.position.y, pObj.position.z);
+                }
+                let egr = 0; for(let y=40; y>=0; y--) { if(world.getVoxel(Math.floor(en.position.x), y, Math.floor(en.position.z))!==0) { egr=y+1; break; } }
+                en.position.y = THREE.MathUtils.lerp(en.position.y, egr, 0.2);
             });
+
+            if (Math.random() < 0.001) {
+                const rx = pObj.position.x + (Math.random()-0.5)*40, rz = pObj.position.z + (Math.random()-0.5)*40;
+                if (Math.abs(rx-pObj.position.x)>10) spawnZombie(rx, rz);
+            }
+            minimapCamera.position.set(pObj.position.x, 50, pObj.position.z);
+            minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
         }
+        
+        renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
         renderer.render(scene, camera);
+        if (intro.style.display === 'none') {
+            renderer.clearDepth();
+            renderer.setScissorTest(true);
+            const mSize = 110;
+            renderer.setViewport(window.innerWidth - mSize - 20, window.innerHeight - mSize - 20, mSize, mSize);
+            renderer.setScissor(window.innerWidth - mSize - 20, window.innerHeight - mSize - 20, mSize, mSize);
+            renderer.render(scene, minimapCamera);
+            renderer.setScissorTest(false);
+        }
     };
     animate();
 }

@@ -24,13 +24,16 @@
         #mission-box {
             position: absolute; top: env(safe-area-inset-top, 20px); left: env(safe-area-inset-left, 20px);
             background: rgba(0,0,0,0.6); color: white; padding: 12px;
-            border-radius: 12px; backdrop-filter: blur(5px);
+            border-radius: 12px; backdrop-filter: blur(5px); pointer-events: none;
         }
+        
+        /* 인벤토리: 하단 조작부 위쪽에 배치 */
         #hotbar {
-            position: absolute; bottom: calc(env(safe-area-inset-bottom, 20px) + 110px); 
+            position: absolute; bottom: calc(env(safe-area-inset-bottom, 20px) + 130px); 
             left: 50%; transform: translateX(-50%);
             display: flex; gap: 5px; background: rgba(0,0,0,0.7); padding: 8px;
             border-radius: 12px; pointer-events: auto; max-width: 95vw; overflow-x: auto;
+            z-index: 20;
         }
         .hotbar-item {
             flex: 0 0 40px; height: 40px; border: 2px solid rgba(255,255,255,0.2);
@@ -44,9 +47,17 @@
         .hotbar-item span {
             position: absolute; top: 1px; right: 3px; font-size: 9px; color: white;
         }
+
+        #minimap-container {
+            position: absolute; top: env(safe-area-inset-top, 20px); right: env(safe-area-inset-right, 20px);
+            width: 110px; height: 110px; border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.5);
+            pointer-events: none; z-index: 20;
+        }
+
         #mobile-controls {
             position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; display: none;
+            pointer-events: none; display: none; z-index: 15;
         }
         @media (max-width: 900px) { #mobile-controls { display: block; } }
         
@@ -63,9 +74,9 @@
         #action-buttons {
             position: absolute; bottom: calc(env(safe-area-inset-bottom, 20px) + 20px); 
             right: env(safe-area-inset-right, 30px); display: flex; flex-direction: column; gap: 12px;
-            align-items: flex-end;
+            align-items: flex-end; pointer-events: none;
         }
-        .action-row { display: flex; gap: 12px; }
+        .action-row { display: flex; gap: 12px; pointer-events: none; }
         .action-btn {
             width: 60px; height: 60px; background: rgba(255,255,255,0.2);
             border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
@@ -100,6 +111,7 @@
         <div id="game-container"></div>
         
         <div id="ui-layer">
+            <div id="minimap-container"></div>
             <div id="mission-box">
                 <p style="margin:0; font-weight: bold; font-size: 12px;">MISSION</p>
                 <p id="mission-text" style="font-size: 13px; margin: 3px 0;">무기를 골라 좀비를 물리치세요!</p>

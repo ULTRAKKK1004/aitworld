@@ -240,8 +240,8 @@ class GameScene extends Phaser.Scene {
             this.add.text(x, y, label, {fontSize:'32px', fill:'#fff', stroke:'#000', strokeThickness:4}).setOrigin(0.5).setScrollFactor(0).setDepth(91);
             z.on('pointerdown', () => this[flag] = true); z.on('pointerup', () => this[flag] = false); z.on('pointerout', () => this[flag] = false);
         };
-        createZone(80, ch - 80, 140, 140, 'btnLeft', '◀', 0xffffff); createZone(240, ch - 80, 140, 140, 'btnRight', '▶', 0xffffff);
-        createZone(cw - 240, ch - 80, 140, 140, 'btnFire', 'A', 0xff0000); createZone(cw - 80, ch - 80, 140, 140, 'btnJump', 'B', 0x00ff00);
+        createZone(80, ch * 0.9 - 80, 140, 140, 'btnLeft', '◀', 0xffffff); createZone(240, ch * 0.9 - 80, 140, 140, 'btnRight', '▶', 0xffffff);
+        createZone(cw - 240, ch * 0.9 - 80, 140, 140, 'btnFire', 'A', 0xff0000); createZone(cw - 80, ch * 0.9 - 80, 140, 140, 'btnJump', 'B', 0x00ff00);
     }
 
     update() {
@@ -283,10 +283,21 @@ class GameOverScene extends Phaser.Scene {
     constructor() { super('GameOverScene'); }
     create() {
         this.cameras.main.setBackgroundColor('#8b0000');
-        this.add.text(this.cameras.main.centerX, 150, "GAME OVER", { fontSize: '64px', fill: '#fff', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
-        this.add.text(this.cameras.main.centerX, 250, `FINAL SCORE: ${GameState.score}`, { fontSize: '32px', fill: '#ff0' }).setOrigin(0.5);
+        this.add.text(this.cameras.main.centerX, 120, "GAME OVER", { fontSize: '64px', fill: '#fff', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+        this.add.text(this.cameras.main.centerX, 200, `FINAL SCORE: ${GameState.score}`, { fontSize: '32px', fill: '#ff0' }).setOrigin(0.5);
+        this.add.text(this.cameras.main.centerX, 250, `STAGE: ${GameState.currentStage}`, { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
         fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, stage: GameState.currentStage }) }).catch(() => {});
-        this.add.text(this.cameras.main.centerX, 350, "[ TAP TO RESTART ]", { fontSize: '28px', fill: '#0f0' }).setOrigin(0.5).setInteractive().on('pointerup', () => this.scene.start('MenuScene'));
+        
+        const savedStage = GameState.currentStage;
+        
+        const continueBtn = this.add.text(this.cameras.main.centerX, 340, "[ CONTINUE FROM STAGE " + savedStage + " ]", { fontSize: '24px', fill: '#0ff' }).setOrigin(0.5).setInteractive().on('pointerup', () => {
+            GameState.playerLives = 3;
+            GameState.playerHP = 5;
+            GameState.score = 0;
+            this.scene.start('GameScene');
+        });
+        
+        const menuBtn = this.add.text(this.cameras.main.centerX, 400, "[ BACK TO MENU ]", { fontSize: '24px', fill: '#0f0' }).setOrigin(0.5).setInteractive().on('pointerup', () => this.scene.start('MenuScene'));
     }
 }
 
