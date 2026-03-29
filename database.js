@@ -18,6 +18,7 @@ db.exec(`
     airplane_attempts INTEGER DEFAULT 0,
     hero_attempts INTEGER DEFAULT 0,
     mc_world_attempts INTEGER DEFAULT 0,
+    mc_world_save TEXT,
     lift_rush_attempts INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
@@ -45,6 +46,10 @@ try {
 
 try {
   db.prepare('ALTER TABLE users ADD COLUMN lift_rush_attempts INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN mc_world_save TEXT').run();
 } catch (e) {}
 
 module.exports = db;

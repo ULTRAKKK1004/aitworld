@@ -183,6 +183,32 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
+  const { saveData } = req.body;
+  const user_id = req.user.id;
+  try {
+    const jsonString = JSON.stringify(saveData);
+    db.prepare('UPDATE users SET mc_world_save = ? WHERE id = ?').run(jsonString, user_id);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: 'Failed to save data' });
+  }
+});
+
+app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
+  const user_id = req.user.id;
+  try {
+    const row = db.prepare('SELECT mc_world_save FROM users WHERE id = ?').get(user_id);
+    if (row && row.mc_world_save) {
+      res.json({ success: true, saveData: JSON.parse(row.mc_world_save) });
+    } else {
+      res.json({ success: true, saveData: null }); // No save data yet
+    }
+  } catch(e) {
+    res.status(500).json({ success: false, error: 'Failed to load data' });
+  }
+});
+
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   const { user_id } = req.body;
   db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0 WHERE id = ?").run(user_id);

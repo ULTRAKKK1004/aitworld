@@ -104,33 +104,75 @@
             background: rgba(0,0,0,0.85); color: white; display: flex; flex-direction: column;
             align-items: center; justify-content: center; z-index: 100; text-align: center;
         }
+        #error-log {
+            position: fixed; bottom: 10px; left: 10px; color: red; font-size: 10px;
+            background: rgba(0,0,0,0.8); z-index: 1000; pointer-events: none;
+            max-width: 90%; word-break: break-all;
+        }
     </style>
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            var log = document.getElementById('error-log');
+            if (log) log.innerHTML += msg + ' at ' + lineNo + ':' + columnNo + '<br>';
+            return false;
+        };
+    </script>
 </head>
 <body>
+    <div id="error-log"></div>
     <div id="game-wrapper">
         <div id="game-container"></div>
         
         <div id="ui-layer">
             <div id="minimap-container"></div>
             <div id="mission-box">
-                <p style="margin:0; font-weight: bold; font-size: 12px;">MISSION</p>
-                <p id="mission-text" style="font-size: 13px; margin: 3px 0;">무기를 골라 좀비를 물리치세요!</p>
+                <p style="margin:0; font-weight: bold; font-size: 12px;">STATUS & MISSION</p>
+                <p id="village-name" style="margin: 3px 0; color: #3498db; font-weight: bold; font-size: 15px;">Unknown Wilderness</p>
+                <p id="mission-text" style="font-size: 11px; margin: 3px 0; color: #bdc3c7;">[Tip] 몬스터를 잡아 레벨을 올리고 나뭇가지를 모으세요!</p>
+                <p style="margin: 3px 0 0 0; color: #f1c40f; font-size: 14px; font-weight: bold;">Lv. <span id="player-level">1</span></p>
+                <div style="width: 100%; height: 10px; background: #555; border-radius: 5px; margin: 5px 0;">
+                    <div id="hp-bar" style="width: 100%; height: 100%; background: #e74c3c; border-radius: 5px; transition: width 0.2s;"></div>
+                </div>
                 <p style="margin: 3px 0 0 0; color: #2ecc71; font-size: 12px;">SCORE: <span id="score-val">0</span></p>
+                <div id="inventory-btn" style="margin-top: 8px; padding: 5px; background: #3498db; text-align: center; border-radius: 5px; cursor: pointer; pointer-events: auto; font-size: 12px;">INVENTORY (UPGRADE)</div>
+            </div>
+
+            <div id="inventory-overlay" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 320px; background: rgba(0,0,0,0.95); border: 2px solid #3498db; border-radius: 12px; padding: 20px; color: white; pointer-events: auto; z-index: 50; box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);">
+                <h2 style="margin-top: 0; text-align: center; color: #3498db;">EQUIPMENT UPGRADE</h2>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 10px;">
+                    <div style="font-size: 12px;">Sticks: <span id="inv-sticks" style="color: #f1c40f;">0</span></div>
+                    <div style="font-size: 12px;">Wood: <span id="inv-wood" style="color: #e67e22;">0</span></div>
+                    <div style="font-size: 12px;">Fruit: <span id="inv-fruit" style="color: #e74c3c;">0</span></div>
+                    <div style="font-size: 12px;">Herbs: <span id="inv-herbs" style="color: #2ecc71;">0</span></div>
+                    <div style="font-size: 12px;">My Lv: <span id="inv-level" style="color: #2ecc71;">1</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="inv-item" id="inv-sword" style="border: 1px solid #555; padding: 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05);">
+                        <div style="font-weight: bold;">Sword Tier: <span id="sword-level">0 (Locked)</span></div>
+                        <div id="sword-req" style="font-size: 11px; color: #aaa; margin-top: 4px;">Unlock: Lv.3 + 10 Sticks</div>
+                    </div>
+                    <div class="inv-item" id="inv-bow" style="border: 1px solid #555; padding: 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05);">
+                        <div style="font-weight: bold;">Bow Tier: <span id="bow-level">0 (Locked)</span></div>
+                        <div id="bow-req" style="font-size: 11px; color: #aaa; margin-top: 4px;">Unlock: Lv.5 + 20 Sticks</div>
+                    </div>
+                    <p style="font-size: 10px; color: #e74c3c; margin: 0;">* 업그레이드 시 공격력과 효과가 강화됩니다.</p>
+                </div>
+                <button id="close-inv-btn" style="width: 100%; margin-top: 15px; padding: 10px; background: #555; border: none; color: white; border-radius: 5px; cursor: pointer;">RETURN TO GAME</button>
             </div>
 
             <div id="crosshair"></div>
 
             <div id="hotbar">
-                <div class="hotbar-item active" data-block="1" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/grass_block_side.png');"><span>1</span></div>
-                <div class="hotbar-item" data-block="2" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/dirt.png');"><span>2</span></div>
-                <div class="hotbar-item" data-block="3" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/stone.png');"><span>3</span></div>
-                <div class="hotbar-item" data-block="4" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_log.png');"><span>4</span></div>
-                <div class="hotbar-item" data-block="5" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_leaves.png');"><span>5</span></div>
-                <div class="hotbar-item" data-block="6" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/poppy.png');"><span>6</span></div>
-                <div class="hotbar-item" data-block="7" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/cactus_side.png');"><span>7</span></div>
-                <div class="hotbar-item" data-block="8" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/iron_ingot.png');"><span>8</span><label style="position:absolute; bottom:-12px; left:0; width:100%; font-size:7px; text-align:center;">GUN</label></div>
+                <div class="hotbar-item active" data-block="10" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/stick.png');"><span>1</span><label style="position:absolute; bottom:-12px; left:0; width:100%; font-size:7px; text-align:center; color:#f1c40f;">STICK</label></div>
+                <div class="hotbar-item" data-block="1" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/grass_block_side.png');"><span>2</span></div>
+                <div class="hotbar-item" data-block="2" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/dirt.png');"><span>3</span></div>
+                <div class="hotbar-item" data-block="3" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/stone.png');"><span>4</span></div>
+                <div class="hotbar-item" data-block="4" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_log.png');"><span>5</span></div>
+                <div class="hotbar-item" data-block="5" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_leaves.png');"><span>6</span></div>
+                <div class="hotbar-item" data-block="6" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/poppy.png');"><span>7</span></div>
+                <div class="hotbar-item" data-block="7" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/cactus_side.png');"><span>8</span></div>
                 <div class="hotbar-item" data-block="9" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/bow_pulling_2.png');"><span>9</span><label style="position:absolute; bottom:-12px; left:0; width:100%; font-size:7px; text-align:center;">BOW</label></div>
-                <div class="hotbar-item" data-block="10" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/iron_sword.png');"><span>0</span><label style="position:absolute; bottom:-12px; left:0; width:100%; font-size:7px; text-align:center;">SWORD</label></div>
+                <div class="hotbar-item" data-block="11" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/iron_sword.png');"><span>0</span><label style="position:absolute; bottom:-12px; left:0; width:100%; font-size:7px; text-align:center;">SWORD</label></div>
             </div>
 
             <div id="mobile-controls">
