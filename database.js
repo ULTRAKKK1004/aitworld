@@ -13,10 +13,12 @@ db.exec(`
     role TEXT DEFAULT 'GENERAL', -- PENDING, GENERAL, ADMIN
     best_score INTEGER DEFAULT 0,
     airplane_best_score INTEGER DEFAULT 0,
+    lift_rush_best_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
     airplane_attempts INTEGER DEFAULT 0,
     hero_attempts INTEGER DEFAULT 0,
     mc_world_attempts INTEGER DEFAULT 0,
+    lift_rush_attempts INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -32,11 +34,17 @@ db.exec(`
   );
 `);
 
-// Add airplane_best_score column if not exists
+// Add columns if they don't exist
 try {
   db.prepare('ALTER TABLE users ADD COLUMN airplane_best_score INTEGER DEFAULT 0').run();
-} catch (e) {
-  // Column already exists
-}
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN lift_rush_best_score INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN lift_rush_attempts INTEGER DEFAULT 0').run();
+} catch (e) {}
 
 module.exports = db;

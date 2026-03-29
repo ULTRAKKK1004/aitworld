@@ -1,0 +1,237 @@
+/* Lift Rush Neon Style CSS */
+:root {
+    --neon-pink: #ff00ff;
+    --neon-cyan: #00ffff;
+    --neon-lime: #39ff14;
+    --neon-yellow: #ffff00;
+    --bg-dark: #050505;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-dark);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#gameCanvas {
+    background: #000;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.hud {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.stats-panel {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 15px;
+    border: 2px solid var(--neon-cyan);
+    border-radius: 10px;
+    box-shadow: 0 0 15px var(--neon-cyan);
+    min-width: 150px;
+}
+
+.stats-panel div {
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#score { color: var(--neon-lime); font-size: 24px; }
+#best-score { color: var(--neon-yellow); }
+
+.energy-bar-container {
+    width: 100%;
+    height: 10px;
+    background: #222;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.energy-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-lime));
+    width: 100%;
+    transition: width 0.1s;
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    text-align: center;
+}
+
+.overlay h1 {
+    font-size: 64px;
+    margin-bottom: 10px;
+    color: var(--neon-pink);
+    text-shadow: 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink);
+    letter-spacing: 5px;
+    font-style: italic;
+}
+
+.overlay p {
+    font-size: 20px;
+    margin-bottom: 30px;
+    color: var(--neon-cyan);
+}
+
+.start-btn {
+    padding: 20px 60px;
+    font-size: 28px;
+    background: transparent;
+    color: var(--neon-lime);
+    border: 3px solid var(--neon-lime);
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: bold;
+    text-transform: uppercase;
+    transition: all 0.3s;
+    box-shadow: 0 0 15px var(--neon-lime);
+}
+
+.start-btn:hover {
+    background: var(--neon-lime);
+    color: #000;
+    box-shadow: 0 0 30px var(--neon-lime);
+    transform: scale(1.1);
+}
+
+.rank-info {
+    background: rgba(20, 20, 20, 0.9);
+    border: 2px solid var(--neon-cyan);
+    border-radius: 15px;
+    padding: 20px;
+    margin: 20px 0;
+    min-width: 320px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.rank-title { color: var(--neon-yellow); font-size: 18px; margin-bottom: 10px; font-weight: bold; }
+.my-rank { color: var(--neon-lime); font-size: 32px; font-weight: bold; margin: 10px 0; }
+.rival-item { padding: 5px 0; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.rival-item:last-child { border-bottom: none; }
+.rival-item.current { color: var(--neon-cyan); font-weight: bold; background: rgba(0, 255, 255, 0.1); }
+
+.back-link {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    color: #888;
+    text-decoration: none;
+    font-size: 14px;
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s;
+}
+
+.back-link:hover { color: #fff; border-bottom-color: #fff; }
+
+#controls-hint {
+    position: absolute;
+    bottom: calc(120px + 10vh);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+}
+
+#mobile-controls {
+    position: absolute;
+    bottom: calc(30px + 10vh);
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    padding: 0 20px;
+    box-sizing: border-box;
+    z-index: 50;
+}
+
+.control-btn {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid var(--neon-cyan);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: var(--neon-cyan);
+    font-size: 20px;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.control-btn:active {
+    background: var(--neon-cyan);
+    color: #000;
+    box-shadow: 0 0 20px var(--neon-cyan);
+    transform: scale(0.9);
+}
+
+#btn-rise {
+    width: 100px;
+    height: 100px;
+    border-color: var(--neon-lime);
+    color: var(--neon-lime);
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+}
+
+#btn-rise:active {
+    background: var(--neon-lime);
+    box-shadow: 0 0 20px var(--neon-lime);
+}
+
+/* Animations */
+@keyframes shake {
+    0% { transform: translate(1px, 1px) rotate(0deg); }
+    10% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20% { transform: translate(-3px, 0px) rotate(1deg); }
+    30% { transform: translate(3px, 2px) rotate(0deg); }
+    40% { transform: translate(1px, -1px) rotate(1deg); }
+    50% { transform: translate(-1px, 2px) rotate(-1deg); }
+    60% { transform: translate(-3px, 1px) rotate(0deg); }
+    70% { transform: translate(3px, 1px) rotate(-1deg); }
+    80% { transform: translate(-1px, -1px) rotate(1deg); }
+    90% { transform: translate(1px, 2px) rotate(0deg); }
+    100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+
+.shake { animation: shake 0.5s; }
