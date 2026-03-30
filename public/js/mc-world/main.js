@@ -19,7 +19,6 @@ async function init() {
     scene = new THREE.Scene();
     const skyColor = '#87CEEB';
     scene.background = new THREE.Color(skyColor); 
-    // ViewDistance 5 = 160 units. Set fog to start at 100 and end at 150 to hide chunk edges.
     scene.fog = new THREE.Fog(skyColor, 100, 150);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -29,28 +28,23 @@ async function init() {
     audioListener = new THREE.AudioListener();
     camera.add(audioListener);
     
-    // Player Model for Third Person
     const playerModel = new THREE.Group();
-    const bodyGeo = new THREE.BoxGeometry(0.6, 0.8, 0.4);
     const bodyMat = new THREE.MeshLambertMaterial({color: 0x3498db});
-    const pBody = new THREE.Mesh(bodyGeo, bodyMat); pBody.position.y = 0.9;
-    const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
-    const pHead = new THREE.Mesh(headGeo, bodyMat); pHead.position.y = 1.5;
+    const pBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.4), bodyMat); pBody.position.y = 0.9;
+    const pHead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), bodyMat); pHead.position.y = 1.5;
     playerModel.add(pBody, pHead);
     scene.add(playerModel);
 
-    // Camera Pivot for Third Person Rotation
     const cameraPivot = new THREE.Group();
     scene.add(cameraPivot);
     cameraPivot.add(camera);
-    camera.position.set(0, 1.5, 4); // Offset behind player
+    camera.position.set(0, 1.5, 4); 
     
     controls = new PointerLockControls(cameraPivot, document.body);
     window.gameControls = controls;
     
     window.shakeScreen = (intensity) => {
         const start = performance.now();
-        const originalPos = camera.position.clone();
         const shake = () => {
             const elapsed = performance.now() - start;
             if (elapsed < 500) {
@@ -58,15 +52,12 @@ async function init() {
                 camera.position.x += (Math.random() - 0.5) * amount;
                 camera.position.y += (Math.random() - 0.5) * amount;
                 requestAnimationFrame(shake);
-            } else {
-                // Return to neutral if needed, but controls will override
             }
         };
         shake();
     };
 
     const intro = document.getElementById('intro-overlay');
-    
     const startAction = () => {
         if (!('ontouchstart' in window)) controls.lock();
         intro.style.display = 'none';
@@ -85,9 +76,7 @@ async function init() {
     
     intro.addEventListener('click', startAction);
     intro.addEventListener('touchstart', (e) => { e.preventDefault(); startAction(); }, {passive: false});
-    
     controls.addEventListener('lock', () => intro.style.display = 'none');
-    scene.add(controls.getObject());
 
     const loader = new THREE.ImageLoader();
     const canvas = document.createElement('canvas');
@@ -120,9 +109,7 @@ async function init() {
     await player.load(); 
     monsterManager = new MonsterManager(scene);
 
-    // Initial Chunk Load to prevent falling
     chunkManager.updatePlayerPosition(player.position.x, player.position.z);
-
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(50, 100, 50); scene.add(sun);
 
@@ -152,13 +139,8 @@ async function init() {
     };
     select(10);
 
-    // Hotbar Event Listeners
     document.querySelectorAll('.hotbar-item').forEach(el => {
-        const handler = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            select(parseInt(el.dataset.block));
-        };
+        const handler = (e) => { e.preventDefault(); e.stopPropagation(); select(parseInt(el.dataset.block)); };
         el.addEventListener('click', handler);
         el.addEventListener('touchstart', handler, {passive: false});
     });
@@ -172,7 +154,7 @@ async function init() {
         else if (curBlock === 9) wpName = "bow";
         
         if (!wpName || (wpName !== 'stick' && (player.weapons[wpName] || 0) === 0)) {
-            if(wpName) player.showNotification(`Unlock ${wpName} in Equipment Upgrade first!`);
+            if(wpName) player.showNotification(`Unlock ${wpName} first!`);
             return;
         }
 
@@ -180,22 +162,20 @@ async function init() {
         const activeWeapon = weapons[wpName];
         const weaponTier = player.weapons[wpName] || 1;
         const range = wpName === 'stick' ? 3 : (wpName === 'sword' ? 4.5 : 20);
-        const baseDamage = wpName === 'stick' ? 1 : (wpName === 'sword' ? 3 : 2);
-        const damage = baseDamage * weaponTier * (1 + player.level * 0.1);
+        const damage = (wpName === 'stick' ? 1 : (wpName === 'sword' ? 3 : 2)) * weaponTier * (1 + player.level * 0.1);
 
         const startZ = activeWeapon.position.z;
         let startT = performance.now();
         const anim = () => {
             let elap = (performance.now()-startT)/150;
-            if(elap<1){ activeWeapon.position.z = startZ + Math.sin(elap * Math.PI) * (0.2 + weaponTier * 0.05); requestAnimationFrame(anim); }
+            if(elap<1){ activeWeapon.position.z = startZ + Math.sin(elap * Math.PI) * 0.2; requestAnimationFrame(anim); }
             else { activeWeapon.position.z = startZ; swinging = false; }
         }; anim();
 
         const ray = new THREE.Raycaster();
-        const pObj = controls.getObject(); // playerPivot
+        const pObj = controls.getObject();
         const dir = new THREE.Vector3(); pObj.getWorldDirection(dir);
-        ray.set(pObj.position, dir); 
-        ray.far = range;
+        ray.set(pObj.position, dir); ray.far = range;
 
         const monsterMeshes = [];
         monsterManager.monsters.forEach(m => monsterMeshes.push(...m.group.children));
@@ -206,22 +186,17 @@ async function init() {
             if(obj.userData.monster) {
                 obj.userData.monster.takeDamage(damage);
                 player.showFloatingText(`-${Math.floor(damage)}`, '#ff0000');
-                const p = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.1), new THREE.MeshBasicMaterial({color: 0xff0000}));
-                p.position.copy(hits[0].point); scene.add(p);
-                setTimeout(() => scene.remove(p), 200);
             }
         }
     };
 
-    const triggerInteraction = (clientX, clientY) => {
-        if (curBlock === 10 || curBlock === 11) { attack(); return; }
-        if (curBlock === 9 && (player.weapons.bow || 0) > 0) {
-            attack(); return;
-        }
+    const triggerInteraction = () => {
+        if (curBlock === 10 || curBlock === 11 || curBlock === 9) { attack(); return; }
 
         const ray = new THREE.Raycaster();
-        const mouse = new THREE.Vector2((clientX/window.innerWidth)*2-1, -(clientY/window.innerHeight)*2+1);
-        ray.setFromCamera(mouse, camera);
+        const pObj = controls.getObject();
+        const dir = new THREE.Vector3(); pObj.getWorldDirection(dir);
+        ray.set(pObj.position, dir); 
         const meshes = [];
         chunkManager.meshes.forEach(group => meshes.push(...group.children));
         const hits = ray.intersectObjects(meshes);
@@ -229,47 +204,29 @@ async function init() {
             const h = hits[0];
             const pos = h.point.clone().add(h.face.normal.clone().multiplyScalar(isBuild ? 0.5 : -0.5));
             const x = Math.floor(pos.x), y = Math.floor(pos.y), z = Math.floor(pos.z);
-            
             if(isBuild) {
                 if (curBlock === 9) { 
-                    if ((player.inventory.wood || 0) > 0) {
-                        chunkManager.setVoxelGlobal(x, y, z, 9);
-                        player.addItem('wood', -1);
-                    } else player.showNotification("Not enough wood!");
+                    if ((player.inventory.wood || 0) > 0) { chunkManager.setVoxelGlobal(x, y, z, 9); player.addItem('wood', -1); }
+                    else player.showNotification("Not enough wood!");
                     return;
                 }
-                
                 if(curBlock === 4) { 
                     chunkManager.setVoxelGlobal(x, y, z, 4);
-                    setTimeout(() => {
-                        chunkManager.setVoxelGlobal(x, y+1, z, 5); 
-                        player.addItem('wood', 2);
-                        player.addItem('fruit', 1);
-                    }, 2000);
+                    setTimeout(() => { chunkManager.setVoxelGlobal(x, y+1, z, 5); player.addItem('wood', 2); player.addItem('fruit', 1); }, 2000);
                 } else if (curBlock === 6) { 
                     chunkManager.setVoxelGlobal(x, y, z, 6);
-                    setTimeout(() => {
-                        player.addItem('herbs', 1);
-                    }, 2000);
-                } else {
-                    chunkManager.setVoxelGlobal(x, y, z, curBlock);
-                }
+                    setTimeout(() => player.addItem('herbs', 1), 2000);
+                } else chunkManager.setVoxelGlobal(x, y, z, curBlock);
                 player.score += 10; player.updateUI();
-            } else {
-                chunkManager.setVoxelGlobal(x, y, z, 0);
-            }
+            } else chunkManager.setVoxelGlobal(x, y, z, 0);
         }
     };
 
     const invOverlay = document.getElementById('inventory-overlay');
     document.getElementById('inventory-btn')?.addEventListener('click', () => { invOverlay.style.display = 'block'; });
     document.getElementById('close-inv-btn')?.addEventListener('click', () => { invOverlay.style.display = 'none'; });
-    document.getElementById('inv-bow')?.addEventListener('click', () => {
-        if(player.upgradeWeapon('bow')) select(curBlock);
-    });
-    document.getElementById('inv-sword')?.addEventListener('click', () => {
-        if(player.upgradeWeapon('sword')) select(curBlock);
-    });
+    document.getElementById('inv-bow')?.addEventListener('click', () => { if(player.upgradeWeapon('bow')) select(curBlock); });
+    document.getElementById('inv-sword')?.addEventListener('click', () => { if(player.upgradeWeapon('sword')) select(curBlock); });
 
     const keys = {w:0,a:0,s:0,d:0,space:0};
     let isBuild = false;
@@ -294,7 +251,7 @@ async function init() {
     window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = 0; });
     window.addEventListener('mousedown', (e) => { 
         if(intro.style.display === 'none' && !e.target.closest('#hotbar') && !e.target.closest('#inventory-overlay') && !e.target.closest('#inventory-btn')) {
-            triggerInteraction(e.clientX, e.clientY);
+            triggerInteraction();
         } 
     });
 
@@ -357,9 +314,7 @@ async function init() {
         const now = performance.now(), delta = Math.min((now - lastT)/1000, 0.1); lastT = now;
         
         if (intro.style.display === 'none') {
-            const pObj = controls.getObject(); // This is now cameraPivot
-            
-            // Sync PlayerData and Player Model
+            const pObj = controls.getObject(); 
             player.position.x = pObj.position.x;
             player.position.y = pObj.position.y;
             player.position.z = pObj.position.z;
@@ -410,8 +365,7 @@ async function init() {
             if (pObj.position.y < floorY) { pObj.position.y = floorY; vel.y = 0; if (keys.space && !inWater) vel.y = jumpForce; }
             if (pObj.position.y < -10) player.die();
 
-            // Camera Collision to prevent seeing inside ground
-            const camTargetPos = new THREE.Vector3(0, 1.5, 3.5); // Default relative pos
+            const camTargetPos = new THREE.Vector3(0, 1.5, 3.5); 
             const worldCamTarget = camTargetPos.clone().applyMatrix4(pObj.matrixWorld);
             const camDir = new THREE.Vector3().subVectors(worldCamTarget, pObj.position).normalize();
             const camDist = 3.5;
@@ -419,14 +373,12 @@ async function init() {
             let finalDist = camDist;
             const meshes = [];
             chunkManager.meshes.forEach(group => meshes.push(...group.children));
-            const ray = new THREE.Raycaster(pObj.position, camDir, 0, camDist);
-            const hits = ray.intersectObjects(meshes);
-            if (hits.length > 0) {
-                finalDist = hits[0].distance - 0.2;
-            }
+            const camRay = new THREE.Raycaster(pObj.position, camDir, 0, camDist);
+            const hits = camRay.intersectObjects(meshes);
+            if (hits.length > 0) finalDist = hits[0].distance - 0.2;
+            
             camera.position.set(0, 1.5, Math.max(0.1, finalDist));
             camera.lookAt(pObj.position.x, pObj.position.y + 1.2, pObj.position.z);
-            if (pObj.position.y < -10) player.die();
             
             const cx = Math.floor(pObj.position.x / chunkManager.chunkSize);
             const cz = Math.floor(pObj.position.z / chunkManager.chunkSize);
@@ -454,8 +406,7 @@ async function init() {
             renderer.autoClear = false;
             renderer.clearDepth();
             renderer.setScissorTest(true);
-            const mSize = 110;
-            const padding = 20;
+            const mSize = 110, padding = 20;
             renderer.setViewport(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
             renderer.setScissor(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
             renderer.render(scene, minimapCamera);
