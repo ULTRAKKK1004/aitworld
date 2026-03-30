@@ -363,20 +363,8 @@ async function init() {
             if (pObj.position.y < floorY) { pObj.position.y = floorY; vel.y = 0; if (keys.space && !inWater) vel.y = jumpForce; }
             if (pObj.position.y < -10) player.die();
 
-            const camTargetPos = new THREE.Vector3(0, 1.5, 3.5); 
-            const worldCamTarget = camTargetPos.clone().applyMatrix4(pObj.matrixWorld);
-            const camDir = new THREE.Vector3().subVectors(worldCamTarget, pObj.position).normalize();
-            const camDist = 3.5;
-            
-            let finalDist = camDist;
-            const meshes = [];
-            chunkManager.meshes.forEach(group => meshes.push(...group.children));
-            const camRay = new THREE.Raycaster(pObj.position, camDir, 0, camDist);
-            const hits = camRay.intersectObjects(meshes);
-            if (hits.length > 0) finalDist = hits[0].distance - 0.2;
-            
-            camera.position.set(0, 1.5, Math.max(0.1, finalDist));
-            camera.lookAt(pObj.position.x, pObj.position.y + 1.2, pObj.position.z);
+            // First Person: Camera stays at fixed height relative to player pivot
+            camera.position.set(0, 1.6, 0);
             
             const cx = Math.floor(pObj.position.x / chunkManager.chunkSize);
             const cz = Math.floor(pObj.position.z / chunkManager.chunkSize);
@@ -394,6 +382,27 @@ async function init() {
             if(now - lastSave > 10000) { player.save(); lastSave = now; }
             minimapCamera.position.set(pObj.position.x, 80, pObj.position.z);
             minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
+
+            renderer.autoClear = true;
+            renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            renderer.render(scene, camera);
+            
+            renderer.autoClear = false;
+            renderer.clearDepth();
+            renderer.setScissorTest(true);
+            const mSize = 110, padding = 20;
+            renderer.setViewport(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
+            renderer.setScissor(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
+            renderer.render(scene, minimapCamera);
+            renderer.setScissorTest(false);
+            renderer.autoClear = true;
+        }
+    };
+    animate();
+    window.addEventListener('beforeunload', () => player.save());
+}
+init().catch(console.error);
+t(pObj.position.x, 0, pObj.position.z);
 
             renderer.autoClear = true;
             renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
