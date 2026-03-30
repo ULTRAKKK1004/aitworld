@@ -11,18 +11,19 @@ let audioListener, bgm;
 
 async function init() {
     const container = document.getElementById('game-container');
-    renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.autoClear = false;
     container.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color('#a0d8ef');
-    scene.fog = new THREE.Fog('#a0d8ef', 10, 60);
+    const skyColor = '#87CEEB';
+    scene.background = new THREE.Color(skyColor); 
+    // ViewDistance 5 = 160 units. Set fog to start at 100 and end at 150 to hide chunk edges.
+    scene.fog = new THREE.Fog(skyColor, 100, 150);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-    minimapCamera = new THREE.OrthographicCamera(-50, 50, 50, -50, 1, 200);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1.0, 1000);
+    minimapCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 1000);
     minimapCamera.up.set(0, 0, -1);
 
     audioListener = new THREE.AudioListener();
@@ -30,6 +31,24 @@ async function init() {
     
     controls = new PointerLockControls(camera, document.body);
     window.gameControls = controls;
+    
+    window.shakeScreen = (intensity) => {
+        const start = performance.now();
+        const originalPos = camera.position.clone();
+        const shake = () => {
+            const elapsed = performance.now() - start;
+            if (elapsed < 500) {
+                const amount = intensity * (1 - elapsed / 500);
+                camera.position.x += (Math.random() - 0.5) * amount;
+                camera.position.y += (Math.random() - 0.5) * amount;
+                requestAnimationFrame(shake);
+            } else {
+                // Return to neutral if needed, but controls will override
+            }
+        };
+        shake();
+    };
+
     const intro = document.getElementById('intro-overlay');
     
     const startAction = () => {
@@ -85,8 +104,11 @@ async function init() {
     await player.load(); 
     monsterManager = new MonsterManager(scene);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(10, 20, 10); scene.add(sun);
+    // Initial Chunk Load to prevent falling
+    chunkManager.updatePlayerPosition(player.position.x, player.position.z);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(50, 100, 50); scene.add(sun);
 
     const weaponGroup = new THREE.Group(); camera.add(weaponGroup);
     weapons.stick = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8), new THREE.MeshLambertMaterial({color: 0x8B4513}));
@@ -97,7 +119,7 @@ async function init() {
     const s_b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.03), new THREE.MeshLambertMaterial({color: 0xADD8E6}));
     s_b.position.y = 0.4; weapons.sword.add(s_h, s_b); weapons.sword.position.set(0.5, -0.5, -0.7); weapons.sword.rotation.x = -Math.PI/3;
     weaponGroup.add(weapons.sword);
-     weapons.bow = new THREE.Group();
+    weapons.bow = new THREE.Group();
     const b_c = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.02, 8, 12, Math.PI), new THREE.MeshLambertMaterial({color: 0x8B4513}));
     b_c.rotation.y = Math.PI/2; weapons.bow.add(b_c); weapons.bow.position.set(0.4, -0.3, -0.6);
     weaponGroup.add(weapons.bow);
@@ -162,6 +184,7 @@ async function init() {
             while(obj.parent && !obj.userData.monster) obj = obj.parent;
             if(obj.userData.monster) {
                 obj.userData.monster.takeDamage(damage);
+                player.showFloatingText(`-${Math.floor(damage)}`, '#ff0000');
                 const p = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.1), new THREE.MeshBasicMaterial({color: 0xff0000}));
                 p.position.copy(hits[0].point); scene.add(p);
                 setTimeout(() => scene.remove(p), 200);
@@ -178,7 +201,8 @@ async function init() {
         const ray = new THREE.Raycaster();
         const mouse = new THREE.Vector2((clientX/window.innerWidth)*2-1, -(clientY/window.innerHeight)*2+1);
         ray.setFromCamera(mouse, camera);
-        const meshes = Array.from(chunkManager.meshes.values());
+        const meshes = [];
+        chunkManager.meshes.forEach(group => meshes.push(...group.children));
         const hits = ray.intersectObjects(meshes);
         if(hits.length > 0) {
             const h = hits[0];
@@ -190,10 +214,7 @@ async function init() {
                     if ((player.inventory.wood || 0) > 0) {
                         chunkManager.setVoxelGlobal(x, y, z, 9);
                         player.addItem('wood', -1);
-                        player.showNotification("Building with wood...");
-                    } else {
-                        player.showNotification("Not enough wood! Plant logs (4) first.");
-                    }
+                    } else player.showNotification("Not enough wood!");
                     return;
                 }
                 
@@ -203,13 +224,11 @@ async function init() {
                         chunkManager.setVoxelGlobal(x, y+1, z, 5); 
                         player.addItem('wood', 2);
                         player.addItem('fruit', 1);
-                        player.showNotification("Harvested Wood & Fruit!");
                     }, 2000);
                 } else if (curBlock === 6) { 
                     chunkManager.setVoxelGlobal(x, y, z, 6);
                     setTimeout(() => {
                         player.addItem('herbs', 1);
-                        player.showNotification("Harvested Herb!");
                     }, 2000);
                 } else {
                     chunkManager.setVoxelGlobal(x, y, z, curBlock);
@@ -318,6 +337,11 @@ async function init() {
         
         if (intro.style.display === 'none') {
             const pObj = controls.getObject();
+            // Sync PlayerData position for Monster AI
+            player.position.x = pObj.position.x;
+            player.position.y = pObj.position.y;
+            player.position.z = pObj.position.z;
+
             chunkManager.updatePlayerPosition(pObj.position.x, pObj.position.z);
 
             const inWater = chunkManager.getVoxelGlobal(pObj.position.x, pObj.position.y - 0.5, pObj.position.z) === 11;
@@ -337,6 +361,7 @@ async function init() {
                     for (let ox of [-pad, pad]) {
                         for (let oz of [-pad, pad]) {
                             const b = chunkManager.getVoxelGlobal(nx + ox, ny - 0.5, nz + oz);
+                            // b === -1 means it's the edge of the loaded world, block entry
                             if (b !== 0 && b !== 11) return true;
                         }
                     }
@@ -371,7 +396,7 @@ async function init() {
                 player.lastVillage = { x: cx * chunkManager.chunkSize + 16, z: cz * chunkManager.chunkSize + 16 };
             } else {
                 if(vNameEl) vNameEl.innerText = "Unknown Wilderness";
-                if (Math.random() < 0.05 * delta) monsterManager.spawn(pObj.position, player.level);
+                if (Math.random() < 0.3 * delta) monsterManager.spawn(pObj.position, player.level);
             }
             monsterManager.update(delta, player, chunkManager);
 
@@ -380,16 +405,21 @@ async function init() {
             minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
         }
         
+        renderer.autoClear = true;
         renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
         renderer.render(scene, camera);
+        
         if (intro.style.display === 'none') {
+            renderer.autoClear = false;
             renderer.clearDepth();
             renderer.setScissorTest(true);
             const mSize = 110;
-            renderer.setViewport(window.innerWidth - mSize - 20, window.innerHeight - mSize - 20, mSize, mSize);
-            renderer.setScissor(window.innerWidth - mSize - 20, window.innerHeight - mSize - 20, mSize, mSize);
+            const padding = 20;
+            renderer.setViewport(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
+            renderer.setScissor(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
             renderer.render(scene, minimapCamera);
             renderer.setScissorTest(false);
+            renderer.autoClear = true;
         }
     };
     animate();
