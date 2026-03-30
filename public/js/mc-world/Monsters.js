@@ -12,10 +12,11 @@ class Monster {
         this.speed = 2.5;
         this.damage = this.level * 2;
         this.aggroRange = 18;
-        this.attackRange = 2.5; 
+        this.attackRange = 4.0; 
         this.state = 'ROAM';
         this.velocity = new THREE.Vector3();
         this.cooldown = 0;
+        this.lungeTimer = 0;
         
         this.uiSprite = this.createUISprite();
         this.uiSprite.position.y = 2.5;
@@ -384,6 +385,18 @@ export class MonsterManager {
 
         for (let i = this.droppedItems.length - 1; i >= 0; i--) {
             const item = this.droppedItems[i];
+            item.update(delta);
+            const dist = item.group.position.distanceTo(player.position);
+            if (dist < 2.2) {
+                player.addItem(item.type, 1);
+                player.showFloatingText(`+1 ${item.type}`, '#2ecc71');
+                this.scene.remove(item.group);
+                this.droppedItems.splice(i, 1);
+            }
+        }
+    }
+}
+ const item = this.droppedItems[i];
             item.update(delta);
             const dist = item.group.position.distanceTo(player.position);
             if (dist < 2.2) {

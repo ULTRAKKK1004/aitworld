@@ -22,14 +22,30 @@ async function init() {
     // ViewDistance 5 = 160 units. Set fog to start at 100 and end at 150 to hide chunk edges.
     scene.fog = new THREE.Fog(skyColor, 100, 150);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1.0, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     minimapCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 1000);
     minimapCamera.up.set(0, 0, -1);
 
     audioListener = new THREE.AudioListener();
     camera.add(audioListener);
     
-    controls = new PointerLockControls(camera, document.body);
+    // Player Model for Third Person
+    const playerModel = new THREE.Group();
+    const bodyGeo = new THREE.BoxGeometry(0.6, 0.8, 0.4);
+    const bodyMat = new THREE.MeshLambertMaterial({color: 0x3498db});
+    const pBody = new THREE.Mesh(bodyGeo, bodyMat); pBody.position.y = 0.9;
+    const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+    const pHead = new THREE.Mesh(headGeo, bodyMat); pHead.position.y = 1.5;
+    playerModel.add(pBody, pHead);
+    scene.add(playerModel);
+
+    // Camera Pivot for Third Person Rotation
+    const cameraPivot = new THREE.Group();
+    scene.add(cameraPivot);
+    cameraPivot.add(camera);
+    camera.position.set(0, 1.5, 4); // Offset behind player
+    
+    controls = new PointerLockControls(cameraPivot, document.body);
     window.gameControls = controls;
     
     window.shakeScreen = (intensity) => {
@@ -175,7 +191,12 @@ async function init() {
             else { activeWeapon.position.z = startZ; swinging = false; }
         }; anim();
 
-        const ray = new THREE.Raycaster(); ray.setFromCamera({x:0,y:0}, camera); ray.far = range;
+        const ray = new THREE.Raycaster();
+        const pObj = controls.getObject(); // playerPivot
+        const dir = new THREE.Vector3(); pObj.getWorldDirection(dir);
+        ray.set(pObj.position, dir); 
+        ray.far = range;
+
         const monsterMeshes = [];
         monsterManager.monsters.forEach(m => monsterMeshes.push(...m.group.children));
         const hits = ray.intersectObjects(monsterMeshes, false);
@@ -336,21 +357,24 @@ async function init() {
         const now = performance.now(), delta = Math.min((now - lastT)/1000, 0.1); lastT = now;
         
         if (intro.style.display === 'none') {
-            const pObj = controls.getObject();
-            // Sync PlayerData position for Monster AI
+            const pObj = controls.getObject(); // This is now cameraPivot
+            
+            // Sync PlayerData and Player Model
             player.position.x = pObj.position.x;
             player.position.y = pObj.position.y;
             player.position.z = pObj.position.z;
+            playerModel.position.copy(pObj.position);
+            playerModel.rotation.y = pObj.rotation.y;
 
             chunkManager.updatePlayerPosition(pObj.position.x, pObj.position.z);
 
             const inWater = chunkManager.getVoxelGlobal(pObj.position.x, pObj.position.y - 0.5, pObj.position.z) === 11;
             const gravity = inWater ? 5 : 22;
             const jumpForce = inWater ? 4 : 9;
-            const speedBase = inWater ? 4 : 8;
+            const speedBase = inWater ? 4 : 10;
 
-            const mVec = new THREE.Vector3(); camera.getWorldDirection(mVec); mVec.y = 0; mVec.normalize();
-            const sVec = new THREE.Vector3().crossVectors(mVec, camera.up).normalize();
+            const mVec = new THREE.Vector3(); pObj.getWorldDirection(mVec); mVec.y = 0; mVec.normalize();
+            const sVec = new THREE.Vector3().crossVectors(mVec, pObj.up).normalize();
             const moveDir = new THREE.Vector3().addScaledVector(mVec, keys.w - keys.s).addScaledVector(sVec, keys.d - keys.a);
             
             if (moveDir.lengthSq() > 0) {
@@ -361,7 +385,6 @@ async function init() {
                     for (let ox of [-pad, pad]) {
                         for (let oz of [-pad, pad]) {
                             const b = chunkManager.getVoxelGlobal(nx + ox, ny - 0.5, nz + oz);
-                            // b === -1 means it's the edge of the loaded world, block entry
                             if (b !== 0 && b !== 11) return true;
                         }
                     }
@@ -385,6 +408,24 @@ async function init() {
                 }
             }
             if (pObj.position.y < floorY) { pObj.position.y = floorY; vel.y = 0; if (keys.space && !inWater) vel.y = jumpForce; }
+            if (pObj.position.y < -10) player.die();
+
+            // Camera Collision to prevent seeing inside ground
+            const camTargetPos = new THREE.Vector3(0, 1.5, 3.5); // Default relative pos
+            const worldCamTarget = camTargetPos.clone().applyMatrix4(pObj.matrixWorld);
+            const camDir = new THREE.Vector3().subVectors(worldCamTarget, pObj.position).normalize();
+            const camDist = 3.5;
+            
+            let finalDist = camDist;
+            const meshes = [];
+            chunkManager.meshes.forEach(group => meshes.push(...group.children));
+            const ray = new THREE.Raycaster(pObj.position, camDir, 0, camDist);
+            const hits = ray.intersectObjects(meshes);
+            if (hits.length > 0) {
+                finalDist = hits[0].distance - 0.2;
+            }
+            camera.position.set(0, 1.5, Math.max(0.1, finalDist));
+            camera.lookAt(pObj.position.x, pObj.position.y + 1.2, pObj.position.z);
             if (pObj.position.y < -10) player.die();
             
             const cx = Math.floor(pObj.position.x / chunkManager.chunkSize);
