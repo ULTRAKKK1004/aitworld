@@ -47,18 +47,12 @@ class Monster {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(10, 5, 236, 65);
-        
-        // HP Bar
         const hpWidth = (this.hp / this.maxHp) * 220;
         ctx.fillStyle = '#e74c3c';
         ctx.fillRect(18, 30, Math.max(0, hpWidth), 12);
-        
-        // MP Bar
         const mpWidth = (this.mp / this.maxMp) * 220;
         ctx.fillStyle = '#3498db';
         ctx.fillRect(18, 45, Math.max(0, mpWidth), 8);
-        
-        // Text
         ctx.fillStyle = 'white';
         ctx.font = 'bold 18px Arial';
         ctx.fillText(`Lv.${this.level} ${this.constructor.name}`, 20, 25);
@@ -69,7 +63,6 @@ class Monster {
         this.state = 'CHASE';
         this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
         this.uiSprite.material.map.needsUpdate = true;
-
         this.group.traverse(c => {
             if(c.material && c !== this.uiSprite) {
                 const old = c.material.emissive?.getHex() || 0;
@@ -77,25 +70,18 @@ class Monster {
                 setTimeout(() => { if(c.material) c.material.emissive?.setHex(old); }, 100);
             }
         });
-        if(this.hp <= 0) {
-            this.scene.remove(this.group);
-            return true;
-        }
+        if(this.hp <= 0) { this.scene.remove(this.group); return true; }
         return false;
     }
 
     update(delta, player, chunkManager) {
         if(this.cooldown > 0) this.cooldown -= delta;
-        
-        // Calculate horizontal distance (ignoring Y) for better AI detection
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
-        const distToPlayer = this.group.position.distanceTo(player.position);
 
         if (dist2D < this.aggroRange) this.state = 'CHASE';
 
-        // Simple animation
         const walkCycle = Math.sin(Date.now() * 0.01) * 0.3;
         this.group.children.forEach(c => {
             if (c.name === 'legL') c.rotation.x = walkCycle;
@@ -103,33 +89,24 @@ class Monster {
         });
 
         if (this.state === 'CHASE') {
-            if (dist2D <= this.attackRange + 0.5) {
+            if (dist2D <= this.attackRange) {
                 this.state = 'ATTACK';
             } else {
                 const dir = new THREE.Vector3(dx, 0, dz).normalize();
-                
-                // Prediction: Avoid water
-                const nextX = this.group.position.x + dir.x * this.speed * delta;
-                const nextZ = this.group.position.z + dir.z * this.speed * delta;
-                let nextGround = -10;
-                for (let y = 63; y >= 0; y--) {
-                    const v = chunkManager.getVoxelGlobal(nextX, y, nextZ);
-                    if (v !== 0 && v !== 11) { nextGround = y + 1; break; }
-                }
-
-                if (nextGround >= 10) { // Don't move to deep water or void
-                    this.group.position.add(dir.multiplyScalar(this.speed * delta));
-                }
+                this.group.position.add(dir.multiplyScalar(this.speed * delta));
                 this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
             }
         } else if (this.state === 'ATTACK') {
-            if (dist2D > this.attackRange + 1.5) {
+            if (dist2D > this.attackRange + 2.0) {
                 this.state = 'CHASE';
-            } else if (this.cooldown <= 0) {
-                player.takeDamage(this.damage);
-                this.cooldown = 1.2;
-                // Attack animation "jump"
-                this.group.position.y += 0.5;
+            } else {
+                this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
+                if (this.cooldown <= 0) {
+                    player.takeDamage(this.damage);
+                    player.showFloatingText(`-${Math.floor(this.damage)} HP`, '#e74c3c');
+                    this.cooldown = 1.5;
+                    this.lungeTimer = 0.4;
+                }
             }
         } else if (this.state === 'ROAM') {
             if (Math.random() < 0.01) {
@@ -137,6 +114,13 @@ class Monster {
                 this.group.lookAt(this.group.position.x + this.velocity.x, this.group.position.y, this.group.position.z + this.velocity.z);
             }
             this.group.position.addScaledVector(this.velocity, delta);
+        }
+
+        if (this.lungeTimer > 0) {
+            this.lungeTimer -= delta;
+            const dir = new THREE.Vector3(dx, 0, dz).normalize();
+            this.group.position.add(dir.multiplyScalar(this.speed * 2 * delta));
+            this.group.position.y += Math.sin(this.lungeTimer * Math.PI / 0.4) * 0.5;
         }
 
         let groundY = -10;
@@ -148,19 +132,16 @@ class Monster {
             if (v === 11) inWater = true;
             if (v !== 0 && v !== 11) { groundY = y + 1; inWater = false; break; }
         }
-        
         if (inWater && groundY < 10) { 
-            this.hp -= delta * 15; // Drown in deep water
+            this.hp -= delta * 15; 
             this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, 9.2, 0.1); 
-        } else {
+        } else if (this.lungeTimer <= 0) {
             this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, groundY, 0.2);
         }
-
         if (this.group.position.y < -10) this.hp = 0;
     }
 }
 
-// Pokemon Inspired Monsters
 export class Pika extends Monster {
     constructor(scene, playerPos, playerLevel) {
         super(scene, playerPos, playerLevel);
@@ -237,25 +218,15 @@ export class BeholderBoss extends Monster {
         this.attackRange = 25; 
         this.group.scale.set(4, 4, 4);
         this.uiSprite.position.y = 2.5;
-        
-        const bodyGeo = new THREE.SphereGeometry(1, 16, 16);
-        const bodyMat = new THREE.MeshLambertMaterial({color: 0x800080});
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        const body = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshLambertMaterial({color: 0x800080}));
         body.position.y = 1.0;
-        this.group.add(body);
-
-        const eyeGeo = new THREE.SphereGeometry(0.4, 8, 8);
-        const eyeMat = new THREE.MeshBasicMaterial({color: 0xffffff});
-        const pupilGeo = new THREE.SphereGeometry(0.15, 8, 8);
-        const pupilMat = new THREE.MeshBasicMaterial({color: 0xff0000});
-        const eye = new THREE.Mesh(eyeGeo, eyeMat);
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshBasicMaterial({color: 0xffffff}));
         eye.position.set(0, 1.2, 0.8);
-        const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+        const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshBasicMaterial({color: 0xff0000}));
         pupil.position.set(0, 1.2, 1.15);
-        this.group.add(eye, pupil);
-
+        this.group.add(body, eye, pupil);
         for(let i=0; i<6; i++) {
-            const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, 0.8), bodyMat);
+            const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, 0.8), body.material);
             const angle = (i / 6) * Math.PI * 2;
             stalk.position.set(Math.cos(angle)*0.8, 1.8, Math.sin(angle)*0.8);
             stalk.rotation.x = Math.PI/4;
@@ -269,37 +240,28 @@ export class BeholderBoss extends Monster {
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
-        
         if (dist2D < this.aggroRange) this.state = 'CHASE';
-
         if (this.state === 'CHASE') {
-            if (dist2D <= this.attackRange) {
-                this.state = 'ATTACK';
-            } else {
+            if (dist2D <= this.attackRange) this.state = 'ATTACK';
+            else {
                 const dir = new THREE.Vector3(dx, 0, dz).normalize();
                 this.group.position.add(dir.multiplyScalar(this.speed * delta));
                 this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
             }
         } else if (this.state === 'ATTACK') {
-            if (dist2D > this.attackRange + 5) {
-                this.state = 'CHASE';
-            } else if (this.cooldown <= 0) {
+            if (dist2D > this.attackRange + 5) this.state = 'CHASE';
+            else if (this.cooldown <= 0) {
                 player.takeDamage(this.damage);
                 this.cooldown = 2.5;
                 if (window.shakeScreen) window.shakeScreen(0.5);
             }
-        } else if (this.state === 'ROAM') {
-            super.update(delta, player, chunkManager);
-        }
+        } else if (this.state === 'ROAM') super.update(delta, player, chunkManager);
         
-        // Hover effect for Beholder (relative to ground)
         let groundY = 10;
-        const gx = Math.floor(this.group.position.x);
-        const gz = Math.floor(this.group.position.z);
+        const gx = Math.floor(this.group.position.x), gz = Math.floor(this.group.position.z);
         for (let y = 63; y >= 0; y--) {
             const v = chunkManager.getVoxelGlobal(gx, y, gz);
             if (v !== 0 && v !== 11) { groundY = Math.max(groundY, y + 1); break; }
-            if (v === 11) { groundY = Math.max(groundY, 10); } // Stay above water
         }
         this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, groundY + 4 + Math.sin(Date.now() * 0.002) * 1.5, 0.1);
     }
@@ -312,21 +274,15 @@ export class DroppedItem {
         this.group = new THREE.Group();
         this.group.position.copy(pos);
         this.group.position.y += 0.5;
-        
         let visual;
         if (type === 'sticks') {
             visual = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.6), new THREE.MeshLambertMaterial({color: 0x8B4513}));
             visual.rotation.z = Math.PI/4;
-        } else if (type === 'wood') {
-            visual = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.4), new THREE.MeshLambertMaterial({color: 0xe67e22}));
-        } else if (type === 'fruit') {
-            visual = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshLambertMaterial({color: 0xe74c3c}));
-        } else {
-            visual = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.05, 8, 8), new THREE.MeshLambertMaterial({color: 0x2ecc71}));
-        }
+        } else if (type === 'wood') visual = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.4), new THREE.MeshLambertMaterial({color: 0xe67e22}));
+        else if (type === 'fruit') visual = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshLambertMaterial({color: 0xe74c3c}));
+        else visual = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.05, 8, 8), new THREE.MeshLambertMaterial({color: 0x2ecc71}));
         this.group.add(visual);
-        const glow = new THREE.PointLight(visual.material.color, 0.5, 2);
-        this.group.add(glow);
+        this.group.add(new THREE.PointLight(visual.material.color, 0.5, 2));
         this.scene.add(this.group);
     }
     update(delta) {
@@ -342,7 +298,6 @@ export class MonsterManager {
         this.droppedItems = [];
         this.bossTimer = 0;
     }
-
     spawn(playerPos, playerLevel) {
         if(this.monsters.length > 25) return;
         const r = Math.random();
@@ -352,12 +307,9 @@ export class MonsterManager {
         else m = new Char(this.scene, playerPos, playerLevel);
         this.monsters.push(m);
     }
-
     spawnBoss(playerPos, playerLevel) {
-        const m = new BeholderBoss(this.scene, playerPos, playerLevel);
-        this.monsters.push(m);
+        this.monsters.push(new BeholderBoss(this.scene, playerPos, playerLevel));
     }
-
     update(delta, player, chunkManager) {
         this.bossTimer += delta;
         if (this.bossTimer >= 180) { 
@@ -365,41 +317,24 @@ export class MonsterManager {
             this.bossTimer = 0;
             player.showNotification("A MULTI-EYED BEHOLDER HAS SPAWNED!");
         }
-
         for (let i = this.monsters.length - 1; i >= 0; i--) {
             const m = this.monsters[i];
             m.update(delta, player, chunkManager);
             if (m.hp <= 0) {
-                const dropCount = m instanceof BeholderBoss ? 15 : 2;
                 const types = ['sticks', 'wood', 'fruit', 'herbs'];
-                for(let k=0; k<dropCount; k++) {
-                    const type = types[Math.floor(Math.random()*types.length)];
+                for(let k=0; k<(m instanceof BeholderBoss ? 15 : 2); k++) {
                     const offset = new THREE.Vector3((Math.random()-0.5)*2.5, 0, (Math.random()-0.5)*2.5);
-                    this.droppedItems.push(new DroppedItem(this.scene, type, m.group.position.clone().add(offset)));
+                    this.droppedItems.push(new DroppedItem(this.scene, types[Math.floor(Math.random()*types.length)], m.group.position.clone().add(offset)));
                 }
                 player.addXp(m.level * 25);
                 player.score += m.level * 100;
                 this.monsters.splice(i, 1);
             }
         }
-
         for (let i = this.droppedItems.length - 1; i >= 0; i--) {
             const item = this.droppedItems[i];
             item.update(delta);
-            const dist = item.group.position.distanceTo(player.position);
-            if (dist < 2.2) {
-                player.addItem(item.type, 1);
-                player.showFloatingText(`+1 ${item.type}`, '#2ecc71');
-                this.scene.remove(item.group);
-                this.droppedItems.splice(i, 1);
-            }
-        }
-    }
-}
- const item = this.droppedItems[i];
-            item.update(delta);
-            const dist = item.group.position.distanceTo(player.position);
-            if (dist < 2.2) {
+            if (item.group.position.distanceTo(player.position) < 2.2) {
                 player.addItem(item.type, 1);
                 player.showFloatingText(`+1 ${item.type}`, '#2ecc71');
                 this.scene.remove(item.group);
