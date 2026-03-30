@@ -192,7 +192,6 @@ async function init() {
 
     const triggerInteraction = () => {
         if (curBlock === 10 || curBlock === 11 || curBlock === 9) { attack(); return; }
-
         const ray = new THREE.Raycaster();
         const pObj = controls.getObject();
         const dir = new THREE.Vector3(); pObj.getWorldDirection(dir);
@@ -222,9 +221,8 @@ async function init() {
         }
     };
 
-    const invOverlay = document.getElementById('inventory-overlay');
-    document.getElementById('inventory-btn')?.addEventListener('click', () => { invOverlay.style.display = 'block'; });
-    document.getElementById('close-inv-btn')?.addEventListener('click', () => { invOverlay.style.display = 'none'; });
+    document.getElementById('inventory-btn')?.addEventListener('click', () => { document.getElementById('inventory-overlay').style.display = 'block'; });
+    document.getElementById('close-inv-btn')?.addEventListener('click', () => { document.getElementById('inventory-overlay').style.display = 'none'; });
     document.getElementById('inv-bow')?.addEventListener('click', () => { if(player.upgradeWeapon('bow')) select(curBlock); });
     document.getElementById('inv-sword')?.addEventListener('click', () => { if(player.upgradeWeapon('sword')) select(curBlock); });
 
@@ -396,13 +394,11 @@ async function init() {
             if(now - lastSave > 10000) { player.save(); lastSave = now; }
             minimapCamera.position.set(pObj.position.x, 80, pObj.position.z);
             minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
-        }
-        
-        renderer.autoClear = true;
-        renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-        renderer.render(scene, camera);
-        
-        if (intro.style.display === 'none') {
+
+            renderer.autoClear = true;
+            renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            renderer.render(scene, camera);
+            
             renderer.autoClear = false;
             renderer.clearDepth();
             renderer.setScissorTest(true);
