@@ -13,6 +13,7 @@ export class PlayerData {
         this.lastVillage = { x: 16, z: 16 };
         this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
+        this.info = "";
     }
 
     addXp(amount) {
@@ -210,29 +211,104 @@ export class PlayerData {
             const p = window.gameControls.getObject().position;
             if (p) this.position.set(p.x, p.y, p.z);
         }
+
+        // Generate inventory summary for admin info
+        const inv = this.inventory || {};
+        this.info = `S:${inv.sticks||0}, W:${inv.wood||0}, F:${inv.fruit||0}, H:${inv.herbs||0}`;
+
+        const dataToSave = {
+            level: this.level,
+            xp: this.xp,
+            hp: this.hp,
+            maxHp: this.maxHp,
+            mp: this.mp,
+            maxMp: this.maxMp,
+            inventory: this.inventory,
+            weapons: this.weapons,
+            lastVillage: this.lastVillage,
+            position: { x: this.position.x, y: this.position.y, z: this.position.z },
+            score: this.score,
+            info: this.info
+        };
+
         try {
-            await fetch('/api/mc-world/save', {
+            console.log("Saving data:", dataToSave);
+            const response = await fetch('/api/mc-world/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ saveData: this })
+                body: JSON.stringify({ 
+                    saveData: dataToSave, 
+                    level: this.level,
+                    info: this.info,
+                    score: Math.floor(this.score)
+                })
             });
-        } catch(e) {}
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Save failed (HTTP " + response.status + "):", errorText);
+                alert("Save Failed (HTTP " + response.status + "): " + errorText);
+                return;
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                console.log("Save successful");
+            } else {
+                console.error("Save failed server-side:", result.error);
+                alert("Save Failed: " + result.error);
+            }
+            
+            // Also update high score
+            await fetch('/api/submit-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    score: Math.floor(this.score),
+                    gameType: 'mc-world'
+                })
+            });
+        } catch(e) {
+            console.error("Save failed (Fetch Error):", e);
+            alert("Save Connection Error: " + e.message);
+        }
     }
 
     async load() {
         try {
+            console.log("Loading data from server...");
             const res = await fetch('/api/mc-world/load');
             const data = await res.json();
-            if (data.success && data.saveData) {
-                if(!data.saveData.inventory) data.saveData.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0 };
-                if(!data.saveData.weapons) data.saveData.weapons = { stick: 1, bow: 0, sword: 0 };
-                if(data.saveData.position) {
-                    const p = data.saveData.position;
-                    data.saveData.position = new THREE.Vector3(p.x, p.y, p.z);
+            if (data.success) {
+                console.log("Load response data:", data);
+                if (data.saveData) {
+                    const s = data.saveData;
+                    if (s.level) this.level = s.level;
+                    if (s.xp !== undefined) this.xp = s.xp;
+                    if (s.hp !== undefined) this.hp = s.hp;
+                    if (s.maxHp) this.maxHp = s.maxHp;
+                    if (s.mp !== undefined) this.mp = s.mp;
+                    if (s.maxMp) this.maxMp = s.maxMp;
+                    if (s.inventory) this.inventory = s.inventory;
+                    if (s.weapons) this.weapons = s.weapons;
+                    if (s.lastVillage) this.lastVillage = s.lastVillage;
+                    if (s.score !== undefined) this.score = s.score;
+                    
+                    if (s.position) {
+                        this.position.set(s.position.x, s.position.y, s.position.z);
+                        console.log("Position restored:", this.position);
+                    }
                 }
-                Object.assign(this, data.saveData);
+                
+                // Final override if server has specific level/info
+                if (data.level) this.level = data.level;
+                if (data.info) this.info = data.info;
+                
+                console.log("Load complete. Level:", this.level, "Score:", this.score);
             }
-        } catch(e) {}
+        } catch(e) {
+            console.error("Load failed:", e);
+        }
         this.updateUI();
     }
 }

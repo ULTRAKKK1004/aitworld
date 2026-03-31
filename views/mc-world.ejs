@@ -50,10 +50,28 @@
         }
 
         #minimap-container {
-            position: absolute; top: env(safe-area-inset-top, 20px); right: env(safe-area-inset-right, 20px);
+            position: absolute; top: calc(env(safe-area-inset-top, 20px) + 40px); right: env(safe-area-inset-right, 20px);
             width: 110px; height: 110px; border: 2px solid rgba(255,255,255,0.4);
             border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.5);
             pointer-events: none; z-index: 20;
+        }
+
+        #game-menu-btns {
+            position: absolute; top: env(safe-area-inset-top, 20px); right: env(safe-area-inset-right, 20px);
+            display: flex; gap: 8px; z-index: 30; pointer-events: auto;
+        }
+        .menu-btn {
+            background: rgba(0,0,0,0.6); color: white; padding: 6px 12px; border-radius: 6px;
+            font-size: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.3);
+            font-weight: bold; backdrop-filter: blur(5px);
+        }
+        #save-btn { background: rgba(46, 204, 113, 0.7); }
+        #exit-btn { background: rgba(231, 76, 60, 0.7); }
+        #reset-data-btn {
+            position: absolute; top: env(safe-area-inset-top, 20px); right: env(safe-area-inset-right, 20px);
+            background: rgba(231, 76, 60, 0.8); color: white; padding: 8px 15px;
+            border-radius: 8px; font-size: 12px; cursor: pointer; pointer-events: auto;
+            border: 1px solid rgba(255,255,255,0.2); font-weight: bold;
         }
 
         #mobile-controls {
@@ -131,7 +149,14 @@
         
         <div id="ui-layer">
             <div id="damage-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: rgba(255,0,0,0); transition: background 0.2s; z-index: 5;"></div>
+            
+            <div id="game-menu-btns">
+                <div id="save-btn" class="menu-btn">SAVE</div>
+                <div id="exit-btn" class="menu-btn">EXIT</div>
+            </div>
+
             <div id="minimap-container"></div>
+            
             <div id="mission-box">
                 <p style="margin:0; font-weight: bold; font-size: 12px;">STATUS & MISSION</p>
                 <p id="village-name" style="margin: 3px 0; color: #3498db; font-weight: bold; font-size: 15px;">Unknown Wilderness</p>
@@ -201,6 +226,7 @@
         </div>
 
         <div id="intro-overlay">
+            <div id="reset-data-btn">RESET DATA</div>
             <h1 style="font-size: 32px; margin-bottom: 10px;">MC WORLD 2.0</h1>
             <p style="font-size: 16px; opacity: 0.8;">터치하여 시작</p>
         </div>

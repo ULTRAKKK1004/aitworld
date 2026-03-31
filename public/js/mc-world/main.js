@@ -274,15 +274,60 @@ async function init() {
             } else chunkManager.setVoxelGlobal(x, y, z, 0);
         }
     };
-
     document.getElementById('inventory-btn')?.addEventListener('click', () => { 
         const inv = document.getElementById('inventory-overlay');
         if (inv) inv.style.display = 'block'; 
     });
+    
+    document.getElementById('save-btn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (player) {
+            await player.save();
+            player.showNotification("Game Saved Successfully!");
+            alert("저장되었습니다.");
+        }
+    });
+
+    document.getElementById('exit-btn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (confirm("Save and exit to dashboard?")) {
+            if (player) {
+                await player.save();
+            }
+            window.isReloading = true;
+            location.href = '/dashboard';
+        }
+    });
+
+    document.getElementById('reset-data-btn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (confirm("Reset all MC-World data? This cannot be undone.")) {
+            window.isReloading = true;
+            try {
+                const res = await fetch('/api/mc-world/reset', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    window.isReloading = false;
+                    alert("Failed to reset data: " + data.error);
+                }
+            } catch(e) {
+                window.isReloading = false;
+                alert("Error resetting data.");
+            }
+        }
+    });
+
+    document.getElementById('reset-data-btn')?.addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+    });
+
     document.getElementById('close-inv-btn')?.addEventListener('click', () => { 
         const inv = document.getElementById('inventory-overlay');
         if (inv) inv.style.display = 'none'; 
     });
+    
     document.getElementById('inv-bow')?.addEventListener('click', () => { if(player.upgradeWeapon('bow')) select(curBlock); });
     document.getElementById('inv-sword')?.addEventListener('click', () => { if(player.upgradeWeapon('sword')) select(curBlock); });
 
@@ -465,7 +510,10 @@ async function init() {
             }
             monsterManager.update(delta, player, chunkManager);
 
-            if(now - lastSave > 10000) { player.save(); lastSave = now; }
+            if(now - lastSave > 10000) { 
+                if (!window.isReloading) player.save(); 
+                lastSave = now; 
+            }
             minimapCamera.position.set(pObj.position.x, 80, pObj.position.z);
             minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
 
@@ -485,6 +533,8 @@ async function init() {
         }
     };
     animate();
-    window.addEventListener('beforeunload', () => player.save());
+    window.addEventListener('beforeunload', () => {
+        if (!window.isReloading) player.save();
+    });
 }
 init().catch(console.error);

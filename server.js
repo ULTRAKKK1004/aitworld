@@ -184,25 +184,59 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
 });
 
 app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
-  const { saveData } = req.body;
-  const user_id = req.user.id;
   try {
+    const { saveData, level, info, score } = req.body;
+    const user_id = req.user ? req.user.id : null;
+    
+    if (!user_id) {
+      console.error('[MC-World Save] Error: No user ID in session');
+      return res.status(401).json({ success: false, error: 'User session lost' });
+    }
+
+    console.log(`[MC-World Save] User:${user_id}, Level:${level}, Score:${score}`);
+    
     const jsonString = JSON.stringify(saveData);
-    db.prepare('UPDATE users SET mc_world_save = ? WHERE id = ?').run(jsonString, user_id);
+    
+    // Update basic save data
+    const stmt = db.prepare('UPDATE users SET mc_world_save = ?, mc_world_level = ?, mc_world_info = ? WHERE id = ?');
+    stmt.run(jsonString, level || 1, info || null, user_id);
+    
+    // Update best score separately for safety
+    if (score !== undefined) {
+      db.prepare('UPDATE users SET mc_world_best_score = MAX(IFNULL(mc_world_best_score, 0), ?) WHERE id = ?')
+        .run(score, user_id);
+    }
+    
     res.json({ success: true });
   } catch(e) {
-    res.status(500).json({ success: false, error: 'Failed to save data' });
+    console.error('[MC-World Save Error]', e);
+    res.status(500).json({ success: false, error: e.message || 'Internal Server Error' });
+  }
+});
+
+app.post('/api/mc-world/reset', isAuth, isPending, (req, res) => {
+  const user_id = req.user.id;
+  try {
+    db.prepare('UPDATE users SET mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL, mc_world_best_score = 0 WHERE id = ?').run(user_id);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ success: false, error: 'Failed to reset data' });
   }
 });
 
 app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
   const user_id = req.user.id;
   try {
-    const row = db.prepare('SELECT mc_world_save FROM users WHERE id = ?').get(user_id);
-    if (row && row.mc_world_save) {
-      res.json({ success: true, saveData: JSON.parse(row.mc_world_save) });
+    const row = db.prepare('SELECT mc_world_save, mc_world_level, mc_world_info FROM users WHERE id = ?').get(user_id);
+    if (row) {
+      res.json({ 
+        success: true, 
+        saveData: row.mc_world_save ? JSON.parse(row.mc_world_save) : null,
+        level: row.mc_world_level,
+        info: row.mc_world_info
+      });
     } else {
-      res.json({ success: true, saveData: null }); // No save data yet
+      res.json({ success: true, saveData: null, level: 1, info: null });
     }
   } catch(e) {
     res.status(500).json({ success: false, error: 'Failed to load data' });
@@ -211,7 +245,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   const { user_id } = req.body;
-  db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0 WHERE id = ?").run(user_id);
+  db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0, mc_world_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
   db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
   res.redirect('/admin');
 });
@@ -234,6 +268,10 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
 
   if (gameType === 'lift-rush' && score > (req.user.lift_rush_best_score || 0)) {
     db.prepare('UPDATE users SET lift_rush_best_score = ? WHERE id = ?').run(score, user_id);
+  }
+
+  if (gameType === 'mc-world' && score > (req.user.mc_world_best_score || 0)) {
+    db.prepare('UPDATE users SET mc_world_best_score = ? WHERE id = ?').run(score, user_id);
   }
 
   res.json({ success: true });
@@ -434,5 +472,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3500;
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`[MC-World 2.0] Server running on http://localhost:${PORT}`);
 });

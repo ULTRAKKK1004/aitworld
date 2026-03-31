@@ -14,11 +14,14 @@ db.exec(`
     best_score INTEGER DEFAULT 0,
     airplane_best_score INTEGER DEFAULT 0,
     lift_rush_best_score INTEGER DEFAULT 0,
+    mc_world_best_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
     airplane_attempts INTEGER DEFAULT 0,
     hero_attempts INTEGER DEFAULT 0,
     mc_world_attempts INTEGER DEFAULT 0,
     mc_world_save TEXT,
+    mc_world_level INTEGER DEFAULT 1,
+    mc_world_info TEXT,
     lift_rush_attempts INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
@@ -45,11 +48,23 @@ try {
 } catch (e) {}
 
 try {
+  db.prepare('ALTER TABLE users ADD COLUMN mc_world_best_score INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
   db.prepare('ALTER TABLE users ADD COLUMN lift_rush_attempts INTEGER DEFAULT 0').run();
 } catch (e) {}
 
 try {
   db.prepare('ALTER TABLE users ADD COLUMN mc_world_save TEXT').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN mc_world_level INTEGER DEFAULT 1').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN mc_world_info TEXT').run();
 } catch (e) {}
 
 module.exports = db;

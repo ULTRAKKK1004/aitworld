@@ -56,6 +56,7 @@
                             <th>Brick(R)</th>
                             <th>Airplane(R)</th>
                             <th>Hero(R)</th>
+                            <th>MC-World(L/S/I)</th>
                             <th>최고점수</th>
                             <th>전적(W/L)</th>
                             <th>액션</th>
@@ -73,6 +74,11 @@
                             <td><%= u.brick_attempts %></td>
                             <td><%= u.airplane_attempts %></td>
                             <td><%= u.hero_attempts %></td>
+                            <td>
+                                Lv.<%= u.mc_world_level || 1 %><br>
+                                Sc.<%= u.mc_world_best_score || 0 %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;"><%= u.mc_world_info || '' %></span>
+                            </td>
                             <td><%= u.best_score %></td>
                             <td><%= u.wins %>W / <%= u.losses %>L</td>
                             <td>
