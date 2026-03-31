@@ -114,7 +114,12 @@
     <script>
         window.onerror = function(msg, url, lineNo, columnNo, error) {
             var log = document.getElementById('error-log');
-            if (log) log.innerHTML += msg + ' at ' + lineNo + ':' + columnNo + '<br>';
+            if (log) {
+                var lines = log.innerHTML.split('<br>');
+                if (lines.length > 3) lines.shift();
+                lines.push(msg + ' (' + lineNo + ':' + columnNo + ')');
+                log.innerHTML = lines.join('<br>');
+            }
             return false;
         };
     </script>

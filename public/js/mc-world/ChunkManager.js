@@ -10,7 +10,7 @@ export class ChunkManager {
         this.chunks = new Map();
         this.meshes = new Map();
         
-        this.solidMaterial = new THREE.MeshLambertMaterial({ map: texture, side: THREE.FrontSide });
+        this.solidMaterial = new THREE.MeshLambertMaterial({ map: texture, side: THREE.DoubleSide });
         this.alphaMaterial = new THREE.MeshLambertMaterial({ map: texture, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide });
         this.waterMaterial = new THREE.MeshLambertMaterial({ map: texture, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
         

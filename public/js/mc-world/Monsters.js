@@ -4,7 +4,7 @@ class Monster {
     constructor(scene, playerPos, playerLevel) {
         this.scene = scene;
         this.group = new THREE.Group();
-        this.level = Math.max(1, playerLevel + Math.floor(Math.random() * 3) - 1);
+        this.level = Math.max(1, (playerLevel || 1) + Math.floor(Math.random() * 3) - 1);
         this.hp = this.level * 10;
         this.maxHp = this.hp;
         this.mp = this.level * 5;
@@ -13,6 +13,7 @@ class Monster {
         this.damage = this.level * 2;
         this.aggroRange = 18;
         this.attackRange = 4.0; 
+        this.stoppingDistance = 2.8;
         this.state = 'ROAM';
         this.velocity = new THREE.Vector3();
         this.cooldown = 0;
@@ -22,9 +23,19 @@ class Monster {
         this.uiSprite.position.y = 2.5;
         this.group.add(this.uiSprite);
 
+        // Minimap Marker (Red dot) - Layer 1
+        const markerGeo = new THREE.SphereGeometry(0.8, 8, 8);
+        const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        this.marker = new THREE.Mesh(markerGeo, markerMat);
+        this.marker.position.y = 5; // Floating above
+        this.marker.layers.set(1); 
+        this.group.add(this.marker);
+
         const angle = Math.random() * Math.PI * 2;
         const dist = 30 + Math.random() * 20;
-        this.group.position.set(playerPos.x + Math.cos(angle)*dist, 50, playerPos.z + Math.sin(angle)*dist);
+        const px = playerPos ? playerPos.x : 0;
+        const pz = playerPos ? playerPos.z : 0;
+        this.group.position.set(px + Math.cos(angle)*dist, 50, pz + Math.sin(angle)*dist);
         this.group.userData = { monster: this };
         this.scene.add(this.group);
     }
@@ -44,6 +55,7 @@ class Monster {
     }
 
     updateCanvas(ctx, canvas) {
+        if (!ctx || !canvas) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(10, 5, 236, 65);
@@ -59,28 +71,57 @@ class Monster {
     }
 
     takeDamage(amount) {
-        this.hp -= amount;
-        this.state = 'CHASE';
-        this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
-        this.uiSprite.material.map.needsUpdate = true;
+        if (!this.group || this.hp <= 0) return false;
+        this.hp -= (amount || 0);
+        this.state = 'CHASE'; 
+        
+        if (this.uiSprite && this.uiSprite.userData) {
+            this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+            if (this.uiSprite.material && this.uiSprite.material.map) {
+                this.uiSprite.material.map.needsUpdate = true;
+            }
+        }
+        
         this.group.traverse(c => {
-            if(c.material && c !== this.uiSprite) {
-                const old = c.material.emissive?.getHex() || 0;
-                c.material.emissive?.setHex(0xff0000);
-                setTimeout(() => { if(c.material) c.material.emissive?.setHex(old); }, 100);
+            if(c && c.isMesh && c !== this.uiSprite && c !== this.marker) {
+                const materials = Array.isArray(c.material) ? c.material : [c.material];
+                materials.forEach(mat => {
+                    if (mat && mat.emissive && mat.emissive.isColor) {
+                        const oldColor = mat.emissive.clone();
+                        mat.emissive.setHex(0xff0000);
+                        setTimeout(() => {
+                            if (mat && mat.emissive && mat.emissive.isColor) mat.emissive.copy(oldColor);
+                        }, 150);
+                    }
+                });
             }
         });
-        if(this.hp <= 0) { this.scene.remove(this.group); return true; }
+
+        if(this.hp <= 0) {
+            this.scene.remove(this.group);
+            return true;
+        }
         return false;
     }
 
     update(delta, player, chunkManager) {
+        if(!this.group || this.hp <= 0 || !player) return;
         if(this.cooldown > 0) this.cooldown -= delta;
+        
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
 
-        if (dist2D < this.aggroRange) this.state = 'CHASE';
+        const isInVillage = (pos) => {
+            if (!chunkManager) return false;
+            const cx = Math.floor(pos.x / chunkManager.chunkSize);
+            const cz = Math.floor(pos.z / chunkManager.chunkSize);
+            return !!chunkManager.getVillage(cx, cz);
+        };
+
+        if (dist2D < this.aggroRange && this.state === 'ROAM') {
+            this.state = 'CHASE';
+        }
 
         const walkCycle = Math.sin(Date.now() * 0.01) * 0.3;
         this.group.children.forEach(c => {
@@ -93,44 +134,67 @@ class Monster {
                 this.state = 'ATTACK';
             } else {
                 const dir = new THREE.Vector3(dx, 0, dz).normalize();
-                this.group.position.add(dir.multiplyScalar(this.speed * delta));
-                this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
+                const step = dir.multiplyScalar(this.speed * delta);
+                const nextPos = this.group.position.clone().add(step);
+                
+                if (isInVillage(nextPos)) {
+                    this.state = 'ROAM'; 
+                    this.velocity.copy(dir).negate().multiplyScalar(this.speed * 0.5);
+                } else {
+                    if (dist2D > this.stoppingDistance) {
+                        this.group.position.copy(nextPos);
+                    }
+                    this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
+                }
             }
         } else if (this.state === 'ATTACK') {
-            if (dist2D > this.attackRange + 2.0) {
+            const dy = Math.abs(player.position.y - this.group.position.y);
+            if (dist2D > this.attackRange + 1.2 || dy > 4.0 || isInVillage(this.group.position)) {
                 this.state = 'CHASE';
             } else {
                 this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
                 if (this.cooldown <= 0) {
                     player.takeDamage(this.damage);
-                    player.showFloatingText(`-${Math.floor(this.damage)} HP`, '#e74c3c');
                     this.cooldown = 1.5;
-                    this.lungeTimer = 0.4;
+                    this.lungeTimer = 0.3;
                 }
             }
         } else if (this.state === 'ROAM') {
             if (Math.random() < 0.01) {
                 this.velocity.set((Math.random()-0.5), 0, (Math.random()-0.5)).normalize().multiplyScalar(this.speed * 0.5);
-                this.group.lookAt(this.group.position.x + this.velocity.x, this.group.position.y, this.group.position.z + this.velocity.z);
+                if (this.velocity.lengthSq() > 0) {
+                    this.group.lookAt(this.group.position.x + this.velocity.x, this.group.position.y, this.group.position.z + this.velocity.z);
+                }
             }
-            this.group.position.addScaledVector(this.velocity, delta);
+            const nextPos = this.group.position.clone().addScaledVector(this.velocity, delta);
+            if (!isInVillage(nextPos)) {
+                this.group.position.copy(nextPos);
+            } else {
+                this.velocity.negate();
+            }
         }
 
         if (this.lungeTimer > 0) {
             this.lungeTimer -= delta;
             const dir = new THREE.Vector3(dx, 0, dz).normalize();
-            this.group.position.add(dir.multiplyScalar(this.speed * 2 * delta));
-            this.group.position.y += Math.sin(this.lungeTimer * Math.PI / 0.4) * 0.5;
+            const step = dir.multiplyScalar(this.speed * 0.8 * delta);
+            const nextPos = this.group.position.clone().add(step);
+            if (!isInVillage(nextPos) && dist2D > this.stoppingDistance - 0.5) {
+                this.group.position.copy(nextPos);
+            }
+            this.group.position.y += Math.sin(this.lungeTimer * Math.PI / 0.3) * 0.3;
         }
 
         let groundY = -10;
         let inWater = false;
         const gx = Math.floor(this.group.position.x);
         const gz = Math.floor(this.group.position.z);
-        for (let y = 63; y >= 0; y--) {
-            const v = chunkManager.getVoxelGlobal(gx, y, gz);
-            if (v === 11) inWater = true;
-            if (v !== 0 && v !== 11) { groundY = y + 1; inWater = false; break; }
+        if (chunkManager) {
+            for (let y = 63; y >= 0; y--) {
+                const v = chunkManager.getVoxelGlobal(gx, y, gz);
+                if (v === 11) inWater = true;
+                if (v !== 0 && v !== 11) { groundY = y + 1; inWater = false; break; }
+            }
         }
         if (inWater && groundY < 10) { 
             this.hp -= delta * 15; 
@@ -142,7 +206,7 @@ class Monster {
     }
 }
 
-export class Pika extends Monster {
+class Pika extends Monster {
     constructor(scene, playerPos, playerLevel) {
         super(scene, playerPos, playerLevel);
         const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.4), new THREE.MeshLambertMaterial({color: 0xffff00}));
@@ -160,11 +224,13 @@ export class Pika extends Monster {
         const bl = leg.clone(); bl.position.set(-0.2, 0.1, -0.15); bl.name = 'legL';
         const br = leg.clone(); br.position.set(0.2, 0.1, -0.15); br.name = 'legR';
         this.group.add(body, head, earL, earR, tail, fl, fr, bl, br);
-        this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        if (this.uiSprite && this.uiSprite.userData) {
+            this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        }
     }
 }
 
-export class Bulba extends Monster {
+class Bulba extends Monster {
     constructor(scene, playerPos, playerLevel) {
         super(scene, playerPos, playerLevel);
         const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.7), new THREE.MeshLambertMaterial({color: 0x40E0D0}));
@@ -179,11 +245,13 @@ export class Bulba extends Monster {
         const bl = leg.clone(); bl.position.set(-0.3, 0.125, -0.3); bl.name = 'legL';
         const br = leg.clone(); br.position.set(0.3, 0.125, -0.3); br.name = 'legR';
         this.group.add(body, head, bulb, fl, fr, bl, br);
-        this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        if (this.uiSprite && this.uiSprite.userData) {
+            this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        }
     }
 }
 
-export class Char extends Monster {
+class Char extends Monster {
     constructor(scene, playerPos, playerLevel) {
         super(scene, playerPos, playerLevel);
         const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.4), new THREE.MeshLambertMaterial({color: 0xFFA500}));
@@ -200,14 +268,16 @@ export class Char extends Monster {
         const ll = leg.clone(); ll.position.set(-0.2, 0.15, 0); ll.name = 'legL';
         const lr = leg.clone(); lr.position.set(0.2, 0.15, 0); lr.name = 'legR';
         this.group.add(body, head, tail, flame, wing, ll, lr);
-        this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        if (this.uiSprite && this.uiSprite.userData) {
+            this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        }
     }
 }
 
 export class BeholderBoss extends Monster {
     constructor(scene, playerPos, playerLevel) {
         super(scene, playerPos, playerLevel);
-        this.level = playerLevel + 10;
+        this.level = (playerLevel || 1) + 10;
         this.hp = this.level * 60;
         this.maxHp = this.hp;
         this.mp = this.level * 20;
@@ -232,36 +302,59 @@ export class BeholderBoss extends Monster {
             stalk.rotation.x = Math.PI/4;
             this.group.add(stalk);
         }
-        this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        if (this.uiSprite && this.uiSprite.userData) {
+            this.updateCanvas(this.uiSprite.userData.ctx, this.uiSprite.userData.canvas);
+        }
     }
 
     update(delta, player, chunkManager) {
+        if(!this.group || this.hp <= 0 || !player) return;
         if(this.cooldown > 0) this.cooldown -= delta;
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
+
+        const isInVillage = (pos) => {
+            if (!chunkManager) return false;
+            const cx = Math.floor(pos.x / chunkManager.chunkSize);
+            const cz = Math.floor(pos.z / chunkManager.chunkSize);
+            return !!chunkManager.getVillage(cx, cz);
+        };
+
         if (dist2D < this.aggroRange) this.state = 'CHASE';
         if (this.state === 'CHASE') {
-            if (dist2D <= this.attackRange) this.state = 'ATTACK';
-            else {
+            if (dist2D <= this.attackRange) {
+                this.state = 'ATTACK';
+            } else {
                 const dir = new THREE.Vector3(dx, 0, dz).normalize();
-                this.group.position.add(dir.multiplyScalar(this.speed * delta));
-                this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
+                const step = dir.multiplyScalar(this.speed * delta);
+                const nextPos = this.group.position.clone().add(step);
+                if (!isInVillage(nextPos)) {
+                    this.group.position.copy(nextPos);
+                    this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
+                } else {
+                    this.state = 'ROAM';
+                }
             }
         } else if (this.state === 'ATTACK') {
-            if (dist2D > this.attackRange + 5) this.state = 'CHASE';
-            else if (this.cooldown <= 0) {
+            if (dist2D > this.attackRange + 5 || isInVillage(this.group.position)) {
+                this.state = 'CHASE';
+            } else if (this.cooldown <= 0) {
                 player.takeDamage(this.damage);
                 this.cooldown = 2.5;
                 if (window.shakeScreen) window.shakeScreen(0.5);
             }
-        } else if (this.state === 'ROAM') super.update(delta, player, chunkManager);
+        } else if (this.state === 'ROAM') {
+            super.update(delta, player, chunkManager);
+        }
         
         let groundY = 10;
         const gx = Math.floor(this.group.position.x), gz = Math.floor(this.group.position.z);
-        for (let y = 63; y >= 0; y--) {
-            const v = chunkManager.getVoxelGlobal(gx, y, gz);
-            if (v !== 0 && v !== 11) { groundY = Math.max(groundY, y + 1); break; }
+        if (chunkManager) {
+            for (let y = 63; y >= 0; y--) {
+                const v = chunkManager.getVoxelGlobal(gx, y, gz);
+                if (v !== 0 && v !== 11) { groundY = Math.max(groundY, y + 1); break; }
+            }
         }
         this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, groundY + 4 + Math.sin(Date.now() * 0.002) * 1.5, 0.1);
     }
@@ -286,6 +379,7 @@ export class DroppedItem {
         this.scene.add(this.group);
     }
     update(delta) {
+        if (!this.group) return;
         this.group.rotation.y += delta * 3;
         this.group.position.y += Math.sin(Date.now() * 0.005) * 0.005;
     }
@@ -311,6 +405,7 @@ export class MonsterManager {
         this.monsters.push(new BeholderBoss(this.scene, playerPos, playerLevel));
     }
     update(delta, player, chunkManager) {
+        if (!player || !chunkManager) return;
         this.bossTimer += delta;
         if (this.bossTimer >= 180) { 
             this.spawnBoss(player.position, player.level);
@@ -319,6 +414,7 @@ export class MonsterManager {
         }
         for (let i = this.monsters.length - 1; i >= 0; i--) {
             const m = this.monsters[i];
+            if (!m) continue;
             m.update(delta, player, chunkManager);
             if (m.hp <= 0) {
                 const types = ['sticks', 'wood', 'fruit', 'herbs'];
@@ -333,6 +429,7 @@ export class MonsterManager {
         }
         for (let i = this.droppedItems.length - 1; i >= 0; i--) {
             const item = this.droppedItems[i];
+            if (!item || !item.group) continue;
             item.update(delta);
             if (item.group.position.distanceTo(player.position) < 2.2) {
                 player.addItem(item.type, 1);

@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export class PlayerData {
     constructor() {
         this.level = 1;
@@ -9,13 +11,13 @@ export class PlayerData {
         this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0 };
         this.weapons = { stick: 1, bow: 0, sword: 0 };
         this.lastVillage = { x: 16, z: 16 };
-        this.position = { x: 16, y: 60, z: 16 };
+        this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
     }
 
     addXp(amount) {
-        this.xp += amount;
-        this.showFloatingText(`+${amount} EXP`, '#f1c40f');
+        this.xp += (amount || 0);
+        this.showFloatingText(`+${Math.floor(amount)} EXP`, '#f1c40f');
         const xpNeeded = this.level * 100;
         if (this.xp >= xpNeeded) {
             this.xp -= xpNeeded;
@@ -30,8 +32,9 @@ export class PlayerData {
     }
 
     takeDamage(amount) {
-        this.hp -= amount;
+        this.hp -= (amount || 0);
         this.flashDamageEffect();
+        this.showFloatingText(`-${Math.floor(amount)} HP`, '#e74c3c');
         if (this.hp <= 0) {
             this.die();
         }
@@ -51,7 +54,7 @@ export class PlayerData {
         const overlay = document.getElementById('damage-overlay');
         if (overlay) {
             overlay.style.background = 'rgba(255,0,0,0.3)';
-            setTimeout(() => { overlay.style.background = 'rgba(255,0,0,0)'; }, 200);
+            setTimeout(() => { if(overlay) overlay.style.background = 'rgba(255,0,0,0)'; }, 200);
         }
     }
 
@@ -62,17 +65,17 @@ export class PlayerData {
         el.style.top = '50%';
         el.style.left = '50%';
         el.style.transform = 'translate(-50%, -50%)';
-        el.style.color = color;
+        el.style.color = color || 'white';
         el.style.fontSize = '24px';
         el.style.fontWeight = 'bold';
         el.style.pointerEvents = 'none';
         el.style.zIndex = '1000';
         el.style.textShadow = '2px 2px #000';
         document.body.appendChild(el);
-        let start = Date.now();
+        const start = Date.now();
         const anim = () => {
-            let elapsed = Date.now() - start;
-            let progress = elapsed / 1000;
+            const elapsed = Date.now() - start;
+            const progress = elapsed / 1000;
             if (progress < 1) {
                 el.style.top = (50 - progress * 20) + '%';
                 el.style.opacity = 1 - progress;
@@ -91,23 +94,23 @@ export class PlayerData {
         // Auto-consume
         if (type === 'fruit' && this.hp < this.maxHp) {
             this.heal(5);
-            this.inventory.fruit--;
+            this.inventory.fruit = Math.max(0, this.inventory.fruit - 1);
             this.showFloatingText("+5 HP (Fruit)", "#2ecc71");
         } else if (type === 'herbs' && this.mp < this.maxMp) {
             this.mp = Math.min(this.maxMp, this.mp + 10);
-            this.inventory.herbs--;
+            this.inventory.herbs = Math.max(0, this.inventory.herbs - 1);
             this.showFloatingText("+10 MP (Herb)", "#3498db");
         }
         this.updateUI();
     }
 
     heal(amount) {
-        this.hp = Math.min(this.maxHp, this.hp + amount);
+        this.hp = Math.min(this.maxHp, this.hp + (amount || 0));
         this.updateUI();
     }
 
     upgradeWeapon(type) {
-        let currentTier = this.weapons[type];
+        const currentTier = this.weapons[type] || 0;
         let reqLevel = 0, reqSticks = 0, reqWood = 0;
         if (type === 'sword') {
             reqLevel = currentTier === 0 ? 3 : (currentTier + 1) * 5;
@@ -120,8 +123,8 @@ export class PlayerData {
         }
         if (this.level >= reqLevel && this.inventory.sticks >= reqSticks && (this.inventory.wood || 0) >= reqWood) {
             this.inventory.sticks -= reqSticks;
-            this.inventory.wood -= reqWood;
-            this.weapons[type]++;
+            this.inventory.wood = Math.max(0, (this.inventory.wood || 0) - reqWood);
+            this.weapons[type] = (this.weapons[type] || 0) + 1;
             const tierNames = ["Locked", "Wooden", "Stone", "Iron", "Gold", "Diamond"];
             const name = tierNames[this.weapons[type]] || "Epic";
             this.showNotification(`${type.toUpperCase()} UPGRADED TO ${name}!`);
@@ -141,10 +144,11 @@ export class PlayerData {
     }
 
     teleportToSafe() {
-        const spawnPos = { x: 16, y: 60, z: 16 };
-        this.position = spawnPos;
-        if (window.gameControls) {
-            window.gameControls.getObject().position.set(spawnPos.x, spawnPos.y, spawnPos.z);
+        const spawnPos = new THREE.Vector3(16, 60, 16);
+        this.position.copy(spawnPos);
+        if (window.gameControls && window.gameControls.getObject) {
+            const obj = window.gameControls.getObject();
+            if (obj && obj.position) obj.position.copy(spawnPos);
         }
     }
 
@@ -162,7 +166,7 @@ export class PlayerData {
         if(expBar) expBar.style.width = `${Math.min(100, (this.xp / xpNeeded) * 100)}%`;
         
         if(levelEl) levelEl.innerText = this.level;
-        if(scoreEl) scoreEl.innerText = this.score;
+        if(scoreEl) scoreEl.innerText = Math.floor(this.score);
 
         const invSticks = document.getElementById('inv-sticks');
         const invWood = document.getElementById('inv-wood');
@@ -172,7 +176,7 @@ export class PlayerData {
         const bowLevel = document.getElementById('bow-level');
         const swordLevel = document.getElementById('sword-level');
 
-        if(invSticks) invSticks.innerText = this.inventory.sticks;
+        if(invSticks) invSticks.innerText = this.inventory.sticks || 0;
         if(invWood) invWood.innerText = this.inventory.wood || 0;
         if(invFruit) invFruit.innerText = this.inventory.fruit || 0;
         if(invHerbs) invHerbs.innerText = this.inventory.herbs || 0;
@@ -198,13 +202,13 @@ export class PlayerData {
         notif.style.border = '2px solid #3498db';
         notif.innerText = msg;
         document.body.appendChild(notif);
-        setTimeout(() => notif.remove(), 3000);
+        setTimeout(() => { if(notif) notif.remove(); }, 3000);
     }
 
     async save() {
-        if(window.gameControls) {
+        if(window.gameControls && window.gameControls.getObject) {
             const p = window.gameControls.getObject().position;
-            this.position = { x: p.x, y: p.y, z: p.z };
+            if (p) this.position.set(p.x, p.y, p.z);
         }
         try {
             await fetch('/api/mc-world/save', {
@@ -222,6 +226,10 @@ export class PlayerData {
             if (data.success && data.saveData) {
                 if(!data.saveData.inventory) data.saveData.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0 };
                 if(!data.saveData.weapons) data.saveData.weapons = { stick: 1, bow: 0, sword: 0 };
+                if(data.saveData.position) {
+                    const p = data.saveData.position;
+                    data.saveData.position = new THREE.Vector3(p.x, p.y, p.z);
+                }
                 Object.assign(this, data.saveData);
             }
         } catch(e) {}
