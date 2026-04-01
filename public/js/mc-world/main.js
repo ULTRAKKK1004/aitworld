@@ -4,10 +4,81 @@ import { ChunkManager } from './ChunkManager.js';
 import { PlayerData } from './Player.js';
 import { MonsterManager } from './Monsters.js';
 
-let scene, camera, renderer, controls, minimapCamera;
+class AudioManager {
+    constructor() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.connect(this.ctx.destination);
+        this.masterGain.gain.value = 0.3;
+        this.bgmOsc = null;
+        this.bgmGain = null;
+        this.currentState = 'CALM'; // CALM, TENSE, COMBAT
+        this.lfo = null;
+    }
+
+    async start() {
+        if (this.ctx.state === 'suspended') await this.ctx.resume();
+        this.playBGM();
+    }
+
+    playBGM() {
+        if (this.bgmOsc) { try { this.bgmOsc.stop(); } catch(e){} }
+        this.bgmOsc = this.ctx.createOscillator();
+        this.bgmGain = this.ctx.createGain();
+        this.bgmOsc.connect(this.bgmGain);
+        this.bgmGain.connect(this.masterGain);
+        
+        const freq = this.currentState === 'CALM' ? 110 : (this.currentState === 'TENSE' ? 82 : 55);
+        this.bgmOsc.type = this.currentState === 'COMBAT' ? 'sawtooth' : 'triangle';
+        this.bgmOsc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        this.bgmGain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        this.bgmOsc.start();
+        
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        lfo.frequency.value = this.currentState === 'COMBAT' ? 4 : (this.currentState === 'TENSE' ? 2 : 1);
+        lfoGain.gain.value = 0.02;
+        lfo.connect(lfoGain);
+        lfoGain.connect(this.bgmGain.gain);
+        lfo.start();
+        this.lfo = lfo;
+    }
+
+    updateState(newState) {
+        if (this.currentState !== newState) {
+            this.currentState = newState;
+            this.playBGM();
+        }
+    }
+
+    playSFX(type) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        if (type === 'hit') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+        } else if (type === 'jump') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+        }
+    }
+}
+
+let scene, camera, renderer, controls, minimapCamera, audioManager;
 let chunkManager, player, monsterManager;
 let weapons = {};
-let audioListener, bgm;
 
 async function init() {
     const container = document.getElementById('game-container');
@@ -24,15 +95,12 @@ async function init() {
     scene.fog = new THREE.Fog(skyColor, 100, 150);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.layers.enable(0); // Standard view
+    camera.layers.enable(0); 
 
     minimapCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 1000);
     minimapCamera.up.set(0, 0, -1);
-    minimapCamera.layers.enable(0); // Sees world
-    minimapCamera.layers.enable(1); // Sees markers
-
-    audioListener = new THREE.AudioListener();
-    camera.add(audioListener);
+    minimapCamera.layers.enable(0); 
+    minimapCamera.layers.enable(1); 
     
     const playerModel = new THREE.Group();
     const bodyMat = new THREE.MeshLambertMaterial({color: 0x3498db});
@@ -41,7 +109,6 @@ async function init() {
     playerModel.add(pBody, pHead);
     scene.add(playerModel);
     
-    // Player Minimap Marker (Blue cone pointing forward)
     const markerGeo = new THREE.ConeGeometry(2, 5, 3);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0x0000ff });
     const pMarker = new THREE.Mesh(markerGeo, markerMat);
@@ -50,10 +117,7 @@ async function init() {
     pMarker.layers.set(1);
     playerModel.add(pMarker);
 
-    // Hide player from main camera
-    playerModel.traverse(c => {
-        if (c.layers) c.layers.set(1); 
-    });
+    playerModel.traverse(c => { if (c.layers) c.layers.set(1); });
 
     const cameraPivot = new THREE.Group();
     scene.add(cameraPivot);
@@ -72,9 +136,7 @@ async function init() {
                 const amount = (intensity || 0.1) * (1 - elapsed / 500);
                 currentShake.set((Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount, 0);
                 requestAnimationFrame(shake);
-            } else {
-                currentShake.set(0, 0, 0);
-            }
+            } else { currentShake.set(0, 0, 0); }
         };
         shake();
     };
@@ -83,16 +145,10 @@ async function init() {
     const startAction = () => {
         if (!('ontouchstart' in window)) controls.lock();
         if (intro) intro.style.display = 'none';
-        if(!bgm) {
-            try {
-                const ctx = audioListener.context;
-                const osc = ctx.createOscillator();
-                osc.type = 'sine'; osc.frequency.value = 110;
-                const gain = ctx.createGain(); gain.gain.value = 0.05;
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.start();
-                bgm = true;
-            } catch(e) {}
+        if(!audioManager) {
+            audioManager = new AudioManager();
+            audioManager.start();
+            window.audioManager = audioManager;
         }
     };
     
@@ -175,6 +231,7 @@ async function init() {
     let swinging = false;
     const attack = () => {
         if (!player || !monsterManager || swinging) return;
+        if (audioManager) audioManager.playSFX('hit');
         let wpName = "";
         if (curBlock === 10) wpName = "stick";
         else if (curBlock === 11) wpName = "sword";
@@ -188,7 +245,6 @@ async function init() {
         swinging = true;
         const activeWeapon = weapons[wpName];
         if (!activeWeapon) { swinging = false; return; }
-
         const weaponTier = player.weapons[wpName] || 1;
         const range = wpName === 'stick' ? 3.5 : (wpName === 'sword' ? 5.0 : 25);
         const damage = (wpName === 'stick' ? 1 : (wpName === 'sword' ? 3 : 2)) * weaponTier * (1 + player.level * 0.1);
@@ -203,34 +259,19 @@ async function init() {
 
         const ray = new THREE.Raycaster();
         ray.camera = camera;
-        const dir = new THREE.Vector3(); 
-        const origin = new THREE.Vector3();
-        camera.getWorldPosition(origin); 
-        camera.getWorldDirection(dir); 
+        const dir = new THREE.Vector3(); const origin = new THREE.Vector3();
+        camera.getWorldPosition(origin); camera.getWorldDirection(dir); 
         ray.set(origin, dir); ray.far = range;
-
-        const monsterGroups = monsterManager.monsters
-            .filter(m => m && m.group && m.group.isObject3D)
-            .map(m => m.group);
-            
-        const hits = ray.intersectObjects(monsterGroups, true);
+        const hits = ray.intersectObjects(monsterManager.monsters.map(m => m.group), true);
         if(hits.length > 0) {
-            let hitObj = hits[0].object;
-            let monsterFound = null;
-            
-            // Safer parent traversal
-            let curr = hitObj;
+            let curr = hits[0].object;
             while(curr) {
                 if (curr.userData && curr.userData.monster) {
-                    monsterFound = curr.userData.monster;
+                    curr.userData.monster.takeDamage(damage);
+                    player.showFloatingText(`-${Math.floor(damage)}`, '#ff0000');
                     break;
                 }
                 curr = curr.parent;
-            }
-            
-            if(monsterFound) {
-                monsterFound.takeDamage(damage);
-                player.showFloatingText(`-${Math.floor(damage)}`, '#ff0000');
             }
         }
     };
@@ -240,21 +281,14 @@ async function init() {
         if (curBlock === 10 || curBlock === 11 || curBlock === 9) { attack(); return; }
         const ray = new THREE.Raycaster();
         ray.camera = camera;
-        const dir = new THREE.Vector3();
-        const origin = new THREE.Vector3();
-        camera.getWorldPosition(origin);
-        camera.getWorldDirection(dir);
+        const dir = new THREE.Vector3(); const origin = new THREE.Vector3();
+        camera.getWorldPosition(origin); camera.getWorldDirection(dir);
         ray.set(origin, dir); 
         const meshes = [];
-        chunkManager.meshes.forEach(group => { 
-            if(group && group.children) {
-                group.children.forEach(child => { if(child) meshes.push(child); });
-            }
-        });
+        chunkManager.meshes.forEach(group => { if(group && group.children) group.children.forEach(child => meshes.push(child)); });
         const hits = ray.intersectObjects(meshes);
         if(hits.length > 0) {
-            const h = hits[0];
-            if (!h.face) return;
+            const h = hits[0]; if (!h.face) return;
             const pos = h.point.clone().add(h.face.normal.clone().multiplyScalar(isBuild ? 0.5 : -0.5));
             const x = Math.floor(pos.x), y = Math.floor(pos.y), z = Math.floor(pos.z);
             if(isBuild) {
@@ -263,71 +297,31 @@ async function init() {
                     else player.showNotification("Not enough wood!");
                     return;
                 }
-                if(curBlock === 4) { 
-                    chunkManager.setVoxelGlobal(x, y, z, 4);
-                    setTimeout(() => { chunkManager.setVoxelGlobal(x, y+1, z, 5); player.addItem('wood', 2); player.addItem('fruit', 1); }, 2000);
-                } else if (curBlock === 6) { 
-                    chunkManager.setVoxelGlobal(x, y, z, 6);
-                    setTimeout(() => player.addItem('herbs', 1), 2000);
-                } else chunkManager.setVoxelGlobal(x, y, z, curBlock);
+                chunkManager.setVoxelGlobal(x, y, z, curBlock);
                 player.score += 10; player.updateUI();
             } else chunkManager.setVoxelGlobal(x, y, z, 0);
         }
     };
-    document.getElementById('inventory-btn')?.addEventListener('click', () => { 
-        const inv = document.getElementById('inventory-overlay');
-        if (inv) inv.style.display = 'block'; 
-    });
     
+    document.getElementById('inventory-btn')?.addEventListener('click', () => { 
+        const inv = document.getElementById('inventory-overlay'); if (inv) inv.style.display = 'block'; 
+    });
     document.getElementById('save-btn')?.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (player) {
-            await player.save();
-            player.showNotification("Game Saved Successfully!");
-            alert("저장되었습니다.");
-        }
+        e.stopPropagation(); if (player) { await player.save(); player.showNotification("Game Saved!"); alert("저장되었습니다."); }
     });
-
     document.getElementById('exit-btn')?.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (confirm("Save and exit to dashboard?")) {
-            if (player) {
-                await player.save();
-            }
-            window.isReloading = true;
-            location.href = '/dashboard';
-        }
+        e.stopPropagation(); if (confirm("Save and exit?")) { if (player) await player.save(); window.isReloading = true; location.href = '/dashboard'; }
     });
-
     document.getElementById('reset-data-btn')?.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (confirm("Reset all MC-World data? This cannot be undone.")) {
+        if (confirm("Reset data?")) {
             window.isReloading = true;
-            try {
-                const res = await fetch('/api/mc-world/reset', { method: 'POST' });
-                const data = await res.json();
-                if (data.success) {
-                    location.reload();
-                } else {
-                    window.isReloading = false;
-                    alert("Failed to reset data: " + data.error);
-                }
-            } catch(e) {
-                window.isReloading = false;
-                alert("Error resetting data.");
-            }
+            try { const res = await fetch('/api/mc-world/reset', { method: 'POST' }); if ((await res.json()).success) location.reload(); } catch(e) {}
         }
     });
-
-    document.getElementById('reset-data-btn')?.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-    });
-
     document.getElementById('close-inv-btn')?.addEventListener('click', () => { 
-        const inv = document.getElementById('inventory-overlay');
-        if (inv) inv.style.display = 'none'; 
+        const inv = document.getElementById('inventory-overlay'); if (inv) inv.style.display = 'none'; 
     });
-    
     document.getElementById('inv-bow')?.addEventListener('click', () => { if(player.upgradeWeapon('bow')) select(curBlock); });
     document.getElementById('inv-sword')?.addEventListener('click', () => { if(player.upgradeWeapon('sword')) select(curBlock); });
 
@@ -336,28 +330,19 @@ async function init() {
     const modeBtn = document.getElementById('mode-btn');
     if(modeBtn) {
         modeBtn.addEventListener('click', (e) => { 
-            e.stopPropagation(); isBuild = !isBuild; 
-            modeBtn.innerText = isBuild ? 'BUILD' : 'REMOVE'; 
-            modeBtn.classList.toggle('build-mode', isBuild); 
+            e.stopPropagation(); isBuild = !isBuild; modeBtn.innerText = isBuild ? 'BUILD' : 'REMOVE'; modeBtn.classList.toggle('build-mode', isBuild); 
         });
     }
 
     window.addEventListener('keydown', (e) => {
         if(e.code === 'Digit0') select(11);
         else if(e.code === 'Digit1') select(10);
-        else if(e.code.startsWith('Digit')) {
-            const digit = parseInt(e.code[5]);
-            if(digit >= 2 && digit <= 9) select(digit - 1);
-        }
+        else if(e.code.startsWith('Digit')) { const d = parseInt(e.code[5]); if(d >= 2 && d <= 9) select(d - 1); }
         if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = 1;
     });
     window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = 0; });
     window.addEventListener('mousedown', (e) => { 
-        const target = e.target;
-        if (!target || !target.closest) return;
-        if(intro && intro.style.display === 'none' && !target.closest('#hotbar') && !target.closest('#inventory-overlay') && !target.closest('#inventory-btn')) {
-            triggerInteraction();
-        } 
+        if(intro && intro.style.display === 'none' && !e.target.closest('#hotbar') && !e.target.closest('#inventory-overlay') && !e.target.closest('#inventory-btn')) triggerInteraction();
     });
 
     const getArea = () => document.getElementById('joystick-area');
@@ -365,52 +350,33 @@ async function init() {
     let moveTouchId = null, lookTouchId = null, lookLastX = 0, lookLastY = 0;
 
     window.addEventListener('touchstart', (e) => {
-        const area = getArea();
-        if (!area) return;
+        const area = getArea(); if (!area) return;
         for(let i=0; i<e.changedTouches.length; i++){
-            const t = e.changedTouches[i];
-            const target = t.target;
-            if (!target || !target.closest) continue;
-            
+            const t = e.changedTouches[i]; const target = t.target;
             if(target.closest('#hotbar') || target.closest('.action-btn') || target.closest('#inventory-overlay') || target.closest('#inventory-btn')) continue;
-            
-            const r = area.getBoundingClientRect();
-            const centerX = r.left + r.width / 2;
-            const centerY = r.top + r.height / 2;
-            const dx = t.clientX - centerX, dy = t.clientY - centerY;
+            const r = area.getBoundingClientRect(); const cx = r.left + r.width/2, cy = r.top + r.height/2;
+            const dx = t.clientX - cx, dy = t.clientY - cy;
             if(Math.sqrt(dx*dx+dy*dy) < r.width * 0.6 && moveTouchId === null) moveTouchId = t.identifier;
             else if(lookTouchId === null && t.clientX > window.innerWidth / 4){ lookTouchId = t.identifier; lookLastX = t.clientX; lookLastY = t.clientY; }
         }
     }, {passive:false});
 
     window.addEventListener('touchmove', (e) => {
-        const area = getArea();
-        const knob = getKnob();
-        if (!area || !knob) return;
-        
-        const r = area.getBoundingClientRect();
-        const centerX = r.left + r.width / 2;
-        const centerY = r.top + r.height / 2;
-        
+        const area = getArea(); const knob = getKnob(); if (!area || !knob) return;
+        const r = area.getBoundingClientRect(); const cx = r.left + r.width/2, cy = r.top + r.height/2;
         for(let i=0; i<e.touches.length; i++){
             const t = e.touches[i];
             if(t.identifier === moveTouchId){
-                e.preventDefault();
-                const dx = t.clientX - centerX, dy = t.clientY - centerY;
-                const d = Math.min(Math.sqrt(dx*dx+dy*dy), r.width / 2), a = Math.atan2(dy,dx);
+                e.preventDefault(); const dx = t.clientX - cx, dy = t.clientY - cy;
+                const d = Math.min(Math.sqrt(dx*dx+dy*dy), r.width/2), a = Math.atan2(dy,dx);
                 knob.style.transform = `translate(${Math.cos(a)*d}px, ${Math.sin(a)*d}px)`;
-                
-                keys.w = dy < -r.height / 12 ? 1 : 0; 
-                keys.s = dy > r.height / 12 ? 1 : 0; 
-                keys.a = dx < -r.width / 12 ? 1 : 0; 
-                keys.d = dx > r.width / 12 ? 1 : 0;
+                keys.w = dy < -r.height/12 ? 1 : 0; keys.s = dy > r.height/12 ? 1 : 0; 
+                keys.a = dx < -r.width/12 ? 1 : 0; keys.d = dx > r.width/12 ? 1 : 0;
             }
             if(t.identifier === lookTouchId){
                 const dx = t.clientX - lookLastX, dy = t.clientY - lookLastY;
-                const pObj = controls.getObject();
-                if (pObj) pObj.rotation.y -= dx * 0.005;
-                camera.rotation.x -= dy * 0.005;
-                camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+                controls.getObject().rotation.y -= dx * 0.005;
+                camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x - dy * 0.005));
                 lookLastX = t.clientX; lookLastY = t.clientY;
             }
         }
@@ -420,121 +386,87 @@ async function init() {
         const knob = getKnob();
         for(let i=0; i<e.changedTouches.length; i++){
             const t = e.changedTouches[i];
-            if(t.identifier === moveTouchId){ 
-                moveTouchId=null; 
-                if (knob) knob.style.transform=''; 
-                Object.assign(keys, {w:0,a:0,s:0,d:0}); 
-            }
+            if(t.identifier === moveTouchId){ moveTouchId=null; if(knob) knob.style.transform=''; Object.assign(keys, {w:0,a:0,s:0,d:0}); }
             if(t.identifier === lookTouchId) lookTouchId=null;
         }
     });
 
     document.getElementById('attack-btn')?.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); attack(); });
-    document.getElementById('jump-btn')?.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); keys.space = 1; });
+    document.getElementById('jump-btn')?.addEventListener('touchstart', (e) => { 
+        e.preventDefault(); e.stopPropagation(); keys.space = 1; if(audioManager) audioManager.playSFX('jump'); 
+    });
     document.getElementById('jump-btn')?.addEventListener('touchend', () => keys.space = 0);
 
-    const pObj = controls.getObject();
-    pObj.position.set(player.position.x, player.position.y || 25, player.position.z);
-
-    const vel = new THREE.Vector3();
-    let lastT = performance.now();
-    let lastSave = lastT;
+    const pObj = controls.getObject(); pObj.position.set(player.position.x, player.position.y || 25, player.position.z);
+    const vel = new THREE.Vector3(); let lastT = performance.now(), lastSave = lastT;
     
     const animate = () => {
         requestAnimationFrame(animate);
         const now = performance.now(), delta = Math.min((now - lastT)/1000, 0.1); lastT = now;
-        
         if (!intro || intro.style.display === 'none') {
-            player.position.copy(pObj.position);
-            playerModel.position.copy(pObj.position);
-            playerModel.rotation.y = pObj.rotation.y;
-
+            player.position.copy(pObj.position); playerModel.position.copy(pObj.position); playerModel.rotation.y = pObj.rotation.y;
             chunkManager.updatePlayerPosition(pObj.position.x, pObj.position.z);
+            const cx = Math.floor(pObj.position.x / chunkManager.chunkSize), cz = Math.floor(pObj.position.z / chunkManager.chunkSize);
+            const village = chunkManager.getVillage(cx, cz);
+            player.update(delta, !!village);
 
             const inWater = chunkManager.getVoxelGlobal(pObj.position.x, pObj.position.y - 0.5, pObj.position.z) === 11;
-            const gravity = inWater ? 5 : 22;
-            const jumpForce = inWater ? 4 : 9;
-            const speedBase = inWater ? 4 : 10;
-
+            const gravity = inWater ? 5 : 22, jumpForce = inWater ? 4 : 9, speedBase = inWater ? 4 : 10;
             const mVec = new THREE.Vector3(); pObj.getWorldDirection(mVec); mVec.y = 0; mVec.normalize();
             const sVec = new THREE.Vector3().crossVectors(mVec, pObj.up).normalize();
             const moveDir = new THREE.Vector3().addScaledVector(mVec, keys.s - keys.w).addScaledVector(sVec, keys.a - keys.d);
             
             if (moveDir.lengthSq() > 0) {
-                moveDir.normalize();
-                const moveStep = moveDir.multiplyScalar(speedBase * delta);
-                const checkCollision = (nx, ny, nz) => {
-                    const pad = 0.3;
-                    for (let ox of [-pad, pad]) {
-                        for (let oz of [-pad, pad]) {
-                            for (let oy of [0.5, 1.5, 1.8]) { 
-                                const b = chunkManager.getVoxelGlobal(nx + ox, ny + oy, nz + oz);
-                                if (b !== 0 && b !== 11) return true;
-                            }
-                        }
+                moveDir.normalize(); const moveStep = moveDir.multiplyScalar(speedBase * delta);
+                const checkCol = (nx, ny, nz) => {
+                    for (let ox of [-0.3, 0.3]) for (let oz of [-0.3, 0.3]) for (let oy of [0.5, 1.5, 1.8]) {
+                        const b = chunkManager.getVoxelGlobal(nx + ox, ny + oy, nz + oz); if (b !== 0 && b !== 11) return true;
                     }
                     return false;
                 };
-                if (!checkCollision(pObj.position.x + moveStep.x, pObj.position.y, pObj.position.z)) pObj.position.x += moveStep.x;
-                if (!checkCollision(pObj.position.x, pObj.position.y, pObj.position.z + moveStep.z)) pObj.position.z += moveStep.z;
+                if (!checkCol(pObj.position.x + moveStep.x, pObj.position.y, pObj.position.z)) pObj.position.x += moveStep.x;
+                if (!checkCol(pObj.position.x, pObj.position.y, pObj.position.z + moveStep.z)) pObj.position.z += moveStep.z;
             }
 
-            vel.y -= gravity * delta;
-            if (inWater && keys.space) vel.y = jumpForce; 
-            pObj.position.y += vel.y * delta;
-
+            vel.y -= gravity * delta; if (inWater && keys.space) vel.y = jumpForce; pObj.position.y += vel.y * delta;
             let floorY = -20;
-            for (let ox of [-0.2, 0.2]) {
-                for (let oz of [-0.2, 0.2]) {
-                    for (let y = Math.floor(pObj.position.y - 1.2); y <= Math.floor(pObj.position.y + 0.2); y++) {
-                        const v = chunkManager.getVoxelGlobal(pObj.position.x + ox, y, pObj.position.z + oz);
-                        if (v !== 0 && v !== 11) { floorY = Math.max(floorY, y + 1); }
-                    }
-                }
+            for (let ox of [-0.2, 0.2]) for (let oz of [-0.2, 0.2]) for (let y = Math.floor(pObj.position.y - 1.2); y <= Math.floor(pObj.position.y + 0.2); y++) {
+                const v = chunkManager.getVoxelGlobal(pObj.position.x + ox, y, pObj.position.z + oz); if (v !== 0 && v !== 11) floorY = Math.max(floorY, y + 1);
             }
             if (pObj.position.y < floorY) { pObj.position.y = floorY; vel.y = 0; if (keys.space && !inWater) vel.y = jumpForce; }
             if (pObj.position.y < -10) player.die();
-
             camera.position.set(0, 1.6, 0).add(currentShake);
-            
-            const cx = Math.floor(pObj.position.x / chunkManager.chunkSize);
-            const cz = Math.floor(pObj.position.z / chunkManager.chunkSize);
-            const village = chunkManager.getVillage(cx, cz);
-            const vNameEl = document.getElementById('village-name');
+
             if (village) {
-                if(vNameEl) vNameEl.innerText = village.name;
-                player.lastVillage = { x: cx * chunkManager.chunkSize + 16, z: cz * chunkManager.chunkSize + 16 };
+                document.getElementById('village-name').innerText = village.name;
+                player.lastVillage = { x: cx * 32 + 16, z: cz * 32 + 16 };
             } else {
-                if(vNameEl) vNameEl.innerText = "Unknown Wilderness";
+                document.getElementById('village-name').innerText = "Unknown Wilderness";
                 if (Math.random() < 0.3 * delta) monsterManager.spawn(pObj.position, player.level);
             }
             monsterManager.update(delta, player, chunkManager);
 
-            if(now - lastSave > 10000) { 
-                if (!window.isReloading) player.save(); 
-                lastSave = now; 
+            if (audioManager) {
+                let nearDist = 999, combat = false;
+                monsterManager.monsters.forEach(m => {
+                    const d = m.group.position.distanceTo(player.position); if (d < nearDist) nearDist = d;
+                    if (m.state === 'ATTACK' || m.state === 'CHASE') combat = true;
+                });
+                if (combat && nearDist < 10) audioManager.updateState('COMBAT');
+                else if (nearDist < 25) audioManager.updateState('TENSE');
+                else audioManager.updateState('CALM');
             }
-            minimapCamera.position.set(pObj.position.x, 80, pObj.position.z);
-            minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
 
-            renderer.autoClear = true;
-            renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-            renderer.render(scene, camera);
-            
-            renderer.autoClear = false;
-            renderer.clearDepth();
-            renderer.setScissorTest(true);
-            const mSize = 110, padding = 20;
-            renderer.setViewport(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
-            renderer.setScissor(window.innerWidth - mSize - padding, window.innerHeight - mSize - padding, mSize, mSize);
-            renderer.render(scene, minimapCamera);
-            renderer.setScissorTest(false);
-            renderer.autoClear = true;
+            if(now - lastSave > 10000 && !window.isReloading) { player.save(); lastSave = now; }
+            minimapCamera.position.set(pObj.position.x, 80, pObj.position.z); minimapCamera.lookAt(pObj.position.x, 0, pObj.position.z);
+            renderer.autoClear = true; renderer.setViewport(0, 0, window.innerWidth, window.innerHeight); renderer.render(scene, camera);
+            renderer.autoClear = false; renderer.clearDepth(); renderer.setScissorTest(true);
+            renderer.setViewport(window.innerWidth - 130, window.innerHeight - 130, 110, 110);
+            renderer.setScissor(window.innerWidth - 130, window.innerHeight - 130, 110, 110);
+            renderer.render(scene, minimapCamera); renderer.setScissorTest(false);
         }
     };
     animate();
-    window.addEventListener('beforeunload', () => {
-        if (!window.isReloading) player.save();
-    });
+    window.addEventListener('beforeunload', () => { if (!window.isReloading) player.save(); });
 }
 init().catch(console.error);

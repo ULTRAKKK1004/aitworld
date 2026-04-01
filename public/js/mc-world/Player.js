@@ -8,12 +8,32 @@ export class PlayerData {
         this.maxHp = 20;
         this.mp = 10;
         this.maxMp = 10;
-        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0 };
+        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0, potion: 0 };
         this.weapons = { stick: 1, bow: 0, sword: 0 };
         this.lastVillage = { x: 16, z: 16 };
         this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
         this.info = "";
+        this.idleTime = 0;
+        this.lastPos = new THREE.Vector3();
+    }
+
+    update(delta, isInSafeZone) {
+        // Idle detection
+        if (this.position.distanceTo(this.lastPos) < 0.1) {
+            this.idleTime += delta;
+        } else {
+            this.idleTime = 0;
+            this.lastPos.copy(this.position);
+        }
+
+        // HP Recovery: 3 HP/sec if idle (> 2s) or in safe zone
+        if (this.idleTime > 2 || isInSafeZone) {
+            if (this.hp < this.maxHp) {
+                this.hp = Math.min(this.maxHp, this.hp + 3 * delta);
+                this.updateUI();
+            }
+        }
     }
 
     addXp(amount) {
@@ -97,6 +117,10 @@ export class PlayerData {
             this.heal(5);
             this.inventory.fruit = Math.max(0, this.inventory.fruit - 1);
             this.showFloatingText("+5 HP (Fruit)", "#2ecc71");
+        } else if (type === 'potion' && this.hp < this.maxHp) {
+            this.heal(20);
+            this.inventory.potion = Math.max(0, this.inventory.potion - 1);
+            this.showFloatingText("+20 HP (Potion)", "#ff00ff");
         } else if (type === 'herbs' && this.mp < this.maxMp) {
             this.mp = Math.min(this.maxMp, this.mp + 10);
             this.inventory.herbs = Math.max(0, this.inventory.herbs - 1);
@@ -181,6 +205,8 @@ export class PlayerData {
         if(invWood) invWood.innerText = this.inventory.wood || 0;
         if(invFruit) invFruit.innerText = this.inventory.fruit || 0;
         if(invHerbs) invHerbs.innerText = this.inventory.herbs || 0;
+        const invPotion = document.getElementById('inv-potion');
+        if(invPotion) invPotion.innerText = this.inventory.potion || 0;
         if(invLevel) invLevel.innerText = this.level;
         
         const tierNames = ["Locked", "Wooden", "Stone", "Iron", "Gold", "Diamond"];
@@ -214,7 +240,7 @@ export class PlayerData {
 
         // Generate inventory summary for admin info
         const inv = this.inventory || {};
-        this.info = `S:${inv.sticks||0}, W:${inv.wood||0}, F:${inv.fruit||0}, H:${inv.herbs||0}`;
+        this.info = `S:${inv.sticks||0}, W:${inv.wood||0}, F:${inv.fruit||0}, H:${inv.herbs||0}, P:${inv.potion||0}`;
 
         const dataToSave = {
             level: this.level,

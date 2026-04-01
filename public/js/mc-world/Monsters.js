@@ -15,6 +15,7 @@ class Monster {
         this.attackRange = 4.0; 
         this.stoppingDistance = 2.8;
         this.state = 'ROAM';
+        this.spawnPoint = null; 
         this.velocity = new THREE.Vector3();
         this.cooldown = 0;
         this.lungeTimer = 0;
@@ -23,11 +24,10 @@ class Monster {
         this.uiSprite.position.y = 2.5;
         this.group.add(this.uiSprite);
 
-        // Minimap Marker (Red dot) - Layer 1
         const markerGeo = new THREE.SphereGeometry(0.8, 8, 8);
         const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         this.marker = new THREE.Mesh(markerGeo, markerMat);
-        this.marker.position.y = 5; // Floating above
+        this.marker.position.y = 5; 
         this.marker.layers.set(1); 
         this.group.add(this.marker);
 
@@ -36,6 +36,7 @@ class Monster {
         const px = playerPos ? playerPos.x : 0;
         const pz = playerPos ? playerPos.z : 0;
         this.group.position.set(px + Math.cos(angle)*dist, 50, pz + Math.sin(angle)*dist);
+        this.spawnPoint = this.group.position.clone();
         this.group.userData = { monster: this };
         this.scene.add(this.group);
     }
@@ -105,12 +106,14 @@ class Monster {
     }
 
     update(delta, player, chunkManager) {
-        if(!this.group || this.hp <= 0 || !player) return;
+        if(!this.group || this.hp <= 0 || !player || !this.spawnPoint) return;
         if(this.cooldown > 0) this.cooldown -= delta;
         
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
+        const distFromSpawn = this.group.position.distanceTo(this.spawnPoint);
+        const maxChaseDist = this.aggroRange * 3;
 
         const isInVillage = (pos) => {
             if (!chunkManager) return false;
@@ -119,8 +122,12 @@ class Monster {
             return !!chunkManager.getVillage(cx, cz);
         };
 
-        if (dist2D < this.aggroRange && this.state === 'ROAM') {
-            this.state = 'CHASE';
+        const playerInVillage = isInVillage(player.position);
+
+        if (this.state === 'ROAM') {
+            if (dist2D < this.aggroRange && !playerInVillage) this.state = 'CHASE';
+        } else if (this.state === 'CHASE' || this.state === 'ATTACK') {
+            if (distFromSpawn > maxChaseDist || playerInVillage || dist2D > this.aggroRange * 1.5) this.state = 'RETURN';
         }
 
         const walkCycle = Math.sin(Date.now() * 0.01) * 0.3;
@@ -129,29 +136,33 @@ class Monster {
             if (c.name === 'legR') c.rotation.x = -walkCycle;
         });
 
-        if (this.state === 'CHASE') {
+        if (this.state === 'RETURN') {
+            const dir = new THREE.Vector3().subVectors(this.spawnPoint, this.group.position);
+            dir.y = 0;
+            const d = dir.length();
+            if (d < 1) this.state = 'ROAM';
+            else {
+                dir.normalize();
+                this.group.position.addScaledVector(dir, this.speed * delta);
+                this.group.lookAt(this.spawnPoint.x, this.group.position.y, this.spawnPoint.z);
+            }
+        } else if (this.state === 'CHASE') {
             if (dist2D <= this.attackRange) {
                 this.state = 'ATTACK';
             } else {
                 const dir = new THREE.Vector3(dx, 0, dz).normalize();
                 const step = dir.multiplyScalar(this.speed * delta);
                 const nextPos = this.group.position.clone().add(step);
-                
-                if (isInVillage(nextPos)) {
-                    this.state = 'ROAM'; 
-                    this.velocity.copy(dir).negate().multiplyScalar(this.speed * 0.5);
-                } else {
-                    if (dist2D > this.stoppingDistance) {
-                        this.group.position.copy(nextPos);
-                    }
+                if (isInVillage(nextPos)) this.state = 'RETURN';
+                else {
+                    if (dist2D > this.stoppingDistance) this.group.position.copy(nextPos);
                     this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
                 }
             }
         } else if (this.state === 'ATTACK') {
             const dy = Math.abs(player.position.y - this.group.position.y);
-            if (dist2D > this.attackRange + 1.2 || dy > 4.0 || isInVillage(this.group.position)) {
-                this.state = 'CHASE';
-            } else {
+            if (dist2D > this.attackRange + 1.2 || dy > 4.0) this.state = 'CHASE';
+            else {
                 this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
                 if (this.cooldown <= 0) {
                     player.takeDamage(this.damage);
@@ -167,7 +178,7 @@ class Monster {
                 }
             }
             const nextPos = this.group.position.clone().addScaledVector(this.velocity, delta);
-            if (!isInVillage(nextPos)) {
+            if (!isInVillage(nextPos) && nextPos.distanceTo(this.spawnPoint) < this.aggroRange * 1.5) {
                 this.group.position.copy(nextPos);
             } else {
                 this.velocity.negate();
@@ -288,6 +299,7 @@ export class BeholderBoss extends Monster {
         this.attackRange = 25; 
         this.group.scale.set(4, 4, 4);
         this.uiSprite.position.y = 2.5;
+        this.spawnPoint = this.group.position.clone();
         const body = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshLambertMaterial({color: 0x800080}));
         body.position.y = 1.0;
         const eye = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshBasicMaterial({color: 0xffffff}));
@@ -308,11 +320,13 @@ export class BeholderBoss extends Monster {
     }
 
     update(delta, player, chunkManager) {
-        if(!this.group || this.hp <= 0 || !player) return;
+        if(!this.group || this.hp <= 0 || !player || !this.spawnPoint) return;
         if(this.cooldown > 0) this.cooldown -= delta;
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
+        const distFromSpawn = this.group.position.distanceTo(this.spawnPoint);
+        const maxChaseDist = this.aggroRange * 2;
 
         const isInVillage = (pos) => {
             if (!chunkManager) return false;
@@ -321,31 +335,44 @@ export class BeholderBoss extends Monster {
             return !!chunkManager.getVillage(cx, cz);
         };
 
-        if (dist2D < this.aggroRange) this.state = 'CHASE';
-        if (this.state === 'CHASE') {
+        const playerInVillage = isInVillage(player.position);
+
+        if (this.state === 'ROAM') {
+            if (dist2D < this.aggroRange && !playerInVillage) this.state = 'CHASE';
+        } else if (this.state === 'CHASE' || this.state === 'ATTACK') {
+            if (distFromSpawn > maxChaseDist || playerInVillage) this.state = 'RETURN';
+        }
+
+        if (this.state === 'RETURN') {
+            const dir = new THREE.Vector3().subVectors(this.spawnPoint, this.group.position);
+            dir.y = 0;
+            const d = dir.length();
+            if (d < 2) this.state = 'ROAM';
+            else {
+                dir.normalize();
+                this.group.position.addScaledVector(dir, this.speed * 2 * delta);
+                this.group.lookAt(this.spawnPoint.x, this.group.position.y, this.spawnPoint.z);
+            }
+        } else if (this.state === 'CHASE') {
             if (dist2D <= this.attackRange) {
                 this.state = 'ATTACK';
             } else {
                 const dir = new THREE.Vector3(dx, 0, dz).normalize();
                 const step = dir.multiplyScalar(this.speed * delta);
                 const nextPos = this.group.position.clone().add(step);
-                if (!isInVillage(nextPos)) {
+                if (isInVillage(nextPos)) this.state = 'RETURN';
+                else {
                     this.group.position.copy(nextPos);
                     this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
-                } else {
-                    this.state = 'ROAM';
                 }
             }
         } else if (this.state === 'ATTACK') {
-            if (dist2D > this.attackRange + 5 || isInVillage(this.group.position)) {
-                this.state = 'CHASE';
-            } else if (this.cooldown <= 0) {
+            if (dist2D > this.attackRange + 5) this.state = 'CHASE';
+            else if (this.cooldown <= 0) {
                 player.takeDamage(this.damage);
                 this.cooldown = 2.5;
                 if (window.shakeScreen) window.shakeScreen(0.5);
             }
-        } else if (this.state === 'ROAM') {
-            super.update(delta, player, chunkManager);
         }
         
         let groundY = 10;
@@ -373,6 +400,7 @@ export class DroppedItem {
             visual.rotation.z = Math.PI/4;
         } else if (type === 'wood') visual = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.4), new THREE.MeshLambertMaterial({color: 0xe67e22}));
         else if (type === 'fruit') visual = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshLambertMaterial({color: 0xe74c3c}));
+        else if (type === 'potion') visual = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.3), new THREE.MeshLambertMaterial({color: 0xff00ff}));
         else visual = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.05, 8, 8), new THREE.MeshLambertMaterial({color: 0x2ecc71}));
         this.group.add(visual);
         this.group.add(new THREE.PointLight(visual.material.color, 0.5, 2));
@@ -417,7 +445,7 @@ export class MonsterManager {
             if (!m) continue;
             m.update(delta, player, chunkManager);
             if (m.hp <= 0) {
-                const types = ['sticks', 'wood', 'fruit', 'herbs'];
+                const types = ['sticks', 'wood', 'fruit', 'herbs', 'potion'];
                 for(let k=0; k<(m instanceof BeholderBoss ? 15 : 2); k++) {
                     const offset = new THREE.Vector3((Math.random()-0.5)*2.5, 0, (Math.random()-0.5)*2.5);
                     this.droppedItems.push(new DroppedItem(this.scene, types[Math.floor(Math.random()*types.length)], m.group.position.clone().add(offset)));
