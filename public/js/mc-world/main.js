@@ -9,50 +9,211 @@ class AudioManager {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         this.masterGain = this.ctx.createGain();
         this.masterGain.connect(this.ctx.destination);
-        this.masterGain.gain.value = 0.3;
-        this.bgmOsc = null;
-        this.bgmGain = null;
+        this.masterGain.gain.value = 0.4;
+        
+        this.bgmNodes = [];
         this.currentState = 'CALM'; // CALM, TENSE, COMBAT
-        this.lfo = null;
+        this.lastState = null;
+        this.transitioning = false;
+        
+        this.victoryTimeout = null;
+        this.defeatTimeout = null;
     }
 
     async start() {
         if (this.ctx.state === 'suspended') await this.ctx.resume();
-        this.playBGM();
+        this.playState(this.currentState);
+        this.startBirdSounds();
     }
 
-    playBGM() {
-        if (this.bgmOsc) { try { this.bgmOsc.stop(); } catch(e){} }
-        this.bgmOsc = this.ctx.createOscillator();
-        this.bgmGain = this.ctx.createGain();
-        this.bgmOsc.connect(this.bgmGain);
-        this.bgmGain.connect(this.masterGain);
+    stopBGM() {
+        this.bgmNodes.forEach(node => {
+            try {
+                if (node.gain) {
+                    node.gain.gain.setTargetAtTime(0, this.ctx.currentTime + 1);
+                }
+                setTimeout(() => { if (node.osc) node.osc.stop(); }, 1000);
+            } catch(e) {}
+        });
+        this.bgmNodes = [];
+    }
+
+    createNode(type, freq, vol) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.value = 0; // Start silent for fade-in
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        this.bgmNodes.push({ osc, gain });
+        return { osc, gain };
+    }
+
+    playState(state) {
+        this.stopBGM();
+        const now = this.ctx.currentTime;
         
-        const freq = this.currentState === 'CALM' ? 110 : (this.currentState === 'TENSE' ? 82 : 55);
-        this.bgmOsc.type = this.currentState === 'COMBAT' ? 'sawtooth' : 'triangle';
-        this.bgmOsc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        this.bgmGain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-        this.bgmOsc.start();
-        
-        const lfo = this.ctx.createOscillator();
-        const lfoGain = this.ctx.createGain();
-        lfo.frequency.value = this.currentState === 'COMBAT' ? 4 : (this.currentState === 'TENSE' ? 2 : 1);
-        lfoGain.gain.value = 0.02;
-        lfo.connect(lfoGain);
-        lfoGain.connect(this.bgmGain.gain);
-        lfo.start();
-        this.lfo = lfo;
+        if (state === 'CALM') {
+            // Magical, bright ambient pad
+            const n1 = this.createNode('sine', 440, 0.1); // A4
+            const n2 = this.createNode('triangle', 554.37, 0.08); // C#5
+            const n3 = this.createNode('sine', 659.25, 0.05); // E5
+            
+            // Slow modulation for magical feel
+            const lfo = this.ctx.createOscillator();
+            lfo.frequency.value = 0.2;
+            const lfoGain = this.ctx.createGain();
+            lfoGain.gain.value = 10;
+            lfo.connect(lfoGain);
+            lfoGain.connect(n1.osc.frequency);
+            lfo.start();
+            this.bgmNodes.push({ osc: lfo, gain: lfoGain });
+
+            n1.gain.gain.setTargetAtTime(0.08, now, 2);
+            n2.gain.gain.setTargetAtTime(0.06, now, 2);
+            n3.gain.gain.setTargetAtTime(0.04, now, 2);
+
+        } else if (state === 'TENSE') {
+            // Mysterious, slightly dissonant drone
+            const n1 = this.createNode('sawtooth', 110, 0.1); // A2
+            const n2 = this.createNode('triangle', 116.54, 0.08); // A#2 (dissonance)
+            
+            const lfo = this.ctx.createOscillator();
+            lfo.frequency.value = 2; // Faster throb
+            const lfoGain = this.ctx.createGain();
+            lfoGain.gain.value = 0.05;
+            lfo.connect(lfoGain);
+            lfoGain.connect(n1.gain.gain);
+            lfo.start();
+            this.bgmNodes.push({ osc: lfo, gain: lfoGain });
+
+            n1.gain.gain.setTargetAtTime(0.08, now, 1);
+            n2.gain.gain.setTargetAtTime(0.06, now, 1);
+
+        } else if (state === 'COMBAT') {
+            // Fast, driving bass and aggressive synth
+            const base = this.createNode('square', 55, 0.15); // A1
+            const lead = this.createNode('sawtooth', 220, 0.1); // A3
+            
+            // 16th note arpeggiator effect on lead
+            const lfo = this.ctx.createOscillator();
+            lfo.type = 'square';
+            lfo.frequency.value = 8; 
+            const lfoGain = this.ctx.createGain();
+            lfoGain.gain.value = 0.1;
+            lfo.connect(lfoGain);
+            lfoGain.connect(lead.gain.gain);
+            lfo.start();
+            this.bgmNodes.push({ osc: lfo, gain: lfoGain });
+
+            base.gain.gain.setTargetAtTime(0.12, now, 0.5);
+            lead.gain.gain.setTargetAtTime(0.08, now, 0.5);
+        }
     }
 
     updateState(newState) {
-        if (this.currentState !== newState) {
+        if (this.currentState !== newState && !this.victoryTimeout && !this.defeatTimeout) {
+            this.lastState = this.currentState;
             this.currentState = newState;
-            this.playBGM();
+            this.playState(newState);
         }
+    }
+
+    startBirdSounds() {
+        setInterval(() => {
+            if (this.currentState === 'CALM' && Math.random() < 0.4) {
+                this.playBirdChirp();
+            }
+        }, 3000);
+    }
+
+    playBirdChirp() {
+        if(!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        // High pitched chirp
+        osc.frequency.setValueAtTime(4000 + Math.random() * 1000, now);
+        osc.frequency.exponentialRampToValueAtTime(3000 + Math.random() * 500, now + 0.1);
+        
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.05, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        
+        osc.start(now);
+        osc.stop(now + 0.15);
+    }
+
+    playVictory() {
+        this.stopBGM();
+        this.victoryTimeout = true;
+        const now = this.ctx.currentTime;
+        
+        // Triumphant major arpeggio
+        const notes = [440, 554.37, 659.25, 880]; // A, C#, E, A
+        notes.forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            const time = now + i * 0.15;
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.1, time + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+            
+            osc.start(time);
+            osc.stop(time + 0.6);
+        });
+
+        setTimeout(() => {
+            this.victoryTimeout = false;
+            this.playState(this.currentState);
+        }, 2000);
+    }
+
+    playDefeat() {
+        this.stopBGM();
+        this.defeatTimeout = true;
+        const now = this.ctx.currentTime;
+        
+        // Descending, detuned minor notes
+        const notes = [329.63, 311.13, 293.66, 277.18]; // E, Eb, D, C#
+        notes.forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            const time = now + i * 0.4;
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(0.15, time + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+            
+            osc.start(time);
+            osc.stop(time + 0.9);
+        });
+        
+        setTimeout(() => {
+            this.defeatTimeout = false;
+            this.currentState = 'CALM';
+            this.playState('CALM');
+        }, 3000);
     }
 
     playSFX(type) {
         if (!this.ctx) return;
+        const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.connect(gain);
@@ -60,18 +221,18 @@ class AudioManager {
         
         if (type === 'hit') {
             osc.type = 'square';
-            osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
-            osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
         } else if (type === 'jump') {
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
-            osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
         }
     }
 }

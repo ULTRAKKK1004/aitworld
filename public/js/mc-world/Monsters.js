@@ -452,6 +452,7 @@ export class MonsterManager {
                 }
                 player.addXp(m.level * 25);
                 player.score += m.level * 100;
+                if (window.audioManager) window.audioManager.playVictory();
                 this.monsters.splice(i, 1);
             }
         }

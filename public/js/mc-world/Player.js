@@ -166,6 +166,7 @@ export class PlayerData {
         this.mp = this.maxMp;
         this.teleportToSafe();
         this.showNotification("YOU FAINTED! Respawning...");
+        if (window.audioManager) window.audioManager.playDefeat();
     }
 
     teleportToSafe() {
