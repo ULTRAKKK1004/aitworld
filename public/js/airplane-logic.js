@@ -33,8 +33,8 @@ let stage = 1;
 let lives = 3;
 let hp = 100;
 let weaponLevel = 1; 
-let hasShield = false;
-let magicCharged = false;
+let shieldLayers = 0;
+let magicCount = 0;
 let frameCount = 0;
 
 // Entities
@@ -197,7 +197,7 @@ class Player {
             this.lastShot = now;
         }
 
-        if (keys['KeyX'] && magicCharged) this.useMagic();
+        if (keys['KeyX'] && magicCount > 0) this.useMagic();
 
         this.bullets.forEach((b, i) => {
             b.y -= b.speed;
@@ -223,8 +223,11 @@ class Player {
     }
 
     useMagic() {
-        magicCharged = false;
-        magicEl.style.display = 'none';
+        if (magicCount <= 0) return;
+        magicCount--;
+        if (magicCount <= 0) {
+            magicEl.style.display = 'none';
+        }
         updateMagicButton();
         playSFX('magic');
         showSkullEffect();
@@ -253,18 +256,21 @@ class Player {
         ctx.fillStyle = '#fff';
         ctx.fillRect(this.x + 18, this.y + 6, 4, 6); // Cockpit
 
-        if (hasShield) {
-            ctx.strokeStyle = '#00ffff';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.arc(this.x + 20, this.y + 15, 32 + Math.sin(frameCount * 0.1) * 2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.globalAlpha = 0.15;
-            ctx.fillStyle = '#0ff';
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
+        if (shieldLayers > 0) {
+            for (let i = 0; i < shieldLayers; i++) {
+                ctx.strokeStyle = `hsla(${(180 + i * 30) % 360}, 100%, 50%, 0.8)`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(this.x + 20, this.y + 15, 32 + i * 5 + Math.sin(frameCount * 0.1) * 2, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.globalAlpha = 0.05;
+                ctx.fillStyle = '#0ff';
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
         }
 
         // Bullets (Thick Neon Cyan with Bright Core)
@@ -326,9 +332,11 @@ class Enemy {
         this.y = -60;
         this.maxHp = 1 + Math.floor(stage / 3);
         this.hp = this.maxHp;
-        this.speed = 2.2 + (stage * 0.16);
+        // Increased speed by 30% (original 2.2 -> 2.86, 0.16 -> 0.208)
+        this.speed = (2.2 + (stage * 0.16)) * 1.3;
         this.vx = (Math.random() - 0.5) * 2;
         this.vy = this.speed;
+        this.colorHue = Math.random() * 360; // For colorful effects
         
         if (type === 'charger') this.speed *= 1.8;
         if (type === 'suction') { this.hp *= 3.5; this.maxHp *= 3.5; this.speed *= 0.55; }
@@ -407,37 +415,108 @@ class Enemy {
         ctx.translate(this.x + this.width/2, this.y + this.height/2);
         
         if (this.type === 'missile') {
-            ctx.fillStyle = '#333';
+            // Missile Flame
+            const flameHeight = 15 + Math.sin(frameCount * 0.5) * 5;
+            let flameGrad = ctx.createLinearGradient(0, 20, 0, 20 + flameHeight);
+            flameGrad.addColorStop(0, '#ffcc00');
+            flameGrad.addColorStop(0.5, '#ff6600');
+            flameGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+            ctx.fillStyle = flameGrad;
+            ctx.beginPath();
+            ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(0, 20 + flameHeight); ctx.closePath(); ctx.fill();
+
+            // Missile Body
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#f00';
+            ctx.fillStyle = '#444';
             ctx.fillRect(-6, -22, 12, 44);
+            
+            // Neon Stripes
+            ctx.fillStyle = `hsl(${frameCount % 360}, 100%, 50%)`;
+            ctx.fillRect(-6, -10, 12, 2);
+            ctx.fillRect(-6, 5, 12, 2);
+
             ctx.fillStyle = '#96281b';
             ctx.beginPath();
             ctx.moveTo(-22, 0); ctx.lineTo(22, 0); ctx.lineTo(10, 15); ctx.lineTo(-10, 15); ctx.closePath(); ctx.fill();
+            
+            // Cockpit/Tip
             ctx.fillStyle = '#f39c12';
-            ctx.fillRect(-4, -24, 8, 3);
+            ctx.fillRect(-4, -24, 8, 4);
         } else if (this.type === 'charger') {
+            // Thruster Glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff3300';
+            ctx.fillStyle = '#ff3300';
+            ctx.beginPath();
+            ctx.arc(0, -10, 15 + Math.sin(frameCount * 0.8) * 5, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.fillStyle = '#d35400';
             ctx.beginPath();
             ctx.moveTo(0, 24); ctx.lineTo(22, -15); ctx.lineTo(0, -25); ctx.lineTo(-22, -15); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(-10, -5, 4, 4); ctx.fillRect(6, -5, 4, 4);
-            ctx.fillStyle = '#ff0000'; ctx.fillRect(-9, -4, 2, 2); ctx.fillRect(7, -4, 2, 2);
+            
+            // Decorative Lights
+            ctx.fillStyle = frameCount % 10 < 5 ? '#00ffff' : '#ffffff';
+            ctx.fillRect(-12, -5, 4, 4); ctx.fillRect(8, -5, 4, 4);
+            
+            ctx.fillStyle = '#ff0000'; 
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#f00';
+            ctx.fillRect(-9, -4, 2, 2); ctx.fillRect(7, -4, 2, 2);
         } else if (this.type === 'suction') {
             let s = 1 + Math.sin(frameCount * 0.15) * 0.12;
             ctx.scale(s, s);
+            ctx.rotate(frameCount * 0.05);
+            
+            // Outer Swirl
+            for(let i=0; i<3; i++) {
+                ctx.rotate(Math.PI * 2 / 3);
+                let swirl = ctx.createRadialGradient(15, 0, 0, 15, 0, 15);
+                swirl.addColorStop(0, `hsla(${(frameCount*2 + i*120)%360}, 100%, 50%, 0.8)`);
+                swirl.addColorStop(1, 'transparent');
+                ctx.fillStyle = swirl;
+                ctx.beginPath(); ctx.arc(15, 0, 15, 0, Math.PI*2); ctx.fill();
+            }
+
             let g = ctx.createRadialGradient(0,0,0,0,0,22);
-            g.addColorStop(0, '#000'); g.addColorStop(0.6, '#4b0082'); g.addColorStop(1, '#9400d3');
+            g.addColorStop(0, '#000'); g.addColorStop(0.4, '#4b0082'); g.addColorStop(0.8, '#9400d3'); g.addColorStop(1, '#0ff');
             ctx.fillStyle = g;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#9400d3';
             ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2); ctx.fill();
+            
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
         } else if (this.type === 'exploder') {
+            ctx.rotate(frameCount * 0.02);
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff00ff';
+            
+            // Complex polygon
             ctx.fillStyle = '#2c3e50';
             ctx.beginPath();
-            for(let i=0; i<6; i++) {
-                let a = (i/6)*Math.PI*2; ctx.lineTo(Math.cos(a)*22, Math.sin(a)*22);
+            for(let i=0; i<12; i++) {
+                let r = i % 2 === 0 ? 25 : 15;
+                let a = (i/12)*Math.PI*2; 
+                ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
             }
             ctx.closePath(); ctx.fill();
-            ctx.fillStyle = frameCount % 20 < 10 ? '#ff0000' : '#800000';
-            ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2); ctx.fill();
+            
+            // Pulsing core
+            let coreSize = 10 + Math.sin(frameCount * 0.2) * 4;
+            let coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreSize);
+            coreGrad.addColorStop(0, '#fff');
+            coreGrad.addColorStop(0.5, '#f0f');
+            coreGrad.addColorStop(1, '#800080');
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath(); ctx.arc(0,0,coreSize,0,Math.PI*2); ctx.fill();
+            
+            // Rotating lights
+            for(let i=0; i<4; i++) {
+                ctx.rotate(Math.PI / 2);
+                ctx.fillStyle = frameCount % 20 < 10 ? '#ff0000' : '#ffff00';
+                ctx.beginPath(); ctx.arc(18, 0, 3, 0, Math.PI*2); ctx.fill();
+            }
         }
         ctx.restore();
     }
@@ -467,8 +546,8 @@ class Item {
         if (this.type === 'L') lives++;
         else if (this.type === 'H') hp = Math.min(100, hp + 40);
         else if (this.type === 'W') { weaponLevel++; weaponEl.innerText = weaponLevel >= 3 ? 'SPREAD' : 'DOUBLE'; }
-        else if (this.type === 'S') { hasShield = true; shieldEl.innerText = 'ON'; }
-        else if (this.type === 'M') { magicCharged = true; magicEl.style.display = 'block'; updateMagicButton(); }
+        else if (this.type === 'S') { shieldLayers++; shieldEl.innerText = 'x' + shieldLayers; }
+        else if (this.type === 'M') { magicCount++; magicEl.style.display = 'block'; magicEl.innerText = 'x' + magicCount; updateMagicButton(); }
         updateHUD();
     }
 
@@ -523,9 +602,9 @@ function updateBackground() {
 }
 
 function takeDamage(amount) {
-    if (hasShield) {
-        hasShield = false;
-        shieldEl.innerText = 'OFF';
+    if (shieldLayers > 0) {
+        shieldLayers--;
+        shieldEl.innerText = shieldLayers > 0 ? 'x' + shieldLayers : 'OFF';
         playSFX('shield_break');
         return;
     }
@@ -541,8 +620,10 @@ function takeDamage(amount) {
 
 function updateHUD() {
     if (scoreEl) scoreEl.innerText = score.toString().padStart(6, '0');
-    if (stageEl) stageEl.innerText = `${stage}/20`;
+    if (stageEl) stageEl.innerText = `${stage}/100`;
     if (livesEl) livesEl.innerText = lives;
+    if (shieldEl) shieldEl.innerText = shieldLayers > 0 ? 'x' + shieldLayers : 'OFF';
+    if (magicEl) magicEl.innerText = magicCount > 0 ? 'x' + magicCount : '';
     if (hpFillEl) {
         hpFillEl.style.width = `${hp}%`;
         hpFillEl.style.backgroundColor = hp < 30 ? '#ff0000' : (hp < 60 ? '#ffff00' : '#00ff00');
@@ -551,11 +632,16 @@ function updateHUD() {
 
 function updateMagicButton() {
     const btnMagic = document.getElementById('btn-magic-touch');
-    if (!btnMagic) return;
-    if (magicCharged) {
-        btnMagic.classList.add('active');
+    const indicator = document.getElementById('magic-indicator');
+    if (magicCount > 0) {
+        if (btnMagic) btnMagic.classList.add('active');
+        if (indicator) {
+            indicator.style.display = 'block';
+            indicator.innerText = 'MAGIC: x' + magicCount;
+        }
     } else {
-        btnMagic.classList.remove('active');
+        if (btnMagic) btnMagic.classList.remove('active');
+        if (indicator) indicator.style.display = 'none';
     }
 }
 
@@ -742,7 +828,7 @@ function loop() {
 
     if (frameCount % Math.max(10, 50 - stage * 2) === 0) spawnEnemy();
 
-    if (score > stage * 5000 && stage < 20) {
+    if (score > stage * 5000 && stage < 100) {
         stage++;
         playSFX('stage_up');
         updateHUD();
@@ -940,8 +1026,8 @@ function startGame() {
     player = new Player();
     enemies = []; enemyBullets = []; items = []; explosions = [];
     score = 0; stage = 1; lives = 3; hp = 100; weaponLevel = 1;
-    hasShield = false;
-    magicCharged = false;
+    shieldLayers = 0;
+    magicCount = 0;
     initBackground();
     initTouchControls();
     updateHUD();

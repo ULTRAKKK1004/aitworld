@@ -123,6 +123,11 @@ let gameState = {
     lastItemTime: Date.now(),
     currentItem: null,
     itemTimer: 0,
+    penaltyMultiplier: 1.0,
+    dirChanges: [],
+    lastPaddleDir: 0,
+    prevPaddleX: 0,
+    penaltyDebounce: false,
     effects: {
         doubleSpeed: false,
         invincibleBlocks: false,
@@ -204,7 +209,7 @@ class Ball {
         this.updateSpeed();
     }
     updateSpeed() {
-        let currentSpeed = this.baseSpeed;
+        let currentSpeed = this.baseSpeed * (gameState.penaltyMultiplier || 1.0);
         if (gameState.effects.doubleSpeed) currentSpeed *= 2;
         if (gameState.effects.halfSpeed) currentSpeed *= 0.7;
         const mag = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
@@ -303,8 +308,12 @@ class Block {
 function initStage(stageNum) {
     gameState.stage = stageNum; gameState.balls = []; gameState.blocks = []; gameState.particles = [];
     gameState.currentPaddleWidth = getStagePaddleWidth(stageNum);
-    gameState.paddleX = canvas.width / 2 - gameState.currentPaddleWidth / 2; gameState.lastItemTime = Date.now();
+    gameState.paddleX = canvas.width / 2 - gameState.currentPaddleWidth / 2;
+    gameState.prevPaddleX = gameState.paddleX;
+    gameState.lastItemTime = Date.now();
     gameState.respawning = false;
+    gameState.penaltyMultiplier = 1.0;
+    gameState.dirChanges = [];
     resetEffects();
     gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120));
     let baseHp = 3 + ((gameState.stage - 1) * 2);
@@ -358,6 +367,11 @@ function applyItemEffect(itemType) {
 }
 function addActiveEffect(text) {
     const div = document.createElement('div'); div.className = 'effect-text'; div.innerText = text;
+    if (text.includes("패널티")) {
+        div.style.color = "#f00";
+        div.style.borderColor = "#f00";
+        div.style.textShadow = "0 0 10px #f00";
+    }
     activeEffectsDiv.appendChild(div); setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 5000);
 }
 function removeActiveEffect(type) {
@@ -455,6 +469,30 @@ function update() {
     if (gameState.keys.right) gameState.paddleX += 7;
     if (gameState.paddleX < 0) gameState.paddleX = 0;
     if (gameState.paddleX + gameState.currentPaddleWidth > canvas.width) gameState.paddleX = canvas.width - gameState.currentPaddleWidth;
+
+    // --- PADDLE MOVEMENT PENALTY TRACKING ---
+    let currentDir = 0;
+    if (gameState.paddleX > gameState.prevPaddleX) currentDir = 1;
+    else if (gameState.paddleX < gameState.prevPaddleX) currentDir = -1;
+
+    if (currentDir !== 0 && currentDir !== gameState.lastPaddleDir) {
+        gameState.dirChanges.push(Date.now());
+        gameState.lastPaddleDir = currentDir;
+    }
+    gameState.prevPaddleX = gameState.paddleX;
+
+    const now = Date.now();
+    gameState.dirChanges = gameState.dirChanges.filter(t => now - t < 1000);
+
+    if (gameState.dirChanges.length >= 15 && !gameState.penaltyDebounce) {
+        gameState.penaltyMultiplier *= 2.0;
+        addActiveEffect("과도한 움직임으로 인한 패널티");
+        gameState.balls.forEach(b => b.updateSpeed());
+        gameState.penaltyDebounce = true;
+        setTimeout(() => { gameState.penaltyDebounce = false; }, 1000);
+    }
+    // ------------------------------------------
+
     if (gameState.currentItem && Date.now() > gameState.itemTimer) resetEffects();
     if (Date.now() - gameState.lastItemTime > 10000) { gameState.items.push(new Item()); gameState.lastItemTime = Date.now(); }
     for (let i = gameState.items.length - 1; i >= 0; i--) {
