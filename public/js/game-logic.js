@@ -128,6 +128,7 @@ let gameState = {
     lastPaddleDir: 0,
     prevPaddleX: 0,
     penaltyDebounce: false,
+    worm: null,
     effects: {
         doubleSpeed: false,
         invincibleBlocks: false,
@@ -269,38 +270,165 @@ function getNeonColor(hp) {
 }
 
 class Block {
-    constructor(x, y, hp) {
+    constructor(x, y, hp, unbreakable = false) {
         this.x = x; this.y = y; this.width = BLOCK_SIZE; this.height = BLOCK_SIZE;
-        this.hp = hp; this.baseHp = hp; this.color = getNeonColor(hp); this.active = true;
+        this.hp = hp; this.baseHp = hp; this.color = unbreakable ? '#7f8c8d' : getNeonColor(hp); 
+        this.active = true;
+        this.unbreakable = unbreakable;
     }
     draw() {
         if (!this.active) return;
-        if (gameState.effects.invincibleBlocks && Math.floor(Date.now() / 200) % 2 === 0) return;
+        if (gameState.effects.invincibleBlocks && !this.unbreakable && Math.floor(Date.now() / 200) % 2 === 0) return;
         
         // Block body
         ctx.save();
         ctx.fillStyle = this.color;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = this.unbreakable ? 5 : 15;
         ctx.shadowColor = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         
-        // Gloss effect
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
-        
-        // Inner detail
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.fillRect(this.x + 4, this.y + 4, this.width - 8, 4);
-        
-        // HP Text
-        ctx.fillStyle = (this.hp <= 2) ? '#000' : '#FFF';
-        ctx.font = 'bold 16px Courier New';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowBlur = 0;
-        ctx.fillText(this.hp, this.x + this.width / 2, this.y + this.height / 2);
+        if (this.unbreakable) {
+            // Metallic/Riveted look for unbreakable blocks
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x + 4, this.y + 4, this.width - 8, this.height - 8);
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(this.x + 8, this.y + 8, 4, 4);
+            ctx.fillRect(this.x + this.width - 12, this.y + 8, 4, 4);
+            ctx.fillRect(this.x + 8, this.y + this.height - 12, 4, 4);
+            ctx.fillRect(this.x + this.width - 12, this.y + this.height - 12, 4, 4);
+        } else {
+            // Gloss effect for breakable blocks
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
+            
+            // Inner detail
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillRect(this.x + 4, this.y + 4, this.width - 8, 4);
+            
+            // HP Text
+            ctx.fillStyle = (this.hp <= 2) ? '#000' : '#FFF';
+            ctx.font = 'bold 16px Courier New';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 0;
+            ctx.fillText(this.hp, this.x + this.width / 2, this.y + this.height / 2);
+        }
         ctx.restore();
+    }
+}
+
+class Worm {
+    constructor(stage) {
+        this.length = 3 + (stage - 21);
+        this.segments = [];
+        this.baseSpeed = 1.5 * Math.pow(1.2, (stage - 21)); // Increased speed per stage
+        this.radius = 12;
+        this.centerX = canvas.width / 2;
+        this.centerY = 500; // Between blocks and paddle
+        this.angle = 0;
+        this.speed = this.baseSpeed;
+        this.history = [];
+        this.isWormActive = true;
+        
+        // Initial segments
+        for (let i = 0; i < this.length; i++) {
+            this.segments.push({ x: this.centerX, y: this.centerY });
+        }
+    }
+    
+    update() {
+        if (!this.isWormActive) return;
+        this.angle += 0.02 * this.speed;
+        let headX = canvas.width / 2 + Math.cos(this.angle) * (canvas.width / 2 - this.radius - 20);
+        let headY = this.centerY + Math.sin(this.angle * 2.3) * 120; // Wavy movement
+
+        this.history.unshift({ x: headX, y: headY });
+        
+        const spacing = 12;
+        this.segments = [];
+        for (let i = 0; i < this.length; i++) {
+            let index = i * spacing;
+            if (index >= this.history.length) index = this.history.length - 1;
+            this.segments.push(this.history[index]);
+        }
+        
+        if (this.history.length > this.length * spacing + 10) {
+            this.history.pop();
+        }
+        
+        // Worm collision with balls
+        gameState.balls.forEach(ball => {
+            if (!ball.active) return;
+            
+            // Check Head (Eating)
+            let head = this.segments[0];
+            let distHead = Math.sqrt((ball.x - head.x)**2 + (ball.y - head.y)**2);
+            if (distHead < this.radius + ball.radius) {
+                ball.active = false; // Eaten
+                this.length++;
+                addActiveEffect("지렁이가 공을 먹었습니다! (길이 증가)");
+                return;
+            }
+            
+            // Check Tail (Shrinking)
+            let tail = this.segments[this.segments.length - 1];
+            let distTail = Math.sqrt((ball.x - tail.x)**2 + (ball.y - tail.y)**2);
+            if (distTail < this.radius + ball.radius) {
+                ball.dy = -ball.dy;
+                if (this.length > 1) {
+                    this.length--;
+                    gameState.score += 500;
+                    addActiveEffect("지렁이 꼬리를 맞췄습니다! (길이 감소)");
+                }
+                return;
+            }
+            
+            // Check Body (Deflection)
+            for (let i = 1; i < this.segments.length - 1; i++) {
+                let seg = this.segments[i];
+                let dist = Math.sqrt((ball.x - seg.x)**2 + (ball.y - seg.y)**2);
+                if (dist < this.radius + ball.radius) {
+                    // Reverse vertical direction if hit from top/bottom
+                    ball.dy = -ball.dy;
+                    // Adjust horizontal velocity based on hit point to simulate variety
+                    ball.dx += (ball.x - seg.x) * 0.2;
+                    break;
+                }
+            }
+        });
+    }
+
+    draw() {
+        if (!this.isWormActive) return;
+        // Drawing segments from tail to head
+        for (let i = this.segments.length - 1; i >= 0; i--) {
+            let seg = this.segments[i];
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(seg.x, seg.y, this.radius, 0, Math.PI * 2);
+            if (i === 0) {
+                ctx.fillStyle = '#f39c12'; // Head: Orange
+                ctx.shadowBlur = 10; ctx.shadowColor = '#f39c12';
+            } else if (i === this.segments.length - 1) {
+                ctx.fillStyle = '#e74c3c'; // Tail: Red
+                ctx.shadowBlur = 15; ctx.shadowColor = '#f00';
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+            } else {
+                ctx.fillStyle = '#2ecc71'; // Body: Green
+            }
+            ctx.fill();
+            if (i === 0) { // Eyes
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(seg.x - 4, seg.y - 4, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(seg.x + 4, seg.y - 4, 3, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(seg.x - 4, seg.y - 4, 1.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(seg.x + 4, seg.y - 4, 1.5, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+        }
     }
 }
 
@@ -314,16 +442,21 @@ function initStage(stageNum) {
     gameState.respawning = false;
     gameState.penaltyMultiplier = 1.0;
     gameState.dirChanges = [];
+    gameState.worm = (stageNum >= 21) ? new Worm(stageNum) : null;
     resetEffects();
     gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120));
     let baseHp = 3 + ((gameState.stage - 1) * 2);
     for (let r = 0; r < BLOCK_ROWS; r++) {
         for (let c = 0; c < BLOCK_COLS; c++) {
             let hp = baseHp;
-            if (gameState.stage > 3) { if (Math.random() > 0.7) hp += 1; if (Math.random() > 0.9) hp += 1; }
+            let isUnbreakable = false;
+            if (gameState.stage >= 11) {
+                if (Math.random() < 0.15) isUnbreakable = true;
+            }
+            if (!isUnbreakable && gameState.stage > 3) { if (Math.random() > 0.7) hp += 1; if (Math.random() > 0.9) hp += 1; }
             let x = BLOCK_OFFSET_LEFT + c * (BLOCK_SIZE + BLOCK_PADDING);
             let y = BLOCK_OFFSET_TOP + r * (BLOCK_SIZE + BLOCK_PADDING);
-            gameState.blocks.push(new Block(x, y, hp));
+            gameState.blocks.push(new Block(x, y, hp, isUnbreakable));
         }
     }
     updateUI(); updateAttacksUI();
@@ -412,7 +545,7 @@ function checkItemCollision(item) {
 }
 function checkCollisions() {
     gameState.blocks.forEach(block => {
-        if (!block.active || gameState.effects.invincibleBlocks) return;
+        if (!block.active || (gameState.effects.invincibleBlocks && !block.unbreakable)) return;
         gameState.balls.forEach(ball => {
             if (!ball.active) return;
             if (ball.x + ball.radius > block.x && ball.x - ball.radius < block.x + block.width &&
@@ -422,20 +555,35 @@ function checkCollisions() {
                     if (ball.y < PADDLE_Y - 50) { ball.dy = -ball.dy; ball.y = block.y + block.height + ball.radius + 1; }
                     else { ball.dx = -ball.dx; }
                 } else { ball.dx = -ball.dx; }
-                playBlockHitSound(block.hp, block.baseHp);
-                let damage = gameState.effects.doubleDamage ? 2 : 1;
-                block.hp -= damage; createExplosion(ball.x, ball.y, block.color);
-                if (block.hp <= 0) {
-                    block.active = false; gameState.score += 100 * gameState.stage;
-                    createExplosion(block.x + block.width/2, block.y + block.height/2, '#fff');
-                    checkNeighboringBlocks(block.x, block.y);
-                } else { block.color = getNeonColor(block.hp); }
+
+                if (!block.unbreakable) {
+                    playBlockHitSound(block.hp, block.baseHp);
+                    let damage = gameState.effects.doubleDamage ? 2 : 1;
+                    block.hp -= damage; createExplosion(ball.x, ball.y, block.color);
+                    if (block.hp <= 0) {
+                        block.active = false; gameState.score += 100 * gameState.stage;
+                        createExplosion(block.x + block.width/2, block.y + block.height/2, '#fff');
+                        checkNeighboringBlocks(block.x, block.y);
+                    } else { block.color = getNeonColor(block.hp); }
+                } else {
+                    // Unbreakable block hit sound (higher pitch/metallic)
+                    if (audioCtx) {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'square';
+                        o.frequency.setValueAtTime(800, audioCtx.currentTime);
+                        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                        o.connect(g); g.connect(audioCtx.destination);
+                        o.start(); o.stop(audioCtx.currentTime + 0.1);
+                    }
+                }
                 updateUI();
             }
         });
     });
-    if (gameState.blocks.filter(b => b.active).length === 0) {
-        if (gameState.stage < 20) { gameState.stage++; initStage(gameState.stage); }
+    if (gameState.blocks.filter(b => b.active && !b.unbreakable).length === 0) {
+        if (gameState.stage < 100) { gameState.stage++; initStage(gameState.stage); }
         else { gameWin(); }
     }
 }
@@ -494,6 +642,7 @@ function update() {
     // ------------------------------------------
 
     if (gameState.currentItem && Date.now() > gameState.itemTimer) resetEffects();
+    if (gameState.worm) gameState.worm.update();
     if (Date.now() - gameState.lastItemTime > 10000) { gameState.items.push(new Item()); gameState.lastItemTime = Date.now(); }
     for (let i = gameState.items.length - 1; i >= 0; i--) {
         let item = gameState.items[i]; item.update();
@@ -540,8 +689,17 @@ function draw() {
     ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'; ctx.lineWidth = 2; ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
     ctx.fillStyle = '#0ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#0ff'; ctx.fillRect(gameState.paddleX, PADDLE_Y, gameState.currentPaddleWidth, PADDLE_HEIGHT);
     ctx.shadowBlur = 0;
-    if (!gameState.effects.invincibleBlocks) { gameState.blocks.forEach(b => b.draw()); }
-    else { gameState.blocks.forEach(b => { if (b.active) { ctx.fillStyle = '#555'; ctx.fillRect(b.x, b.y, b.width, b.height); ctx.fillStyle = '#000'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(b.hp, b.x + b.width/2, b.y + b.height/2); } }); }
+    gameState.blocks.forEach(b => {
+        if (!b.active) return;
+        if (gameState.effects.invincibleBlocks && !b.unbreakable) {
+            ctx.fillStyle = '#555'; ctx.fillRect(b.x, b.y, b.width, b.height); 
+            ctx.fillStyle = '#000'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; 
+            ctx.fillText(b.hp, b.x + b.width/2, b.y + b.height/2);
+        } else {
+            b.draw();
+        }
+    });
+    if (gameState.worm) gameState.worm.draw();
     gameState.items.forEach(item => item.draw());
     gameState.balls.forEach(b => b.draw());
     gameState.particles.forEach(p => p.draw());
@@ -598,8 +756,7 @@ function fireLaser() {
     
     // Check collisions with blocks
     gameState.blocks.forEach(block => {
-        if (block.active && block.x + block.width > beamX && block.x < beamX + beamWidth) {
-            if (!block.active) return;
+        if (block.active && !block.unbreakable && block.x + block.width > beamX && block.x < beamX + beamWidth) {
             block.hp -= 3;
             createExplosion(block.x + block.width / 2, block.y + block.height / 2, block.color);
             if (block.hp <= 0) {
@@ -682,14 +839,15 @@ function gameWin() {
     stageSelectionDiv.classList.add('hidden');
     gameOverContentDiv.classList.remove('hidden');
     finalScoreEl.innerText = gameState.score;
-    finalStageEl.innerText = "20 (CLEAR)";
+    finalStageEl.innerText = "100 (CLEAR)";
     gameTitle.innerText = "MISSION COMPLETE!";
     submitScore(gameState.score);
 }
 
 function setupStageButtons() {
     stageGrid.innerHTML = '';
-    for (let i = 1; i <= 20; i++) {
+    // Temporary: Allow selection up to 22 to test the worm feature.
+    for (let i = 1; i <= 22; i++) {
         let btn = document.createElement('div'); btn.className = 'stage-btn'; btn.innerText = i;
         if (i === 1) btn.classList.add('current');
         btn.onclick = () => { document.querySelectorAll('.stage-btn').forEach(b => b.classList.remove('current')); btn.classList.add('current'); gameState.selectedStage = i; };
