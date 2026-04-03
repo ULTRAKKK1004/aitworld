@@ -1,5 +1,5 @@
 var multiTouchInitialized = false;
-var GameState = { currentStage: 1, playerHP: 5, playerMaxHP: 5, playerLives: 3, score: 0, playerSpeed: 350 };
+var GameState = { currentStage: 1, playerHP: 5, playerMaxHP: 5, playerLives: 3, score: 0, playerSpeed: 350, isMega: false, isReversed: false, scoreMultiplier: 1 };
 
 class BootScene extends Phaser.Scene {
     constructor() { super('BootScene'); }
@@ -24,13 +24,21 @@ class MenuScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor('#87CEEB');
         this.add.rectangle(0, 300, 800, 200, 0x228B22).setOrigin(0, 0);
         this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
-        const startBtn = this.add.text(this.cameras.main.centerX, 300, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
+        
+        const startBtn = this.add.text(this.cameras.main.centerX, 280, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
             .setOrigin(0.5).setInteractive().on('pointerup', () => {
-                resumeAudio(); GameState.currentStage = 1; GameState.score = 0; GameState.playerHP = 5; GameState.playerLives = 3;
+                resumeAudio(); 
+                GameState.currentStage = 1; GameState.score = 0; GameState.playerHP = 5; GameState.playerLives = 3;
+                GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
                 fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
                 this.scene.start('GameScene');
             });
         this.tweens.add({ targets: startBtn, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, loop: -1 });
+
+        const backBtn = this.add.text(this.cameras.main.centerX, 380, "[ BACK TO DASHBOARD ]", { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 3 })
+            .setOrigin(0.5).setInteractive().on('pointerup', () => {
+                window.location.href = '/dashboard';
+            });
     }
 }
 
@@ -67,8 +75,8 @@ class GameScene extends Phaser.Scene {
         this.physics.world.setBoundsCollision(true, true, true, false);
 
         this.physics.add.collider(this.player, this.platforms);
-        this.physics.add.collider(this.player, this.bricks, (p, b) => { if (p.body.touching.up) b.hit(); });
-        this.physics.add.collider(this.player, this.itemBoxes, (p, b) => { if (p.body.touching.up) b.hit(); });
+        this.physics.add.collider(this.player, this.bricks, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 28)) b.hit(); });
+        this.physics.add.collider(this.player, this.itemBoxes, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 28)) b.hit(); });
         this.physics.add.collider(this.enemies, this.platforms);
         this.physics.add.collider(this.items, this.platforms);
         this.physics.add.collider(this.projectiles, this.platforms, (p) => p.destroy());
@@ -251,7 +259,7 @@ class GameScene extends Phaser.Scene {
         if (this.player.y > 480) { this.die(); return; }
         let moveX = 0; let L = this.cursors.left.isDown || this.btnLeft; let R = this.cursors.right.isDown || this.btnRight;
         if (this.player.isReversed) { let t = L; L = R; R = t; }
-        if (L) { moveX = -this.player.speed * 20; this.player.setFlipX(true); } else if (R) { moveX = this.player.speed * 20; this.player.setFlipX(false); }
+        if (L) { moveX = -this.player.speed * 33; this.player.setFlipX(true); } else if (R) { moveX = this.player.speed * 33; this.player.setFlipX(false); }
         this.player.setAccelerationX(moveX);
         if ((this.cursors.up.isDown || this.cursors.space.isDown || this.btnJump) && !this.jumpKeyPressed) { this.player.doJump(); this.jumpKeyPressed = true; }
         else if (!(this.cursors.up.isDown || this.cursors.space.isDown || this.btnJump)) this.jumpKeyPressed = false;
@@ -272,9 +280,18 @@ class GameScene extends Phaser.Scene {
     }
     hitProjectile(p, pr) { if (this.isDying || this.isTransitioning) return; pr.destroy(); if (p.takeDamage(1)) this.die(); }
     unlockDoors() { this.doors.getChildren().forEach(d => { this.tweens.add({ targets: d, alpha: 0.3, y: d.y - 64, duration: 1000 }); if (d.body) d.body.enable = false; }); }
-    reachExit(p, e) { if (this.isTransitioning) return; if (this.boss && this.boss.active) { this.showMessage("Defeat the Boss!"); return; } this.isTransitioning = true; GameState.playerHP = this.player.health; this.addScore(this.timeLimit * 10); AudioSystem.playWin(); try { BGM.stop(); } catch(e) {} this.cameras.main.fade(1000, 0, 0, 0, false, (cam, pct) => { if (pct === 1) { GameState.currentStage++; this.scene.start('GameScene'); } }); }
+    reachExit(p, e) { 
+        if (this.isTransitioning) return; 
+        if (this.boss && this.boss.active) { this.showMessage("Defeat the Boss!"); return; } 
+        this.isTransitioning = true; 
+        GameState.playerHP = this.player.health; 
+        GameState.isMega = this.player.isMega;
+        GameState.isReversed = this.player.isReversed;
+        GameState.scoreMultiplier = this.player.scoreMultiplier;
+        this.addScore(this.timeLimit * 10); AudioSystem.playWin(); try { BGM.stop(); } catch(e) {} this.cameras.main.fade(1000, 0, 0, 0, false, (cam, pct) => { if (pct === 1) { GameState.currentStage++; this.scene.start('GameScene'); } }); }
     die() {
         if (this.isDying) return; this.isDying = true; GameState.playerLives--; GameState.playerHP = 5; 
+        GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
         try { this.physics.world.pause(); if (this.player.body) this.physics.world.disable(this.player); BGM.stop(); AudioSystem.playDeath(); this.player.setTint(0xff0000); } catch(e) {}
         this.tweens.add({ targets: this.player, y: this.player.y - 120, duration: 450, ease: 'Cubic.easeOut', onComplete: () => { this.tweens.add({ targets: this.player, y: 650, duration: 700, ease: 'Cubic.easeIn', onComplete: () => { if (GameState.playerLives > 0) this.scene.restart(); else this.scene.start('GameOverScene'); } }); } });
     }
@@ -296,7 +313,9 @@ class GameOverScene extends Phaser.Scene {
         }).then(r => r.json()).then(d => {
             console.log('[Hero-Quest] Submit success:', d);
             const bestEl = document.getElementById('my-best-score');
-            if (bestEl && GameState.score > parseInt(bestEl.innerText || '0')) {
+            if (bestEl && d.updatedScores && d.updatedScores.hero_best_score !== undefined) {
+                bestEl.innerText = d.updatedScores.hero_best_score;
+            } else if (bestEl && GameState.score > parseInt(bestEl.innerText || '0')) {
                 bestEl.innerText = GameState.score;
             }
         }).catch(e => console.error('[Hero-Quest] Submit failed:', e));
@@ -307,6 +326,9 @@ class GameOverScene extends Phaser.Scene {
             GameState.playerLives = 3;
             GameState.playerHP = 5;
             GameState.score = 0;
+            GameState.isMega = false;
+            GameState.isReversed = false;
+            GameState.scoreMultiplier = 1;
             this.scene.start('GameScene');
         });
         
@@ -328,7 +350,9 @@ class VictoryScene extends Phaser.Scene {
         }).then(r => r.json()).then(d => {
             console.log('[Hero-Quest] Submit success:', d);
             const bestEl = document.getElementById('my-best-score');
-            if (bestEl && GameState.score > parseInt(bestEl.innerText || '0')) {
+            if (bestEl && d.updatedScores && d.updatedScores.hero_best_score !== undefined) {
+                bestEl.innerText = d.updatedScores.hero_best_score;
+            } else if (bestEl && GameState.score > parseInt(bestEl.innerText || '0')) {
                 bestEl.innerText = GameState.score;
             }
         }).catch(e => console.error('[Hero-Quest] Submit failed:', e));

@@ -10,8 +10,20 @@ const motivationPhrases = [
     "당신의 한계를 시험해 보세요!"
 ];
 
-function updateLeaderboard() {
-    fetch('/api/leaderboard')
+function updateLeaderboard(gameType) {
+    // Try to detect gameType from URL if not provided
+    if (!gameType) {
+        const path = window.location.pathname;
+        if (path.includes('brick-crasher')) gameType = 'brick';
+        else if (path.includes('hero-quest')) gameType = 'hero';
+        else if (path.includes('airplane-shooter')) gameType = 'airplane-shooter';
+        else if (path.includes('lift-rush')) gameType = 'lift-rush';
+        else if (path.includes('mc-world')) gameType = 'mc-world';
+    }
+
+    const url = gameType ? `/api/leaderboard?gameType=${gameType}` : '/api/leaderboard';
+    
+    fetch(url)
         .then(res => res.json())
         .then(data => {
             renderTop10(data.top10);

@@ -578,6 +578,23 @@ function fireLaser() {
 }
 
 // --- PORTAL INTEGRATION ---
+function exitToDashboard() {
+    if (gameState.score > 0) {
+        console.log('[Brick] Saving final score before exit:', gameState.score);
+        fetch('/api/submit-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score: gameState.score, gameType: 'brick' })
+        }).then(() => {
+            window.location.href = '/dashboard';
+        }).catch(() => {
+            window.location.href = '/dashboard';
+        });
+    } else {
+        window.location.href = '/dashboard';
+    }
+}
+
 function submitScore(score) {
     console.log('Attempting to submit score:', score);
     fetch('/api/submit-score', {
@@ -594,8 +611,14 @@ function submitScore(score) {
         if (data.success) {
             console.log('Score submitted successfully:', data);
             if (window.updateLeaderboard) window.updateLeaderboard();
+            
+            // UI Update: Using the server's confirmed best_score or brick_best_score
             const bestEl = document.getElementById('my-best-score');
-            if (bestEl && score > parseInt(bestEl.innerText || '0')) bestEl.innerText = score;
+            if (bestEl && data.updatedScores && data.updatedScores.brick_best_score !== undefined) {
+                bestEl.innerText = data.updatedScores.brick_best_score;
+            } else if (bestEl && score > parseInt(bestEl.innerText || '0')) {
+                bestEl.innerText = score;
+            }
         } else {
             console.error('Score submission failed:', data.error);
         }

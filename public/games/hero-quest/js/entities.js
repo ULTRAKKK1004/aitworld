@@ -3,10 +3,12 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         super(scene, x, y, 'hero');
         scene.add.existing(this); scene.physics.add.existing(this);
         this.setCollideWorldBounds(true); this.body.onWorldBounds = true;
-        this.setDragX(8000); this.setMaxVelocity(600, 1200);
+        this.setDragX(16000); this.setMaxVelocity(600, 1200);
         this.health = 5; this.maxHealth = 5; this.mp = 10; this.maxMaxMP = 10;
-        this.isInvulnerable = false; this.isRainbow = false; this.isMega = false;
-        this.isReversed = false; this.scoreMultiplier = 1;
+        this.isInvulnerable = false; this.isRainbow = false; 
+        this.isMega = GameState.isMega;
+        this.isReversed = GameState.isReversed; 
+        this.scoreMultiplier = GameState.scoreMultiplier;
         this.baseSpeed = 500; this.speed = 500; this.jumpForce = -750; this.jumps = 0; this.maxJumps = 2;
         this.body.setSize(24, 32); this.body.setOffset(8, 8);
     }
@@ -39,6 +41,15 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     takeDamage(amount) {
         if (this.isInvulnerable || this.isRainbow) return false;
         this.health -= amount; AudioSystem.playPlayerHit();
+        
+        // Reset persistent effects on damage
+        this.isMega = false;
+        this.isReversed = false;
+        this.scoreMultiplier = 1;
+        GameState.isMega = false;
+        GameState.isReversed = false;
+        GameState.scoreMultiplier = 1;
+
         if (this.health <= 0) return true;
         this.isInvulnerable = true;
         this.scene.time.delayedCall(1500, () => { if (this.active) this.isInvulnerable = false; });
@@ -46,7 +57,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     }
     heal(amount) { this.health = Math.min(this.maxHealth, this.health + amount); AudioSystem.playPowerup(); }
     applyRainbow() { this.isRainbow = true; this.speed = this.baseSpeed * 1.6; this.scene.time.delayedCall(10000, () => { if (this.active) { this.isRainbow = false; this.speed = this.baseSpeed; BGM.start(this.scene.levelData.musicTheme); } }); }
-    applyMega() { this.isMega = true; this.scene.time.delayedCall(10000, () => { if (this.active) this.isMega = false; }); }
+    applyMega() { this.isMega = true; }
 }
 
 class Enemy extends Phaser.Physics.Arcade.Sprite {

@@ -13,8 +13,11 @@ db.exec(`
     role TEXT DEFAULT 'GENERAL', -- PENDING, GENERAL, ADMIN
     best_score INTEGER DEFAULT 0,
     airplane_best_score INTEGER DEFAULT 0,
+    brick_best_score INTEGER DEFAULT 0,
+    hero_best_score INTEGER DEFAULT 0,
     lift_rush_best_score INTEGER DEFAULT 0,
     mc_world_best_score INTEGER DEFAULT 0,
+    total_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
     airplane_attempts INTEGER DEFAULT 0,
     hero_attempts INTEGER DEFAULT 0,
@@ -25,7 +28,7 @@ db.exec(`
     lift_rush_attempts INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
   );
 
   CREATE TABLE IF NOT EXISTS scores (
@@ -33,62 +36,57 @@ db.exec(`
     user_id INTEGER,
     score INTEGER,
     game_type TEXT DEFAULT 'general',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 `);
 
-// Add columns if they don't exist
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN airplane_best_score INTEGER DEFAULT 0').run();
-} catch (e) {}
+// Helper for adding columns safely
+function addColumn(table, column, type) {
+  try {
+    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+    console.log(`[DB] Column ${column} added to ${table}.`);
+  } catch (e) {
+    if (e.message.includes('duplicate column name')) {
+      // Column already exists
+    } else {
+      console.error(`[DB Error] Failed to add column ${column}:`, e.message);
+    }
+  }
+}
 
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN lift_rush_best_score INTEGER DEFAULT 0').run();
-} catch (e) {}
+// Ensure all columns exist
+addColumn('users', 'airplane_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'brick_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'hero_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'lift_rush_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'mc_world_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'total_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'brick_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'airplane_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'hero_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'mc_world_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'lift_rush_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
 
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN mc_world_best_score INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN lift_rush_attempts INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN mc_world_save TEXT').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN mc_world_level INTEGER DEFAULT 1').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN mc_world_info TEXT').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN brick_best_score INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN hero_best_score INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN total_score INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN wins INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN losses INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-try {
-  db.prepare("ALTER TABLE scores ADD COLUMN game_type TEXT DEFAULT 'general'").run();
-} catch (e) {}
+// Data migration: CRITICAL - Ensure NO NULLS exist in score columns and force INTEGER types
+db.exec(`
+  UPDATE users SET 
+    airplane_best_score = CAST(IFNULL(airplane_best_score, 0) AS INTEGER),
+    brick_best_score = CAST(IFNULL(brick_best_score, 0) AS INTEGER),
+    hero_best_score = CAST(IFNULL(hero_best_score, 0) AS INTEGER),
+    lift_rush_best_score = CAST(IFNULL(lift_rush_best_score, 0) AS INTEGER),
+    mc_world_best_score = CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
+    best_score = CAST(IFNULL(best_score, 0) AS INTEGER),
+    total_score = CAST(IFNULL(total_score, 0) AS INTEGER),
+    brick_attempts = CAST(IFNULL(brick_attempts, 0) AS INTEGER),
+    airplane_attempts = CAST(IFNULL(airplane_attempts, 0) AS INTEGER),
+    hero_attempts = CAST(IFNULL(hero_attempts, 0) AS INTEGER),
+    mc_world_attempts = CAST(IFNULL(mc_world_attempts, 0) AS INTEGER),
+    lift_rush_attempts = CAST(IFNULL(lift_rush_attempts, 0) AS INTEGER),
+    wins = CAST(IFNULL(wins, 0) AS INTEGER),
+    losses = CAST(IFNULL(losses, 0) AS INTEGER)
+`);
 
 module.exports = db;

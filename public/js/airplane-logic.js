@@ -209,15 +209,16 @@ class Player {
     shoot() {
         playSFX('shoot');
         const bSpeed = 14;
+        const bWidth = 8; // Doubled from 4
         if (weaponLevel === 1) {
-            this.bullets.push({ x: this.x + 18, y: this.y, speed: bSpeed, width: 4, height: 14 });
+            this.bullets.push({ x: this.x + 16, y: this.y, speed: bSpeed, width: bWidth, height: 16 });
         } else if (weaponLevel === 2) {
-            this.bullets.push({ x: this.x + 5, y: this.y, speed: bSpeed, width: 4, height: 14 });
-            this.bullets.push({ x: this.x + 31, y: this.y, speed: bSpeed, width: 4, height: 14 });
+            this.bullets.push({ x: this.x + 2, y: this.y, speed: bSpeed, width: bWidth, height: 16 });
+            this.bullets.push({ x: this.x + 30, y: this.y, speed: bSpeed, width: bWidth, height: 16 });
         } else {
-            this.bullets.push({ x: this.x + 18, y: this.y, speed: bSpeed, width: 4, height: 14, vx: 0 });
-            this.bullets.push({ x: this.x + 5, y: this.y, speed: bSpeed, width: 4, height: 14, vx: -2 });
-            this.bullets.push({ x: this.x + 31, y: this.y, speed: bSpeed, width: 4, height: 14, vx: 2 });
+            this.bullets.push({ x: this.x + 16, y: this.y, speed: bSpeed, width: bWidth, height: 16, vx: 0 });
+            this.bullets.push({ x: this.x + 2, y: this.y, speed: bSpeed, width: bWidth, height: 16, vx: -2 });
+            this.bullets.push({ x: this.x + 30, y: this.y, speed: bSpeed, width: bWidth, height: 16, vx: 2 });
         }
     }
 
@@ -266,20 +267,53 @@ class Player {
             ctx.globalAlpha = 1.0;
         }
 
-        // Bullets (Vivid with glow)
+        // Bullets (Thick Neon Cyan with Bright Core)
         this.bullets.forEach(b => {
             ctx.save();
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = Colors.bullet;
-            ctx.fillStyle = Colors.bullet;
-            ctx.fillRect(b.x, b.y, b.width, b.height);
             
-            // Bright inner core
-            ctx.fillStyle = '#fff';
+            // Strong Neon Cyan Glow
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#00ffff';
+            
+            // Main Bullet Body (Cyan)
+            ctx.fillStyle = '#00ffff';
+            ctx.beginPath();
+            ctx.roundRect(b.x, b.y, b.width, b.height, 4);
+            ctx.fill();
+            
+            // Bright Inner Core (White)
             ctx.shadowBlur = 0;
-            ctx.fillRect(b.x + 1, b.y + 2, b.width - 2, b.height - 4);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(b.x + 2, b.y + 2, b.width - 4, b.height - 4, 2);
+            ctx.fill();
+            
+            // Electric Sparkle
+            if (frameCount % 3 === 0) {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(b.x + Math.random() * b.width, b.y + b.height, 2, 2);
+            }
+            
             ctx.restore();
         });
+    }
+}
+
+// Exit and save score
+function exitToDashboard() {
+    if (score > 0) {
+        console.log('[Airplane] Saving final score before exit:', score);
+        fetch('/api/submit-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score: score, gameType: 'airplane-shooter' })
+        }).then(() => {
+            window.location.href = '/dashboard';
+        }).catch(() => {
+            window.location.href = '/dashboard';
+        });
+    } else {
+        window.location.href = '/dashboard';
     }
 }
 
@@ -725,15 +759,27 @@ function loop() {
         b.y += b.vy;
         
         ctx.save();
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = Colors.enemyBullet;
-        ctx.fillStyle = Colors.enemyBullet;
-        ctx.fillRect(b.x, b.y, b.width, b.height);
+        // Powerful Red Glow
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = '#ff0000';
         
-        // Energy core
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(b.x + 1, b.y + 1, b.width - 2, b.height - 2);
+        // Pulsating gradient
+        let flicker = Math.sin(frameCount * 0.2) * 5;
+        let grad = ctx.createRadialGradient(b.x + b.width/2, b.y + b.height/2, 1, b.x + b.width/2, b.y + b.height/2, b.width);
+        grad.addColorStop(0, '#fff');
+        grad.addColorStop(0.4, '#f00');
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(b.x + b.width/2, b.y + b.height/2, b.width/2 + 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Outer ring
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
         ctx.restore();
         
         if (b.x < player.x + player.width && b.x + b.width > player.x &&

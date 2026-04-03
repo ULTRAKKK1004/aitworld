@@ -1,4 +1,5 @@
 require('dotenv').config();
+process.env.TZ = 'Asia/Seoul';
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -63,7 +64,8 @@ passport.use(new GoogleStrategy({
       if (!user) {
         const stmt = db.prepare('INSERT INTO users (google_id, email) VALUES (?, ?)');
         const info = stmt.run(google_id, email);
-        user = { id: info.lastInsertRowid, google_id, email, username: null, best_score: 0, wins: 0, losses: 0 };
+        // Re-fetch to get all columns with default values (best_score, etc)
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
       }
       return done(null, user);
     } catch (err) {
@@ -211,6 +213,26 @@ app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
       db.prepare('UPDATE users SET mc_world_best_score = MAX(IFNULL(mc_world_best_score, 0), ?) WHERE id = ?')
         .run(score, user_id);
     }
+
+    // Sync global best_score and total_score
+    db.prepare(`
+      UPDATE users SET 
+        best_score = MAX(
+          COALESCE(airplane_best_score, 0), 
+          COALESCE(brick_best_score, 0), 
+          COALESCE(hero_best_score, 0), 
+          COALESCE(lift_rush_best_score, 0), 
+          COALESCE(mc_world_best_score, 0)
+        ),
+        total_score = (
+          COALESCE(airplane_best_score, 0) + 
+          COALESCE(brick_best_score, 0) + 
+          COALESCE(hero_best_score, 0) + 
+          COALESCE(lift_rush_best_score, 0) + 
+          COALESCE(mc_world_best_score, 0)
+        )
+      WHERE id = ?
+    `).run(user_id);
     
     res.json({ success: true });
   } catch(e) {
@@ -223,6 +245,27 @@ app.post('/api/mc-world/reset', isAuth, isPending, (req, res) => {
   const user_id = req.user.id;
   try {
     db.prepare('UPDATE users SET mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL, mc_world_best_score = 0 WHERE id = ?').run(user_id);
+    
+    // Sync global best_score and total_score
+    db.prepare(`
+      UPDATE users SET 
+        best_score = MAX(
+          COALESCE(airplane_best_score, 0), 
+          COALESCE(brick_best_score, 0), 
+          COALESCE(hero_best_score, 0), 
+          COALESCE(lift_rush_best_score, 0), 
+          COALESCE(mc_world_best_score, 0)
+        ),
+        total_score = (
+          COALESCE(airplane_best_score, 0) + 
+          COALESCE(brick_best_score, 0) + 
+          COALESCE(hero_best_score, 0) + 
+          COALESCE(lift_rush_best_score, 0) + 
+          COALESCE(mc_world_best_score, 0)
+        )
+      WHERE id = ?
+    `).run(user_id);
+
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ success: false, error: 'Failed to reset data' });
@@ -251,7 +294,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   try {
     const { user_id } = req.body;
-    db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0, mc_world_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
+    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
     db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
     res.redirect('/admin');
   } catch (e) {
@@ -273,42 +316,66 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
     const scoreInsert = db.prepare('INSERT INTO scores (user_id, score, game_type) VALUES (?, ?, ?)').run(user_id, score, gameType);
     console.log(`[Score Submit] History inserted. RowID: ${scoreInsert.lastInsertRowid}`);
 
-    // 2. Update specific game's best score and recalculate everything in one go
-    const updateQueries = {
-      'airplane-shooter': 'UPDATE users SET airplane_best_score = MAX(COALESCE(airplane_best_score, 0), ?) WHERE id = ?',
-      'brick': 'UPDATE users SET brick_best_score = MAX(COALESCE(brick_best_score, 0), ?) WHERE id = ?',
-      'hero': 'UPDATE users SET hero_best_score = MAX(COALESCE(hero_best_score, 0), ?) WHERE id = ?',
-      'lift-rush': 'UPDATE users SET lift_rush_best_score = MAX(COALESCE(lift_rush_best_score, 0), ?) WHERE id = ?',
-      'mc-world': 'UPDATE users SET mc_world_best_score = MAX(COALESCE(mc_world_best_score, 0), ?) WHERE id = ?'
+    // 2. Update specific game's best score
+    const gameColumnMap = {
+      'airplane-shooter': 'airplane_best_score',
+      'brick': 'brick_best_score',
+      'hero': 'hero_best_score',
+      'lift-rush': 'lift_rush_best_score',
+      'mc-world': 'mc_world_best_score'
     };
 
-    if (updateQueries[gameType]) {
-      const result = db.prepare(updateQueries[gameType]).run(score, user_id);
-      console.log(`[Score Submit] ${gameType} score updated. Changes: ${result.changes}`);
+    const targetColumn = gameColumnMap[gameType];
+    if (targetColumn) {
+      // Step A: Update the individual game's best score
+      db.prepare(`
+        UPDATE users SET 
+          ${targetColumn} = MAX(CAST(IFNULL(${targetColumn}, 0) AS INTEGER), CAST(? AS INTEGER))
+        WHERE id = ?
+      `).run(score, user_id);
     }
 
-    // 3. Sync global best_score and total_score
+    // Step B: Update global best_score and total_score using the newly updated individual scores
     db.prepare(`
       UPDATE users SET 
         best_score = MAX(
-          COALESCE(airplane_best_score, 0), 
-          COALESCE(brick_best_score, 0), 
-          COALESCE(hero_best_score, 0), 
-          COALESCE(lift_rush_best_score, 0), 
-          COALESCE(mc_world_best_score, 0)
+          CAST(IFNULL(airplane_best_score, 0) AS INTEGER), 
+          CAST(IFNULL(brick_best_score, 0) AS INTEGER), 
+          CAST(IFNULL(hero_best_score, 0) AS INTEGER), 
+          CAST(IFNULL(lift_rush_best_score, 0) AS INTEGER), 
+          CAST(IFNULL(mc_world_best_score, 0) AS INTEGER)
         ),
         total_score = (
-          COALESCE(airplane_best_score, 0) + 
-          COALESCE(brick_best_score, 0) + 
-          COALESCE(hero_best_score, 0) + 
-          COALESCE(lift_rush_best_score, 0) + 
-          COALESCE(mc_world_best_score, 0)
+          CAST(IFNULL(airplane_best_score, 0) AS INTEGER) + 
+          CAST(IFNULL(brick_best_score, 0) AS INTEGER) + 
+          CAST(IFNULL(hero_best_score, 0) AS INTEGER) + 
+          CAST(IFNULL(lift_rush_best_score, 0) AS INTEGER) + 
+          CAST(IFNULL(mc_world_best_score, 0) AS INTEGER)
         )
       WHERE id = ?
     `).run(user_id);
 
-    console.log(`[Score Submit Success] User:${user_id} updated.`);
-    res.json({ success: true });
+    // 4. CRITICAL: Refresh session data from DB
+    // This ensures that req.user used in EJS templates has the latest brick_best_score and total_score
+    const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(user_id);
+    if (updatedUser) {
+      // Manually update the passport session user object
+      req.login(updatedUser, (err) => {
+        if (err) console.error('[Session Refresh Error]', err);
+        console.log(`[Score Submit Success] User:${user_id} session refreshed.`);
+        res.json({ success: true, updatedScores: {
+          best_score: updatedUser.best_score,
+          total_score: updatedUser.total_score,
+          brick_best_score: updatedUser.brick_best_score,
+          airplane_best_score: updatedUser.airplane_best_score,
+          hero_best_score: updatedUser.hero_best_score,
+          lift_rush_best_score: updatedUser.lift_rush_best_score,
+          mc_world_best_score: updatedUser.mc_world_best_score
+        }});
+      });
+    } else {
+      res.json({ success: true });
+    }
   } catch (err) {
     console.error('[Score Submit Error]', err);
     res.status(500).json({ success: false, error: err.message });
@@ -464,8 +531,18 @@ app.get('/api/airplane-leaderboard', isAuth, isPending, (req, res) => {
 });
 
 app.get('/api/leaderboard', isAuth, isPending, (req, res) => {
-  const top10 = db.prepare('SELECT username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY best_score DESC LIMIT 10').all();
-  const allUsers = db.prepare('SELECT id, username, best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY best_score DESC').all();
+  const gameType = (req.query.gameType || 'general').trim();
+  const gameColumnMap = {
+    'airplane-shooter': 'airplane_best_score',
+    'brick': 'brick_best_score',
+    'hero': 'hero_best_score',
+    'lift-rush': 'lift_rush_best_score',
+    'mc-world': 'mc_world_best_score'
+  };
+  const targetColumn = gameColumnMap[gameType] || 'best_score';
+
+  const top10 = db.prepare(`SELECT username, ${targetColumn} as best_score FROM users WHERE username IS NOT NULL AND role != 'PENDING' AND ${targetColumn} > 0 ORDER BY ${targetColumn} DESC LIMIT 10`).all();
+  const allUsers = db.prepare(`SELECT id, username, ${targetColumn} as best_score FROM users WHERE username IS NOT NULL AND role != 'PENDING' ORDER BY ${targetColumn} DESC`).all();
   const userIndex = allUsers.findIndex(u => u.id === req.user.id);
   
   let rivals = [];
