@@ -161,9 +161,14 @@ app.get('/admin', isAdmin, (req, res) => {
 });
 
 app.post('/admin/update-role', isAdmin, (req, res) => {
-  const { user_id, role } = req.body;
-  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, user_id);
-  res.redirect('/admin');
+  try {
+    const { user_id, role } = req.body;
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, user_id);
+    res.redirect('/admin');
+  } catch (e) {
+    console.error('Error updating role:', e);
+    res.status(500).send('Failed to update role');
+  }
 });
 
 app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
@@ -244,37 +249,69 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 });
 
 app.post('/admin/reset-data', isAdmin, (req, res) => {
-  const { user_id } = req.body;
-  db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0, mc_world_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
-  db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
-  res.redirect('/admin');
+  try {
+    const { user_id } = req.body;
+    db.prepare("UPDATE users SET best_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0, mc_world_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
+    db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
+    res.redirect('/admin');
+  } catch (e) {
+    console.error('Error resetting user data:', e);
+    res.status(500).send('Failed to reset user data');
+  }
 });
 
 // API Routes
 app.post('/api/submit-score', isAuth, isPending, (req, res) => {
-  const { score, gameType } = req.body;
-  const user_id = req.user.id;
-  const game_type = gameType || 'general';
+  try {
+    const score = parseInt(req.body.score) || 0;
+    const gameType = (req.body.gameType || 'general').trim();
+    const user_id = req.user.id;
 
-  db.prepare('INSERT INTO scores (user_id, score, game_type) VALUES (?, ?, ?)').run(user_id, score, game_type);
+    console.log(`[Score Submit Request] User:${user_id}, Game:${gameType}, Score:${score}`);
 
-  if (score > req.user.best_score) {
-    db.prepare('UPDATE users SET best_score = ? WHERE id = ?').run(score, user_id);
+    // 1. Insert into history
+    const scoreInsert = db.prepare('INSERT INTO scores (user_id, score, game_type) VALUES (?, ?, ?)').run(user_id, score, gameType);
+    console.log(`[Score Submit] History inserted. RowID: ${scoreInsert.lastInsertRowid}`);
+
+    // 2. Update specific game's best score
+    if (gameType === 'airplane-shooter') {
+      db.prepare('UPDATE users SET airplane_best_score = MAX(COALESCE(airplane_best_score, 0), ?) WHERE id = ?').run(score, user_id);
+    } else if (gameType === 'brick') {
+      db.prepare('UPDATE users SET brick_best_score = MAX(COALESCE(brick_best_score, 0), ?) WHERE id = ?').run(score, user_id);
+    } else if (gameType === 'hero') {
+      db.prepare('UPDATE users SET hero_best_score = MAX(COALESCE(hero_best_score, 0), ?) WHERE id = ?').run(score, user_id);
+    } else if (gameType === 'lift-rush') {
+      db.prepare('UPDATE users SET lift_rush_best_score = MAX(COALESCE(lift_rush_best_score, 0), ?) WHERE id = ?').run(score, user_id);
+    } else if (gameType === 'mc-world') {
+      db.prepare('UPDATE users SET mc_world_best_score = MAX(COALESCE(mc_world_best_score, 0), ?) WHERE id = ?').run(score, user_id);
+    }
+
+    // 3. Sync global best_score and total_score
+    db.prepare(`
+      UPDATE users SET 
+        best_score = MAX(
+          COALESCE(airplane_best_score, 0), 
+          COALESCE(brick_best_score, 0), 
+          COALESCE(hero_best_score, 0), 
+          COALESCE(lift_rush_best_score, 0), 
+          COALESCE(mc_world_best_score, 0)
+        ),
+        total_score = (
+          COALESCE(airplane_best_score, 0) + 
+          COALESCE(brick_best_score, 0) + 
+          COALESCE(hero_best_score, 0) + 
+          COALESCE(lift_rush_best_score, 0) + 
+          COALESCE(mc_world_best_score, 0)
+        )
+      WHERE id = ?
+    `).run(user_id);
+
+    console.log(`[Score Submit Success] User:${user_id} updated.`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Score Submit Error]', err);
+    res.status(500).json({ success: false, error: err.message });
   }
-
-  if (gameType === 'airplane-shooter' && score > (req.user.airplane_best_score || 0)) {
-    db.prepare('UPDATE users SET airplane_best_score = ? WHERE id = ?').run(score, user_id);
-  }
-
-  if (gameType === 'lift-rush' && score > (req.user.lift_rush_best_score || 0)) {
-    db.prepare('UPDATE users SET lift_rush_best_score = ? WHERE id = ?').run(score, user_id);
-  }
-
-  if (gameType === 'mc-world' && score > (req.user.mc_world_best_score || 0)) {
-    db.prepare('UPDATE users SET mc_world_best_score = ? WHERE id = ?').run(score, user_id);
-  }
-
-  res.json({ success: true });
 });
 
 app.get('/api/lift-rush-leaderboard', isAuth, isPending, (req, res) => {

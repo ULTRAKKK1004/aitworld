@@ -67,4 +67,28 @@ try {
   db.prepare('ALTER TABLE users ADD COLUMN mc_world_info TEXT').run();
 } catch (e) {}
 
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN brick_best_score INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN hero_best_score INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN total_score INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN wins INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN losses INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+try {
+  db.prepare("ALTER TABLE scores ADD COLUMN game_type TEXT DEFAULT 'general'").run();
+} catch (e) {}
+
 module.exports = db;

@@ -12,7 +12,11 @@
         <header>
             <div class="user-info">
                 <span>반갑습니다, <strong><%= user.username %></strong> 님!</span>
-                <a href="/logout" class="logout-link">로그아웃</a>
+                <div style="font-size: 0.9rem; margin-top: 5px; color: #aaa;">
+                    최고 점수: <strong style="color: #f1c40f;"><%= user.best_score %></strong> | 
+                    총합 점수: <strong style="color: #3498db;"><%= user.total_score %></strong>
+                </div>
+                <a href="/logout" class="logout-link" style="margin-top: 10px; display: inline-block;">로그아웃</a>
             </div>
             <h1>TOR-AI SERVICES</h1>
         </header>

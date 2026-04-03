@@ -579,20 +579,29 @@ function fireLaser() {
 
 // --- PORTAL INTEGRATION ---
 function submitScore(score) {
+    console.log('Attempting to submit score:', score);
     fetch('/api/submit-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score })
-    }).then(res => res.json())
-      .then(data => {
-          if (data.success) {
-              console.log('Score submitted successfully');
-              if (window.updateLeaderboard) window.updateLeaderboard();
-              // Update best score display
-              const bestEl = document.getElementById('my-best-score');
-              if (score > parseInt(bestEl.innerText)) bestEl.innerText = score;
-          }
-      });
+        body: JSON.stringify({ score, gameType: 'brick' })
+    }).then(res => {
+        if (!res.ok) {
+            console.error('Score submission failed with status:', res.status);
+            return res.text().then(text => { throw new Error(text) });
+        }
+        return res.json();
+    }).then(data => {
+        if (data.success) {
+            console.log('Score submitted successfully:', data);
+            if (window.updateLeaderboard) window.updateLeaderboard();
+            const bestEl = document.getElementById('my-best-score');
+            if (bestEl && score > parseInt(bestEl.innerText || '0')) bestEl.innerText = score;
+        } else {
+            console.error('Score submission failed:', data.error);
+        }
+    }).catch(err => {
+        console.error('Error submitting score:', err);
+    });
 }
 
 function gameOver() {

@@ -286,7 +286,7 @@ class GameOverScene extends Phaser.Scene {
         this.add.text(this.cameras.main.centerX, 120, "GAME OVER", { fontSize: '64px', fill: '#fff', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
         this.add.text(this.cameras.main.centerX, 200, `FINAL SCORE: ${GameState.score}`, { fontSize: '32px', fill: '#ff0' }).setOrigin(0.5);
         this.add.text(this.cameras.main.centerX, 250, `STAGE: ${GameState.currentStage}`, { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
-        fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, stage: GameState.currentStage }) }).catch(() => {});
+        fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, gameType: 'hero', stage: GameState.currentStage }) }).catch(() => {});
         
         const savedStage = GameState.currentStage;
         
@@ -307,7 +307,7 @@ class VictoryScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor('#006400');
         this.add.text(this.cameras.main.centerX, 150, "PRINCESS SAVED!", { fontSize: '48px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
         this.add.text(this.cameras.main.centerX, 250, `ULTIMATE SCORE: ${GameState.score}`, { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
-        fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, stage: GameState.currentStage }) }).catch(() => {});
+        fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, gameType: 'hero', stage: GameState.currentStage }) }).catch(() => {});
         this.add.text(this.cameras.main.centerX, 350, "[ PLAY AGAIN ]", { fontSize: '28px', fill: '#0f0' }).setOrigin(0.5).setInteractive().on('pointerup', () => this.scene.start('MenuScene'));
     }
 }

@@ -57,7 +57,8 @@
                             <th>Airplane(R)</th>
                             <th>Hero(R)</th>
                             <th>MC-World(L/S/I)</th>
-                            <th>최고점수</th>
+                            <th>최고기록</th>
+                            <th>총합점수</th>
                             <th>전적(W/L)</th>
                             <th>액션</th>
                         </tr>
@@ -71,15 +72,25 @@
                             <td>
                                 <span class="role-badge role-<%= u.role %>"><%= u.role %></span>
                             </td>
-                            <td><%= u.brick_attempts %></td>
-                            <td><%= u.airplane_attempts %></td>
-                            <td><%= u.hero_attempts %></td>
+                            <td>
+                                <%= u.brick_attempts %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.brick_best_score || 0 %></span>
+                            </td>
+                            <td>
+                                <%= u.airplane_attempts %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.airplane_best_score || 0 %></span>
+                            </td>
+                            <td>
+                                <%= u.hero_attempts %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.hero_best_score || 0 %></span>
+                            </td>
                             <td>
                                 Lv.<%= u.mc_world_level || 1 %><br>
                                 Sc.<%= u.mc_world_best_score || 0 %><br>
                                 <span style="font-size: 0.7rem; color: #aaa;"><%= u.mc_world_info || '' %></span>
                             </td>
-                            <td><%= u.best_score %></td>
+                            <td><strong><%= u.best_score %></strong></td>
+                            <td><strong><%= u.total_score %></strong></td>
                             <td><%= u.wins %>W / <%= u.losses %>L</td>
                             <td>
                                 <form action="/admin/update-role" method="POST" class="action-form">
