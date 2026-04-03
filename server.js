@@ -273,17 +273,18 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
     const scoreInsert = db.prepare('INSERT INTO scores (user_id, score, game_type) VALUES (?, ?, ?)').run(user_id, score, gameType);
     console.log(`[Score Submit] History inserted. RowID: ${scoreInsert.lastInsertRowid}`);
 
-    // 2. Update specific game's best score
-    if (gameType === 'airplane-shooter') {
-      db.prepare('UPDATE users SET airplane_best_score = MAX(COALESCE(airplane_best_score, 0), ?) WHERE id = ?').run(score, user_id);
-    } else if (gameType === 'brick') {
-      db.prepare('UPDATE users SET brick_best_score = MAX(COALESCE(brick_best_score, 0), ?) WHERE id = ?').run(score, user_id);
-    } else if (gameType === 'hero') {
-      db.prepare('UPDATE users SET hero_best_score = MAX(COALESCE(hero_best_score, 0), ?) WHERE id = ?').run(score, user_id);
-    } else if (gameType === 'lift-rush') {
-      db.prepare('UPDATE users SET lift_rush_best_score = MAX(COALESCE(lift_rush_best_score, 0), ?) WHERE id = ?').run(score, user_id);
-    } else if (gameType === 'mc-world') {
-      db.prepare('UPDATE users SET mc_world_best_score = MAX(COALESCE(mc_world_best_score, 0), ?) WHERE id = ?').run(score, user_id);
+    // 2. Update specific game's best score and recalculate everything in one go
+    const updateQueries = {
+      'airplane-shooter': 'UPDATE users SET airplane_best_score = MAX(COALESCE(airplane_best_score, 0), ?) WHERE id = ?',
+      'brick': 'UPDATE users SET brick_best_score = MAX(COALESCE(brick_best_score, 0), ?) WHERE id = ?',
+      'hero': 'UPDATE users SET hero_best_score = MAX(COALESCE(hero_best_score, 0), ?) WHERE id = ?',
+      'lift-rush': 'UPDATE users SET lift_rush_best_score = MAX(COALESCE(lift_rush_best_score, 0), ?) WHERE id = ?',
+      'mc-world': 'UPDATE users SET mc_world_best_score = MAX(COALESCE(mc_world_best_score, 0), ?) WHERE id = ?'
+    };
+
+    if (updateQueries[gameType]) {
+      const result = db.prepare(updateQueries[gameType]).run(score, user_id);
+      console.log(`[Score Submit] ${gameType} score updated. Changes: ${result.changes}`);
     }
 
     // 3. Sync global best_score and total_score

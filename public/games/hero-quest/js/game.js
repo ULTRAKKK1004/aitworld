@@ -26,7 +26,9 @@ class MenuScene extends Phaser.Scene {
         this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
         const startBtn = this.add.text(this.cameras.main.centerX, 300, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
             .setOrigin(0.5).setInteractive().on('pointerup', () => {
-                resumeAudio(); GameState.currentStage = 1; GameState.score = 0; GameState.playerHP = 5; GameState.playerLives = 3; this.scene.start('GameScene');
+                resumeAudio(); GameState.currentStage = 1; GameState.score = 0; GameState.playerHP = 5; GameState.playerLives = 3;
+                fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
+                this.scene.start('GameScene');
             });
         this.tweens.add({ targets: startBtn, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, loop: -1 });
     }
@@ -286,7 +288,18 @@ class GameOverScene extends Phaser.Scene {
         this.add.text(this.cameras.main.centerX, 120, "GAME OVER", { fontSize: '64px', fill: '#fff', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
         this.add.text(this.cameras.main.centerX, 200, `FINAL SCORE: ${GameState.score}`, { fontSize: '32px', fill: '#ff0' }).setOrigin(0.5);
         this.add.text(this.cameras.main.centerX, 250, `STAGE: ${GameState.currentStage}`, { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
-        fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, gameType: 'hero', stage: GameState.currentStage }) }).catch(() => {});
+        console.log('[Hero-Quest] Submitting score:', GameState.score);
+        fetch('/api/submit-score', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ score: GameState.score, gameType: 'hero', stage: GameState.currentStage }) 
+        }).then(r => r.json()).then(d => {
+            console.log('[Hero-Quest] Submit success:', d);
+            const bestEl = document.getElementById('my-best-score');
+            if (bestEl && GameState.score > parseInt(bestEl.innerText || '0')) {
+                bestEl.innerText = GameState.score;
+            }
+        }).catch(e => console.error('[Hero-Quest] Submit failed:', e));
         
         const savedStage = GameState.currentStage;
         
@@ -307,7 +320,18 @@ class VictoryScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor('#006400');
         this.add.text(this.cameras.main.centerX, 150, "PRINCESS SAVED!", { fontSize: '48px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
         this.add.text(this.cameras.main.centerX, 250, `ULTIMATE SCORE: ${GameState.score}`, { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
-        fetch('/api/submit-score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ score: GameState.score, gameType: 'hero', stage: GameState.currentStage }) }).catch(() => {});
+        console.log('[Hero-Quest] Submitting score:', GameState.score);
+        fetch('/api/submit-score', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ score: GameState.score, gameType: 'hero', stage: GameState.currentStage }) 
+        }).then(r => r.json()).then(d => {
+            console.log('[Hero-Quest] Submit success:', d);
+            const bestEl = document.getElementById('my-best-score');
+            if (bestEl && GameState.score > parseInt(bestEl.innerText || '0')) {
+                bestEl.innerText = GameState.score;
+            }
+        }).catch(e => console.error('[Hero-Quest] Submit failed:', e));
         this.add.text(this.cameras.main.centerX, 350, "[ PLAY AGAIN ]", { fontSize: '28px', fill: '#0f0' }).setOrigin(0.5).setInteractive().on('pointerup', () => this.scene.start('MenuScene'));
     }
 }

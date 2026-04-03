@@ -33,7 +33,7 @@
         <aside class="sidebar left-sidebar">
             <div class="user-profile">
                 <p>플레이어: <strong><%= user.username %></strong></p>
-                <p>내 최고 점수: <span id="my-best-score"><%= user.best_score %></span></p>
+                <p>내 최고 점수: <span id="my-best-score"><%= user.hero_best_score || 0 %></span></p>
                 <p>플레이 횟수: <span id="my-attempts"><%= user.hero_attempts %></span></p>
                 <p>내 현재 순위: <span id="my-rank">-</span></p>
             </div>

@@ -470,11 +470,18 @@ function gameOver() {
 }
 
 function submitScore(score) {
+    console.log('[Lift-Rush] Submitting score:', score);
     fetch('/api/submit-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score, gameType: 'lift-rush' })
-    });
+    }).then(r => r.json()).then(d => {
+        console.log('[Lift-Rush] Submit success:', d);
+        const bestEl = document.getElementById('best-score');
+        if (bestEl && score > parseInt(bestEl.innerText || '0')) {
+            bestEl.innerText = score;
+        }
+    }).catch(e => console.error('[Lift-Rush] Submit failed:', e));
 }
 
 function fetchLeaderboard(context) {
