@@ -2,20 +2,18 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MAGIC RUSH - Tor-AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>PAPER RUSH - Tor-AI</title>
     <link rel="stylesheet" href="/css/magicrush.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <div id="rotate-warning">
+        <i class="fas fa-mobile-screen fa-rotate-90"></i>
+        <p>가로 모드로 회전해주세요!</p>
+    </div>
+
     <div id="game-container">
-        <!-- Parallax Background Layers -->
-        <div class="bg-layer" id="bg-sky"></div>
-        <div class="bg-layer" id="bg-mountains"></div>
-        <div class="bg-layer" id="bg-trees"></div>
-        <div class="bg-layer" id="bg-ground"></div>
-        
-        <!-- Game Canvas -->
         <canvas id="game-canvas"></canvas>
 
         <div class="hud">
@@ -26,48 +24,46 @@
                 </div>
                 <div class="stat-box">
                     <span class="label">SCORE</span>
-                    <span class="value" id="score-display">0</span>
+                    <span class="value" id="score-display" style="color: #0ff;">0</span>
                 </div>
                 <div class="stat-box best">
                     <span class="label">BEST</span>
                     <span class="value" id="best-score"><%= user.magicrush_best_score || 0 %></span>
                 </div>
             </div>
-            <div class="health-bar-container">
-                <i class="fas fa-heart heart-icon"></i>
-                <div class="health-bar">
-                    <div class="health-fill" id="health-fill"></div>
-                </div>
+            <div class="wind-indicator" id="wind-indicator">
+                <span class="label">WIND</span>
+                <i class="fas fa-arrow-right" id="wind-arrow"></i>
+                <span class="wind-power" id="wind-power">0</span>
             </div>
-            <!-- Active Items HUD -->
-            <div class="active-items" id="active-items">
+            <div class="combo-display" id="combo-display" style="display: none;">
+                COMBO x<span id="combo-value">1</span>
             </div>
         </div>
 
         <div id="start-screen" class="overlay-screen">
-            <h1>MAGIC RUSH</h1>
-            <p>Cute Bear's Infinite Journey!</p>
-            <button id="start-btn">START GAME</button>
+            <h1 class="glitch" data-text="PAPER RUSH">PAPER RUSH</h1>
+            <p>바람을 타고 사이버펑크 도시를 돌파하세요!</p>
+            <p class="desc">화면을 탭(또는 스페이스바)하여 상승. 바람의 방향과 위험 요소를 주의하세요.</p>
+            <button id="start-btn">START FLIGHT</button>
             <div id="start-rank-info">Loading Leaderboard...</div>
             <a href="/dashboard" class="back-btn">Back to Dashboard</a>
         </div>
 
         <div id="game-over-screen" class="overlay-screen" style="display: none;">
-            <h1>GAME OVER</h1>
+            <h1 style="color: #ff0055;">CRASHED!</h1>
             <div class="final-stats">
                 <p>STAGE: <span id="final-stage"></span></p>
                 <p>SCORE: <span id="final-score"></span></p>
+                <p style="font-size: 1rem; color: #ffcc00;" id="taunt-msg"></p>
             </div>
-            <button id="restart-btn">RETRY STAGE</button>
+            <button id="restart-btn">RETRY FLIGHT</button>
             <div id="end-rank-info">Loading Leaderboard...</div>
             <a href="/dashboard" class="back-btn">Back to Dashboard</a>
         </div>
 
-        <!-- Mobile Controls -->
-        <div class="controls-panel">
-            <button id="btn-jump" class="control-btn jump-btn">JUMP</button>
-            <button id="btn-special" class="control-btn special-btn">SPECIAL</button>
-        </div>
+        <!-- Full screen tap area -->
+        <div id="tap-area"></div>
     </div>
 
     <script>
