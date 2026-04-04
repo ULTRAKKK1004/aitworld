@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MAGIC RUSH - Tor-AI</title>
+    <link rel="stylesheet" href="/css/magicrush.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Parallax Background Layers -->
+        <div class="bg-layer" id="bg-sky"></div>
+        <div class="bg-layer" id="bg-mountains"></div>
+        <div class="bg-layer" id="bg-trees"></div>
+        <div class="bg-layer" id="bg-ground"></div>
+        
+        <!-- Game Canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <div class="hud">
+            <div class="stats-panel">
+                <div class="stat-box">
+                    <span class="label">STAGE</span>
+                    <span class="value" id="stage-display">1</span>
+                </div>
+                <div class="stat-box">
+                    <span class="label">SCORE</span>
+                    <span class="value" id="score-display">0</span>
+                </div>
+                <div class="stat-box best">
+                    <span class="label">BEST</span>
+                    <span class="value" id="best-score"><%= user.magicrush_best_score || 0 %></span>
+                </div>
+            </div>
+            <div class="health-bar-container">
+                <i class="fas fa-heart heart-icon"></i>
+                <div class="health-bar">
+                    <div class="health-fill" id="health-fill"></div>
+                </div>
+            </div>
+            <!-- Active Items HUD -->
+            <div class="active-items" id="active-items">
+            </div>
+        </div>
+
+        <div id="start-screen" class="overlay-screen">
+            <h1>MAGIC RUSH</h1>
+            <p>Cute Bear's Infinite Journey!</p>
+            <button id="start-btn">START GAME</button>
+            <div id="start-rank-info">Loading Leaderboard...</div>
+            <a href="/dashboard" class="back-btn">Back to Dashboard</a>
+        </div>
+
+        <div id="game-over-screen" class="overlay-screen" style="display: none;">
+            <h1>GAME OVER</h1>
+            <div class="final-stats">
+                <p>STAGE: <span id="final-stage"></span></p>
+                <p>SCORE: <span id="final-score"></span></p>
+            </div>
+            <button id="restart-btn">RETRY STAGE</button>
+            <div id="end-rank-info">Loading Leaderboard...</div>
+            <a href="/dashboard" class="back-btn">Back to Dashboard</a>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div class="controls-panel">
+            <button id="btn-jump" class="control-btn jump-btn">JUMP</button>
+            <button id="btn-special" class="control-btn special-btn">SPECIAL</button>
+        </div>
+    </div>
+
+    <script>
+        window.GAME_USER = {
+            id: <%= user.id %>,
+            username: "<%= user.username %>",
+            attempts: <%= user.magicrush_attempts || 0 %>,
+            bestScore: <%= user.magicrush_best_score || 0 %>
+        };
+    </script>
+    <script src="/js/magicrush.js"></script>
+</body>
+</html>

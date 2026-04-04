@@ -44,6 +44,22 @@
         </header>
 
         <main>
+            <div class="admin-section" style="border: 2px solid var(--primary); background: rgba(0, 243, 255, 0.05);">
+                <h2><i class="fas fa-cog"></i> 시스템 설정</h2>
+                <form action="/admin/update-settings" method="POST">
+                    <div style="display: flex; align-items: center; gap: 20px; padding: 10px;">
+                        <label for="event_activation" style="cursor: pointer; font-size: 1.1rem; color: var(--primary); font-weight: bold;">
+                            <input type="checkbox" name="event_activation" id="event_activation" 
+                                <%= (locals.eventActivation) ? 'checked' : '' %> 
+                                onchange="this.form.submit()"
+                                style="width: 22px; height: 22px; vertical-align: middle; margin-right: 12px; accent-color: var(--primary);">
+                            이벤트 활성화 사용
+                        </label>
+                        <span style="font-size: 0.9rem; color: #aaa;">(체크 시 일반 사용자는 로그인 후 '이벤트 공지' 페이지로 자동 이동됩니다.)</span>
+                    </div>
+                </form>
+            </div>
+
             <div class="admin-section">
                 <h2><i class="fas fa-users"></i> 회원 관리</h2>
                 <table>
@@ -56,7 +72,7 @@
                             <th>Brick(R)</th>
                             <th>Airplane(R)</th>
                             <th>Hero(R)</th>
-                            <th>Lift-Rush(R)</th>
+                            <th>Magic-Rush(R)</th>
                             <th>MC-World(L/S/I)</th>
                             <th>최고기록</th>
                             <th>총합점수</th>
@@ -86,8 +102,8 @@
                                 <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.hero_best_score || 0 %></span>
                             </td>
                             <td>
-                                <%= u.lift_rush_attempts %><br>
-                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.lift_rush_best_score || 0 %></span>
+                                <%= u.magicrush_attempts %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.magicrush_best_score || 0 %></span>
                             </td>
                             <td>
                                 Lv.<%= u.mc_world_level || 1 %><br>

@@ -17,7 +17,6 @@ function updateLeaderboard(gameType) {
         if (path.includes('brick-crasher')) gameType = 'brick';
         else if (path.includes('hero-quest')) gameType = 'hero';
         else if (path.includes('airplane-shooter')) gameType = 'airplane-shooter';
-        else if (path.includes('lift-rush')) gameType = 'lift-rush';
         else if (path.includes('mc-world')) gameType = 'mc-world';
     }
 

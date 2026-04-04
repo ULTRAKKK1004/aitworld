@@ -15,7 +15,6 @@ db.exec(`
     airplane_best_score INTEGER DEFAULT 0,
     brick_best_score INTEGER DEFAULT 0,
     hero_best_score INTEGER DEFAULT 0,
-    lift_rush_best_score INTEGER DEFAULT 0,
     mc_world_best_score INTEGER DEFAULT 0,
     total_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
@@ -25,7 +24,6 @@ db.exec(`
     mc_world_save TEXT,
     mc_world_level INTEGER DEFAULT 1,
     mc_world_info TEXT,
-    lift_rush_attempts INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
@@ -39,7 +37,16 @@ db.exec(`
     created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
+
+// Initialize default settings
+const initSettings = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+initSettings.run('event_activation', 'false');
 
 // Helper for adding columns safely
 function addColumn(table, column, type) {
@@ -59,14 +66,14 @@ function addColumn(table, column, type) {
 addColumn('users', 'airplane_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'brick_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'hero_best_score', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'lift_rush_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'mc_world_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'magicrush_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'total_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'brick_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'airplane_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'hero_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'mc_world_attempts', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'lift_rush_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'magicrush_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
 
@@ -76,15 +83,15 @@ db.exec(`
     airplane_best_score = CAST(IFNULL(airplane_best_score, 0) AS INTEGER),
     brick_best_score = CAST(IFNULL(brick_best_score, 0) AS INTEGER),
     hero_best_score = CAST(IFNULL(hero_best_score, 0) AS INTEGER),
-    lift_rush_best_score = CAST(IFNULL(lift_rush_best_score, 0) AS INTEGER),
     mc_world_best_score = CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
+    magicrush_best_score = CAST(IFNULL(magicrush_best_score, 0) AS INTEGER),
     best_score = CAST(IFNULL(best_score, 0) AS INTEGER),
     total_score = CAST(IFNULL(total_score, 0) AS INTEGER),
     brick_attempts = CAST(IFNULL(brick_attempts, 0) AS INTEGER),
     airplane_attempts = CAST(IFNULL(airplane_attempts, 0) AS INTEGER),
     hero_attempts = CAST(IFNULL(hero_attempts, 0) AS INTEGER),
     mc_world_attempts = CAST(IFNULL(mc_world_attempts, 0) AS INTEGER),
-    lift_rush_attempts = CAST(IFNULL(lift_rush_attempts, 0) AS INTEGER),
+    magicrush_attempts = CAST(IFNULL(magicrush_attempts, 0) AS INTEGER),
     wins = CAST(IFNULL(wins, 0) AS INTEGER),
     losses = CAST(IFNULL(losses, 0) AS INTEGER)
 `);

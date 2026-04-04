@@ -34,6 +34,18 @@ const isAdmin = (req, res, next) => {
   res.status(403).send('Unauthorized: Admin access only.');
 };
 
+const checkEventMode = (req, res, next) => {
+  try {
+    const eventActivation = db.prepare('SELECT value FROM settings WHERE key = ?').get('event_activation');
+    if (eventActivation && eventActivation.value === 'true' && req.user && req.user.role !== 'ADMIN') {
+      return res.redirect('/event-notice');
+    }
+  } catch (err) {
+    console.error('Error checking event mode:', err);
+  }
+  next();
+};
+
 app.set('view engine', 'ejs');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -115,7 +127,7 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
-app.get('/setup-username', isAuth, (req, res) => {
+app.get('/setup-username', isAuth, checkEventMode, (req, res) => {
   res.render('setup-username');
 });
 
@@ -130,36 +142,58 @@ app.post('/setup-username', isAuth, (req, res) => {
   }
 });
 
-app.get('/dashboard', isAuth, isPending, (req, res) => {
+app.get('/dashboard', isAuth, isPending, checkEventMode, (req, res) => {
   if (!req.user.username) return res.redirect('/setup-username');
   res.render('dashboard', { user: req.user });
 });
 
-app.get('/games/brick-crasher', isAuth, isPending, (req, res) => {
+app.get('/event-notice', isAuth, isPending, (req, res) => {
+  // If event mode is OFF, redirect back to dashboard
+  const eventActivation = db.prepare('SELECT value FROM settings WHERE key = ?').get('event_activation');
+  if (!eventActivation || eventActivation.value === 'false' || (req.user && req.user.role === 'ADMIN')) {
+    return res.redirect('/dashboard');
+  }
+  res.render('event-notice', { user: req.user });
+});
+
+app.get('/games/brick-crasher', isAuth, isPending, checkEventMode, (req, res) => {
   res.render('game-page', { user: req.user });
 });
 
-app.get('/games/airplane-shooter', isAuth, isPending, (req, res) => {
+app.get('/games/airplane-shooter', isAuth, isPending, checkEventMode, (req, res) => {
   res.render('airplane-shooter', { user: req.user });
 });
 
-app.get('/games/hero-quest', isAuth, isPending, (req, res) => {
+app.get('/games/hero-quest', isAuth, isPending, checkEventMode, (req, res) => {
   res.render('hero-quest', { user: req.user });
 });
 
-app.get('/games/mc-world', isAuth, isPending, (req, res) => {
+app.get('/games/mc-world', isAuth, isPending, checkEventMode, (req, res) => {
   res.render('mc-world', { user: req.user });
 });
 
-app.get('/games/lift-rush', isAuth, isPending, (req, res) => {
-  res.render('lift-rush', { user: req.user });
+app.get('/games/magicrush', isAuth, isPending, checkEventMode, (req, res) => {
+  res.render('magicrush', { user: req.user });
 });
 
 // Admin Routes
 app.get('/admin', isAdmin, (req, res) => {
   const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
   const recentScores = db.prepare('SELECT s.*, u.username FROM scores s JOIN users u ON s.user_id = u.id ORDER BY s.created_at DESC LIMIT 50').all();
-  res.render('admin', { user: req.user, users, recentScores });
+  const eventActivation = db.prepare('SELECT value FROM settings WHERE key = ?').get('event_activation');
+  res.render('admin', { user: req.user, users, recentScores, eventActivation: eventActivation?.value === 'true' });
+});
+
+app.post('/admin/update-settings', isAdmin, (req, res) => {
+  try {
+    const { event_activation } = req.body;
+    const value = event_activation === 'on' ? 'true' : 'false';
+    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(value, 'event_activation');
+    res.redirect('/admin');
+  } catch (e) {
+    console.error('Error updating settings:', e);
+    res.status(500).send('Failed to update settings');
+  }
 });
 
 app.post('/admin/update-role', isAdmin, (req, res) => {
@@ -184,8 +218,6 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
     db.prepare('UPDATE users SET hero_attempts = hero_attempts + 1 WHERE id = ?').run(user_id);
   } else if (game === 'mc-world') {
     db.prepare('UPDATE users SET mc_world_attempts = mc_world_attempts + 1 WHERE id = ?').run(user_id);
-  } else if (game === 'lift-rush') {
-    db.prepare('UPDATE users SET lift_rush_attempts = lift_rush_attempts + 1 WHERE id = ?').run(user_id);
   }
   res.json({ success: true });
 });
@@ -221,15 +253,15 @@ app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
           COALESCE(airplane_best_score, 0), 
           COALESCE(brick_best_score, 0), 
           COALESCE(hero_best_score, 0), 
-          COALESCE(lift_rush_best_score, 0), 
-          COALESCE(mc_world_best_score, 0)
+          COALESCE(mc_world_best_score, 0),
+          COALESCE(magicrush_best_score, 0)
         ),
         total_score = (
           COALESCE(airplane_best_score, 0) + 
           COALESCE(brick_best_score, 0) + 
           COALESCE(hero_best_score, 0) + 
-          COALESCE(lift_rush_best_score, 0) + 
-          COALESCE(mc_world_best_score, 0)
+          COALESCE(mc_world_best_score, 0) +
+          COALESCE(magicrush_best_score, 0)
         )
       WHERE id = ?
     `).run(user_id);
@@ -253,15 +285,15 @@ app.post('/api/mc-world/reset', isAuth, isPending, (req, res) => {
           COALESCE(airplane_best_score, 0), 
           COALESCE(brick_best_score, 0), 
           COALESCE(hero_best_score, 0), 
-          COALESCE(lift_rush_best_score, 0), 
-          COALESCE(mc_world_best_score, 0)
+          COALESCE(mc_world_best_score, 0),
+          COALESCE(magicrush_best_score, 0)
         ),
         total_score = (
           COALESCE(airplane_best_score, 0) + 
           COALESCE(brick_best_score, 0) + 
           COALESCE(hero_best_score, 0) + 
-          COALESCE(lift_rush_best_score, 0) + 
-          COALESCE(mc_world_best_score, 0)
+          COALESCE(mc_world_best_score, 0) +
+          COALESCE(magicrush_best_score, 0)
         )
       WHERE id = ?
     `).run(user_id);
@@ -294,7 +326,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   try {
     const { user_id } = req.body;
-    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, lift_rush_attempts = 0, airplane_best_score = 0, lift_rush_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
+    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
     db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
     res.redirect('/admin');
   } catch (e) {
@@ -321,7 +353,6 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
       'airplane-shooter': 'airplane_best_score',
       'brick': 'brick_best_score',
       'hero': 'hero_best_score',
-      'lift-rush': 'lift_rush_best_score',
       'mc-world': 'mc_world_best_score'
     };
 
@@ -342,15 +373,15 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
           CAST(IFNULL(airplane_best_score, 0) AS INTEGER), 
           CAST(IFNULL(brick_best_score, 0) AS INTEGER), 
           CAST(IFNULL(hero_best_score, 0) AS INTEGER), 
-          CAST(IFNULL(lift_rush_best_score, 0) AS INTEGER), 
-          CAST(IFNULL(mc_world_best_score, 0) AS INTEGER)
+          CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
+          CAST(IFNULL(magicrush_best_score, 0) AS INTEGER)
         ),
         total_score = (
           CAST(IFNULL(airplane_best_score, 0) AS INTEGER) + 
           CAST(IFNULL(brick_best_score, 0) AS INTEGER) + 
           CAST(IFNULL(hero_best_score, 0) AS INTEGER) + 
-          CAST(IFNULL(lift_rush_best_score, 0) AS INTEGER) + 
-          CAST(IFNULL(mc_world_best_score, 0) AS INTEGER)
+          CAST(IFNULL(mc_world_best_score, 0) AS INTEGER) +
+          CAST(IFNULL(magicrush_best_score, 0) AS INTEGER)
         )
       WHERE id = ?
     `).run(user_id);
@@ -369,7 +400,6 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
           brick_best_score: updatedUser.brick_best_score,
           airplane_best_score: updatedUser.airplane_best_score,
           hero_best_score: updatedUser.hero_best_score,
-          lift_rush_best_score: updatedUser.lift_rush_best_score,
           mc_world_best_score: updatedUser.mc_world_best_score
         }});
       });
@@ -380,80 +410,6 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
     console.error('[Score Submit Error]', err);
     res.status(500).json({ success: false, error: err.message });
   }
-});
-
-app.get('/api/lift-rush-leaderboard', isAuth, isPending, (req, res) => {
-  // Best score ranking (from users table)
-  const bestTop10 = db.prepare('SELECT id, username, lift_rush_best_score as best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' AND lift_rush_best_score > 0 ORDER BY lift_rush_best_score DESC LIMIT 10').all();
-  const bestAllUsers = db.prepare('SELECT id, username, lift_rush_best_score as best_score FROM users WHERE username IS NOT NULL AND role != \'PENDING\' ORDER BY lift_rush_best_score DESC').all();
-  const bestUserIndex = bestAllUsers.findIndex(u => u.id === req.user.id);
-  const bestUserRank = bestUserIndex !== -1 ? bestUserIndex + 1 : null;
-  
-  // Current game score ranking (from scores table, lift-rush only)
-  const currentScores = db.prepare(`
-    SELECT user_id, MAX(score) as max_score 
-    FROM scores 
-    WHERE game_type = 'lift-rush' 
-    GROUP BY user_id 
-    ORDER BY max_score DESC
-  `).all();
-  
-  const currentTop10 = currentScores.slice(0, 10).map((s, i) => {
-    const user = db.prepare('SELECT username FROM users WHERE id = ?').get(s.user_id);
-    return { rank: i + 1, username: user?.username, score: s.max_score, user_id: s.user_id };
-  });
-  
-  const currentUserScore = currentScores.find(s => s.user_id === req.user.id);
-  const currentUserRank = currentUserScore ? currentScores.findIndex(s => s.user_id === req.user.id) + 1 : null;
-  
-  // Get rivals for best score
-  let bestRivals = [];
-  if (bestUserRank) {
-    const start = Math.max(0, bestUserIndex - 2);
-    const end = Math.min(bestAllUsers.length, bestUserIndex + 3);
-    bestRivals = bestAllUsers.slice(start, end).map((u, i) => ({
-      ...u,
-      rank: start + i + 1,
-      isCurrent: u.id === req.user.id
-    }));
-  } else if (bestAllUsers.length > 0) {
-    bestRivals = bestAllUsers.slice(0, 5).map((u, i) => ({
-      ...u,
-      rank: i + 1,
-      isCurrent: false
-    }));
-  }
-  
-  // Get rivals for current score
-  let currentRivals = [];
-  if (currentUserRank) {
-    const userIdx = currentScores.findIndex(s => s.user_id === req.user.id);
-    const start = Math.max(0, userIdx - 2);
-    const end = Math.min(currentScores.length, userIdx + 3);
-    currentRivals = currentScores.slice(start, end).map((s, i) => {
-      const user = db.prepare('SELECT username FROM users WHERE id = ?').get(s.user_id);
-      return {
-        rank: start + i + 1,
-        username: user?.username,
-        score: s.max_score,
-        user_id: s.user_id,
-        isCurrent: s.user_id === req.user.id
-      };
-    });
-  } else if (currentScores.length > 0) {
-    currentRivals = currentScores.slice(0, 5).map((s, i) => {
-      const user = db.prepare('SELECT username FROM users WHERE id = ?').get(s.user_id);
-      return { rank: i + 1, username: user?.username, score: s.max_score, user_id: s.user_id, isCurrent: false };
-    });
-  }
-  
-  const bestFirstPlace = bestTop10.length > 0 ? bestTop10[0] : null;
-  const currentFirstPlace = currentTop10.length > 0 ? currentTop10[0] : null;
-
-  res.json({ 
-    bestScore: { top10: bestTop10, rivals: bestRivals, userRank: bestUserRank, firstPlace: bestFirstPlace, userBestScore: bestAllUsers[bestUserIndex]?.best_score || 0 },
-    currentScore: { top10: currentTop10, rivals: currentRivals, userRank: currentUserRank, firstPlace: currentFirstPlace, userBestScore: currentUserScore?.max_score || 0 }
-  });
 });
 
 app.get('/api/airplane-leaderboard', isAuth, isPending, (req, res) => {
@@ -536,10 +492,9 @@ app.get('/api/leaderboard', isAuth, isPending, (req, res) => {
     'airplane-shooter': 'airplane_best_score',
     'brick': 'brick_best_score',
     'hero': 'hero_best_score',
-    'lift-rush': 'lift_rush_best_score',
-    'mc-world': 'mc_world_best_score'
-  };
-  const targetColumn = gameColumnMap[gameType] || 'best_score';
+    'mc-world': 'mc_world_best_score',
+    'magicrush': 'magicrush_best_score'
+  };  const targetColumn = gameColumnMap[gameType] || 'best_score';
 
   const top10 = db.prepare(`SELECT username, ${targetColumn} as best_score FROM users WHERE username IS NOT NULL AND role != 'PENDING' AND ${targetColumn} > 0 ORDER BY ${targetColumn} DESC LIMIT 10`).all();
   const allUsers = db.prepare(`SELECT id, username, ${targetColumn} as best_score FROM users WHERE username IS NOT NULL AND role != 'PENDING' ORDER BY ${targetColumn} DESC`).all();
