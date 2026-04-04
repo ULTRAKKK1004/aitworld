@@ -28,7 +28,7 @@
                 </div>
                 <div class="stat-box best">
                     <span class="label">BEST</span>
-                    <span class="value" id="best-score"><%= user.magicrush_best_score || 0 %></span>
+                    <span class="value" id="best-score"><%= user.paper_rush_best_score || 0 %></span>
                 </div>
             </div>
             <div class="wind-indicator" id="wind-indicator">
@@ -70,8 +70,8 @@
         window.GAME_USER = {
             id: <%= user.id %>,
             username: "<%= user.username %>",
-            attempts: <%= user.magicrush_attempts || 0 %>,
-            bestScore: <%= user.magicrush_best_score || 0 %>
+            attempts: <%= user.paper_rush_attempts || 0 %>,
+            bestScore: <%= user.paper_rush_best_score || 0 %>
         };
     </script>
     <script src="/js/magicrush.js"></script>

@@ -218,6 +218,8 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
     db.prepare('UPDATE users SET hero_attempts = hero_attempts + 1 WHERE id = ?').run(user_id);
   } else if (game === 'mc-world') {
     db.prepare('UPDATE users SET mc_world_attempts = mc_world_attempts + 1 WHERE id = ?').run(user_id);
+  } else if (game === 'magicrush' || game === 'paper_rush') {
+    db.prepare('UPDATE users SET paper_rush_attempts = paper_rush_attempts + 1 WHERE id = ?').run(user_id);
   }
   res.json({ success: true });
 });
@@ -254,14 +256,14 @@ app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
           COALESCE(brick_best_score, 0), 
           COALESCE(hero_best_score, 0), 
           COALESCE(mc_world_best_score, 0),
-          COALESCE(magicrush_best_score, 0)
+          COALESCE(paper_rush_best_score, 0)
         ),
         total_score = (
           COALESCE(airplane_best_score, 0) + 
           COALESCE(brick_best_score, 0) + 
           COALESCE(hero_best_score, 0) + 
           COALESCE(mc_world_best_score, 0) +
-          COALESCE(magicrush_best_score, 0)
+          COALESCE(paper_rush_best_score, 0)
         )
       WHERE id = ?
     `).run(user_id);
@@ -286,14 +288,14 @@ app.post('/api/mc-world/reset', isAuth, isPending, (req, res) => {
           COALESCE(brick_best_score, 0), 
           COALESCE(hero_best_score, 0), 
           COALESCE(mc_world_best_score, 0),
-          COALESCE(magicrush_best_score, 0)
+          COALESCE(paper_rush_best_score, 0)
         ),
         total_score = (
           COALESCE(airplane_best_score, 0) + 
           COALESCE(brick_best_score, 0) + 
           COALESCE(hero_best_score, 0) + 
           COALESCE(mc_world_best_score, 0) +
-          COALESCE(magicrush_best_score, 0)
+          COALESCE(paper_rush_best_score, 0)
         )
       WHERE id = ?
     `).run(user_id);
@@ -326,7 +328,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   try {
     const { user_id } = req.body;
-    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
+    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, paper_rush_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, paper_rush_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
     db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
     res.redirect('/admin');
   } catch (e) {
@@ -353,7 +355,9 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
       'airplane-shooter': 'airplane_best_score',
       'brick': 'brick_best_score',
       'hero': 'hero_best_score',
-      'mc-world': 'mc_world_best_score'
+      'mc-world': 'mc_world_best_score',
+      'magicrush': 'paper_rush_best_score',
+      'paper_rush': 'paper_rush_best_score'
     };
 
     const targetColumn = gameColumnMap[gameType];
@@ -374,14 +378,14 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
           CAST(IFNULL(brick_best_score, 0) AS INTEGER), 
           CAST(IFNULL(hero_best_score, 0) AS INTEGER), 
           CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
-          CAST(IFNULL(magicrush_best_score, 0) AS INTEGER)
+          CAST(IFNULL(paper_rush_best_score, 0) AS INTEGER)
         ),
         total_score = (
           CAST(IFNULL(airplane_best_score, 0) AS INTEGER) + 
           CAST(IFNULL(brick_best_score, 0) AS INTEGER) + 
           CAST(IFNULL(hero_best_score, 0) AS INTEGER) + 
           CAST(IFNULL(mc_world_best_score, 0) AS INTEGER) +
-          CAST(IFNULL(magicrush_best_score, 0) AS INTEGER)
+          CAST(IFNULL(paper_rush_best_score, 0) AS INTEGER)
         )
       WHERE id = ?
     `).run(user_id);
@@ -493,7 +497,8 @@ app.get('/api/leaderboard', isAuth, isPending, (req, res) => {
     'brick': 'brick_best_score',
     'hero': 'hero_best_score',
     'mc-world': 'mc_world_best_score',
-    'magicrush': 'magicrush_best_score'
+    'magicrush': 'paper_rush_best_score',
+    'paper_rush': 'paper_rush_best_score'
   };  const targetColumn = gameColumnMap[gameType] || 'best_score';
 
   const top10 = db.prepare(`SELECT username, ${targetColumn} as best_score FROM users WHERE username IS NOT NULL AND role != 'PENDING' AND ${targetColumn} > 0 ORDER BY ${targetColumn} DESC LIMIT 10`).all();

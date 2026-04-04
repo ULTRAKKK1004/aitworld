@@ -15,12 +15,14 @@ db.exec(`
     airplane_best_score INTEGER DEFAULT 0,
     brick_best_score INTEGER DEFAULT 0,
     hero_best_score INTEGER DEFAULT 0,
+    paper_rush_best_score INTEGER DEFAULT 0,
     mc_world_best_score INTEGER DEFAULT 0,
     total_score INTEGER DEFAULT 0,
     brick_attempts INTEGER DEFAULT 0,
     airplane_attempts INTEGER DEFAULT 0,
     hero_attempts INTEGER DEFAULT 0,
     mc_world_attempts INTEGER DEFAULT 0,
+    paper_rush_attempts INTEGER DEFAULT 0,
     mc_world_save TEXT,
     mc_world_level INTEGER DEFAULT 1,
     mc_world_info TEXT,
@@ -74,26 +76,27 @@ addColumn('users', 'airplane_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'hero_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'mc_world_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'magicrush_attempts', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'wins', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'losses', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'paper_rush_best_score', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'paper_rush_attempts', 'INTEGER NOT NULL DEFAULT 0');
 
-// Data migration: CRITICAL - Ensure NO NULLS exist in score columns and force INTEGER types
+// Data migration
 db.exec(`
   UPDATE users SET 
     airplane_best_score = CAST(IFNULL(airplane_best_score, 0) AS INTEGER),
     brick_best_score = CAST(IFNULL(brick_best_score, 0) AS INTEGER),
     hero_best_score = CAST(IFNULL(hero_best_score, 0) AS INTEGER),
     mc_world_best_score = CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
-    magicrush_best_score = CAST(IFNULL(magicrush_best_score, 0) AS INTEGER),
+    paper_rush_best_score = CAST(IFNULL(paper_rush_best_score, 0) AS INTEGER),
     best_score = CAST(IFNULL(best_score, 0) AS INTEGER),
     total_score = CAST(IFNULL(total_score, 0) AS INTEGER),
     brick_attempts = CAST(IFNULL(brick_attempts, 0) AS INTEGER),
     airplane_attempts = CAST(IFNULL(airplane_attempts, 0) AS INTEGER),
     hero_attempts = CAST(IFNULL(hero_attempts, 0) AS INTEGER),
     mc_world_attempts = CAST(IFNULL(mc_world_attempts, 0) AS INTEGER),
-    magicrush_attempts = CAST(IFNULL(magicrush_attempts, 0) AS INTEGER),
+    paper_rush_attempts = CAST(IFNULL(paper_rush_attempts, 0) AS INTEGER),
     wins = CAST(IFNULL(wins, 0) AS INTEGER),
     losses = CAST(IFNULL(losses, 0) AS INTEGER)
 `);
+
 
 module.exports = db;

@@ -108,7 +108,7 @@ function initGame() {
     fetch('/api/increment-attempts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game: 'magicrush' })
+        body: JSON.stringify({ game: 'paper_rush' })
     }).catch(e => console.error(e));
 
     gameLoop = requestAnimationFrame(update);
@@ -601,7 +601,7 @@ function submitScore(finalScore) {
     fetch('/api/submit-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ score: finalScore, gameType: 'magicrush' })
+        body: JSON.stringify({ score: finalScore, gameType: 'paper_rush' })
     }).catch(e => console.error('Submit score error:', e));
 }
 
@@ -609,7 +609,7 @@ function fetchLeaderboard(context) {
     const targetId = context === 'start' ? 'start-rank-info' : 'end-rank-info';
     const target = document.getElementById(targetId);
     
-    fetch('/api/leaderboard?gameType=magicrush')
+    fetch('/api/leaderboard?gameType=paper_rush')
         .then(res => res.json())
         .then(data => {
             let html = `<div style="color:${C_YELLOW}; font-weight:bold; margin-bottom:10px;">GLOBAL TOP</div>`;
