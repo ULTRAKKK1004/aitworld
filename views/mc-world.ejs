@@ -182,8 +182,19 @@
                     <div style="font-size: 12px;">Wood: <span id="inv-wood" style="color: #e67e22;">0</span></div>
                     <div style="font-size: 12px;">Fruit: <span id="inv-fruit" style="color: #e74c3c;">0</span></div>
                     <div style="font-size: 12px;">Herbs: <span id="inv-herbs" style="color: #2ecc71;">0</span></div>
-                    <div style="font-size: 12px;">Potions: <span id="inv-potion" style="color: #ff00ff;">0</span></div>
+                    <div style="font-size: 12px;">Health Potion: <span id="inv-health-potion" style="color: #ff00ff;">0</span></div>
+                    <div style="font-size: 12px;">Atk Boost: <span id="inv-dmg-booster" style="color: #f1c40f;">0</span></div>
                     <div style="font-size: 12px;">My Lv: <span id="inv-level" style="color: #2ecc71;">1</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="use-item-btn" data-item="health_potion" style="flex: 1; padding: 5px; background: #8e44ad; color: white; border: none; border-radius: 4px; font-size: 11px;">USE HP POTION</button>
+                        <button class="use-item-btn" data-item="dmg_booster" style="flex: 1; padding: 5px; background: #d35400; color: white; border: none; border-radius: 4px; font-size: 11px;">USE ATK BOOST</button>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="use-item-btn" data-item="fruit" style="flex: 1; padding: 5px; background: #27ae60; color: white; border: none; border-radius: 4px; font-size: 11px;">USE FRUIT</button>
+                        <button class="use-item-btn" data-item="herbs" style="flex: 1; padding: 5px; background: #2980b9; color: white; border: none; border-radius: 4px; font-size: 11px;">USE HERBS</button>
+                    </div>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     <div class="inv-item" id="inv-sword" style="border: 1px solid #555; padding: 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05);">

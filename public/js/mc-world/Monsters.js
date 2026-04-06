@@ -288,7 +288,7 @@ class Char extends Monster {
 export class BeholderBoss extends Monster {
     constructor(scene, playerPos, playerLevel) {
         super(scene, playerPos, playerLevel);
-        this.level = (playerLevel || 1) + 10;
+        this.level = (playerLevel || 1) + 5;
         this.hp = this.level * 60;
         this.maxHp = this.hp;
         this.mp = this.level * 20;
@@ -400,7 +400,8 @@ export class DroppedItem {
             visual.rotation.z = Math.PI/4;
         } else if (type === 'wood') visual = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.4), new THREE.MeshLambertMaterial({color: 0xe67e22}));
         else if (type === 'fruit') visual = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshLambertMaterial({color: 0xe74c3c}));
-        else if (type === 'potion') visual = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.3), new THREE.MeshLambertMaterial({color: 0xff00ff}));
+        else if (type === 'health_potion') visual = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.3), new THREE.MeshLambertMaterial({color: 0xff00ff}));
+        else if (type === 'dmg_booster') visual = new THREE.Mesh(new THREE.OctahedronGeometry(0.2), new THREE.MeshLambertMaterial({color: 0xf1c40f}));
         else visual = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.05, 8, 8), new THREE.MeshLambertMaterial({color: 0x2ecc71}));
         this.group.add(visual);
         this.group.add(new THREE.PointLight(visual.material.color, 0.5, 2));
@@ -445,8 +446,9 @@ export class MonsterManager {
             if (!m) continue;
             m.update(delta, player, chunkManager);
             if (m.hp <= 0) {
-                const types = ['sticks', 'wood', 'fruit', 'herbs', 'potion'];
-                for(let k=0; k<(m instanceof BeholderBoss ? 15 : 2); k++) {
+                const types = ['sticks', 'wood', 'fruit', 'herbs', 'health_potion', 'dmg_booster'];
+                const count = (m instanceof BeholderBoss ? 20 : 4); // Increased from 15/2
+                for(let k=0; k<count; k++) {
                     const offset = new THREE.Vector3((Math.random()-0.5)*2.5, 0, (Math.random()-0.5)*2.5);
                     this.droppedItems.push(new DroppedItem(this.scene, types[Math.floor(Math.random()*types.length)], m.group.position.clone().add(offset)));
                 }
@@ -460,7 +462,15 @@ export class MonsterManager {
             const item = this.droppedItems[i];
             if (!item || !item.group) continue;
             item.update(delta);
-            if (item.group.position.distanceTo(player.position) < 2.2) {
+            
+            // Magnet effect: float towards player if close
+            const dist = item.group.position.distanceTo(player.position);
+            if (dist < 10) {
+                const dir = new THREE.Vector3().subVectors(player.position, item.group.position).normalize();
+                item.group.position.addScaledVector(dir, 8 * delta); // Magnet speed
+            }
+
+            if (dist < 2.5) { // Increased pickup range
                 player.addItem(item.type, 1);
                 player.showFloatingText(`+1 ${item.type}`, '#2ecc71');
                 this.scene.remove(item.group);

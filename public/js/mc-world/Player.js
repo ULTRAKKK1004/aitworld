@@ -8,8 +8,10 @@ export class PlayerData {
         this.maxHp = 20;
         this.mp = 10;
         this.maxMp = 10;
-        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0, potion: 0 };
+        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0, health_potion: 0, dmg_booster: 0 };
         this.weapons = { stick: 1, bow: 0, sword: 0 };
+        this.dmgBoost = 1.0;
+        this.dmgBoostTimer = 0;
         this.lastVillage = { x: 16, z: 16 };
         this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
@@ -19,6 +21,13 @@ export class PlayerData {
     }
 
     update(delta, isInSafeZone) {
+        if (this.dmgBoostTimer > 0) {
+            this.dmgBoostTimer -= delta;
+            if (this.dmgBoostTimer <= 0) {
+                this.dmgBoost = 1.0;
+                this.showNotification("Damage boost expired.");
+            }
+        }
         // Idle detection
         if (this.position.distanceTo(this.lastPos) < 0.1) {
             this.idleTime += delta;
@@ -112,21 +121,40 @@ export class PlayerData {
         } else {
             this.inventory[type] = amount;
         }
-        // Auto-consume
-        if (type === 'fruit' && this.hp < this.maxHp) {
-            this.heal(5);
-            this.inventory.fruit = Math.max(0, this.inventory.fruit - 1);
-            this.showFloatingText("+5 HP (Fruit)", "#2ecc71");
-        } else if (type === 'potion' && this.hp < this.maxHp) {
-            this.heal(20);
-            this.inventory.potion = Math.max(0, this.inventory.potion - 1);
-            this.showFloatingText("+20 HP (Potion)", "#ff00ff");
-        } else if (type === 'herbs' && this.mp < this.maxMp) {
-            this.mp = Math.min(this.maxMp, this.mp + 10);
-            this.inventory.herbs = Math.max(0, this.inventory.herbs - 1);
-            this.showFloatingText("+10 MP (Herb)", "#3498db");
+        
+        // Auto-consume basic resources if HP/MP low
+        if (type === 'fruit' && this.hp < this.maxHp * 0.5) {
+            this.useItem('fruit');
+        } else if (type === 'herbs' && this.mp < this.maxMp * 0.3) {
+            this.useItem('herbs');
         }
         this.updateUI();
+    }
+
+    useItem(type) {
+        if (!this.inventory[type] || this.inventory[type] <= 0) return;
+
+        if (type === 'fruit') {
+            this.heal(5);
+            this.inventory.fruit--;
+            this.showFloatingText("+5 HP", "#2ecc71");
+        } else if (type === 'health_potion') {
+            this.heal(30);
+            this.inventory.health_potion--;
+            this.showFloatingText("+30 HP", "#ff00ff");
+        } else if (type === 'dmg_booster') {
+            this.dmgBoost = 2.0;
+            this.dmgBoostTimer = 30; // 30 seconds
+            this.inventory.dmg_booster--;
+            this.showNotification("DAMAGE BOOST ACTIVATED (2x)!");
+            this.showFloatingText("ATK UP!", "#f1c40f");
+        } else if (type === 'herbs') {
+            this.mp = Math.min(this.maxMp, this.mp + 15);
+            this.inventory.herbs--;
+            this.showFloatingText("+15 MP", "#3498db");
+        }
+        this.updateUI();
+        if (window.audioManager) window.audioManager.playSFX('jump'); 
     }
 
     heal(amount) {
@@ -206,8 +234,10 @@ export class PlayerData {
         if(invWood) invWood.innerText = this.inventory.wood || 0;
         if(invFruit) invFruit.innerText = this.inventory.fruit || 0;
         if(invHerbs) invHerbs.innerText = this.inventory.herbs || 0;
-        const invPotion = document.getElementById('inv-potion');
-        if(invPotion) invPotion.innerText = this.inventory.potion || 0;
+        const invHealthPotion = document.getElementById('inv-health-potion');
+        const invDmgBooster = document.getElementById('inv-dmg-booster');
+        if(invHealthPotion) invHealthPotion.innerText = this.inventory.health_potion || 0;
+        if(invDmgBooster) invDmgBooster.innerText = this.inventory.dmg_booster || 0;
         if(invLevel) invLevel.innerText = this.level;
         
         const tierNames = ["Locked", "Wooden", "Stone", "Iron", "Gold", "Diamond"];
@@ -241,7 +271,7 @@ export class PlayerData {
 
         // Generate inventory summary for admin info
         const inv = this.inventory || {};
-        this.info = `S:${inv.sticks||0}, W:${inv.wood||0}, F:${inv.fruit||0}, H:${inv.herbs||0}, P:${inv.potion||0}`;
+        this.info = `S:${inv.sticks||0}, W:${inv.wood||0}, F:${inv.fruit||0}, H:${inv.herbs||0}, HP:${inv.health_potion||0}, DB:${inv.dmg_booster||0}`;
 
         const dataToSave = {
             level: this.level,

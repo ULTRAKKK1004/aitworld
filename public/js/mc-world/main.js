@@ -8,11 +8,19 @@ class AudioManager {
     constructor() {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         this.masterGain = this.ctx.createGain();
-        this.masterGain.connect(this.ctx.destination);
-        this.masterGain.gain.value = 0.4;
+        
+        // Master filter for cleaner sound
+        this.filter = this.ctx.createBiquadFilter();
+        this.filter.type = 'lowpass';
+        this.filter.frequency.value = 8000;
+        this.filter.Q.value = 0.5;
+        
+        this.masterGain.connect(this.filter);
+        this.filter.connect(this.ctx.destination);
+        this.masterGain.gain.value = 0.35;
         
         this.bgmNodes = [];
-        this.currentState = 'CALM'; // CALM, TENSE, COMBAT
+        this.currentState = 'CALM';
         this.lastState = null;
         this.transitioning = false;
         
@@ -27,12 +35,17 @@ class AudioManager {
     }
 
     stopBGM() {
+        const now = this.ctx.currentTime;
         this.bgmNodes.forEach(node => {
             try {
+                if (node.interval) clearInterval(node.interval);
                 if (node.gain) {
-                    node.gain.gain.setTargetAtTime(0, this.ctx.currentTime + 1);
+                    node.gain.gain.cancelScheduledValues(now);
+                    node.gain.gain.setTargetAtTime(0, now, 0.3);
                 }
-                setTimeout(() => { if (node.osc) node.osc.stop(); }, 1000);
+                if (node.osc) {
+                    node.osc.stop(now + 1.2);
+                }
             } catch(e) {}
         });
         this.bgmNodes = [];
@@ -43,7 +56,7 @@ class AudioManager {
         const gain = this.ctx.createGain();
         osc.type = type;
         osc.frequency.value = freq;
-        gain.gain.value = 0; // Start silent for fade-in
+        gain.gain.value = 0;
         osc.connect(gain);
         gain.connect(this.masterGain);
         osc.start();
@@ -56,60 +69,63 @@ class AudioManager {
         const now = this.ctx.currentTime;
         
         if (state === 'CALM') {
-            // Magical, bright ambient pad
-            const n1 = this.createNode('sine', 440, 0.1); // A4
-            const n2 = this.createNode('triangle', 554.37, 0.08); // C#5
-            const n3 = this.createNode('sine', 659.25, 0.05); // E5
+            const n1 = this.createNode('sine', 440, 0.08); // A4
+            const n2 = this.createNode('sine', 554.37, 0.06); // C#5
             
-            // Slow modulation for magical feel
-            const lfo = this.ctx.createOscillator();
-            lfo.frequency.value = 0.2;
-            const lfoGain = this.ctx.createGain();
-            lfoGain.gain.value = 10;
-            lfo.connect(lfoGain);
-            lfoGain.connect(n1.osc.frequency);
-            lfo.start();
-            this.bgmNodes.push({ osc: lfo, gain: lfoGain });
+            // Rhythmic "pluck" for cheerful feel
+            const interval = setInterval(() => {
+                if (this.currentState !== 'CALM') { clearInterval(interval); return; }
+                const now = this.ctx.currentTime;
+                const pluck = this.ctx.createOscillator();
+                const pg = this.ctx.createGain();
+                pluck.type = 'triangle';
+                const freqs = [440, 659.25, 880, 554.37];
+                pluck.frequency.value = freqs[Math.floor(now % 4)];
+                pluck.connect(pg);
+                pg.connect(this.masterGain);
+                pg.gain.setValueAtTime(0, now);
+                pg.gain.linearRampToValueAtTime(0.04, now + 0.02);
+                pg.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                pluck.start(now);
+                pluck.stop(now + 0.4);
+            }, 500);
+            this.bgmNodes.push({ interval });
 
-            n1.gain.gain.setTargetAtTime(0.08, now, 2);
-            n2.gain.gain.setTargetAtTime(0.06, now, 2);
-            n3.gain.gain.setTargetAtTime(0.04, now, 2);
+            n1.gain.gain.setTargetAtTime(0.05, now, 1.5);
+            n2.gain.gain.setTargetAtTime(0.04, now, 1.5);
 
         } else if (state === 'TENSE') {
-            // Mysterious, slightly dissonant drone
-            const n1 = this.createNode('sawtooth', 110, 0.1); // A2
-            const n2 = this.createNode('triangle', 116.54, 0.08); // A#2 (dissonance)
+            const n1 = this.createNode('triangle', 110, 0.08); 
+            const n2 = this.createNode('sine', 116.54, 0.06); 
             
             const lfo = this.ctx.createOscillator();
-            lfo.frequency.value = 2; // Faster throb
+            lfo.frequency.value = 1.5; 
             const lfoGain = this.ctx.createGain();
-            lfoGain.gain.value = 0.05;
+            lfoGain.gain.value = 0.03;
             lfo.connect(lfoGain);
             lfoGain.connect(n1.gain.gain);
             lfo.start();
             this.bgmNodes.push({ osc: lfo, gain: lfoGain });
 
-            n1.gain.gain.setTargetAtTime(0.08, now, 1);
-            n2.gain.gain.setTargetAtTime(0.06, now, 1);
+            n1.gain.gain.setTargetAtTime(0.06, now, 1);
+            n2.gain.gain.setTargetAtTime(0.04, now, 1);
 
         } else if (state === 'COMBAT') {
-            // Fast, driving bass and aggressive synth
-            const base = this.createNode('square', 55, 0.15); // A1
-            const lead = this.createNode('sawtooth', 220, 0.1); // A3
+            const base = this.createNode('triangle', 55, 0.12); 
+            const lead = this.createNode('sine', 220, 0.08); 
             
-            // 16th note arpeggiator effect on lead
             const lfo = this.ctx.createOscillator();
-            lfo.type = 'square';
-            lfo.frequency.value = 8; 
+            lfo.type = 'sine';
+            lfo.frequency.value = 6; 
             const lfoGain = this.ctx.createGain();
-            lfoGain.gain.value = 0.1;
+            lfoGain.gain.value = 0.05;
             lfo.connect(lfoGain);
             lfoGain.connect(lead.gain.gain);
             lfo.start();
             this.bgmNodes.push({ osc: lfo, gain: lfoGain });
 
-            base.gain.gain.setTargetAtTime(0.12, now, 0.5);
-            lead.gain.gain.setTargetAtTime(0.08, now, 0.5);
+            base.gain.gain.setTargetAtTime(0.1, now, 0.5);
+            lead.gain.gain.setTargetAtTime(0.06, now, 0.5);
         }
     }
 
@@ -138,13 +154,12 @@ class AudioManager {
         osc.connect(gain);
         gain.connect(this.masterGain);
         
-        // High pitched chirp
-        osc.frequency.setValueAtTime(4000 + Math.random() * 1000, now);
-        osc.frequency.exponentialRampToValueAtTime(3000 + Math.random() * 500, now + 0.1);
+        osc.frequency.setValueAtTime(3500 + Math.random() * 500, now);
+        osc.frequency.exponentialRampToValueAtTime(2500 + Math.random() * 300, now + 0.12);
         
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.05, now + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        gain.gain.linearRampToValueAtTime(0.03, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         
         osc.start(now);
         osc.stop(now + 0.15);
@@ -155,29 +170,28 @@ class AudioManager {
         this.victoryTimeout = true;
         const now = this.ctx.currentTime;
         
-        // Triumphant major arpeggio
-        const notes = [440, 554.37, 659.25, 880]; // A, C#, E, A
+        const notes = [440, 554.37, 659.25, 880]; 
         notes.forEach((freq, i) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
-            osc.type = 'triangle';
+            osc.type = 'sine'; // Softer than triangle
             osc.frequency.value = freq;
             osc.connect(gain);
             gain.connect(this.masterGain);
             
-            const time = now + i * 0.15;
+            const time = now + i * 0.12;
             gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(0.1, time + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+            gain.gain.linearRampToValueAtTime(0.08, time + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.6);
             
             osc.start(time);
-            osc.stop(time + 0.6);
+            osc.stop(time + 0.7);
         });
 
         setTimeout(() => {
             this.victoryTimeout = false;
-            this.playState(this.currentState);
-        }, 2000);
+            if (this.ctx) this.playState(this.currentState);
+        }, 2200);
     }
 
     playDefeat() {
@@ -185,30 +199,29 @@ class AudioManager {
         this.defeatTimeout = true;
         const now = this.ctx.currentTime;
         
-        // Descending, detuned minor notes
-        const notes = [329.63, 311.13, 293.66, 277.18]; // E, Eb, D, C#
+        const notes = [329.63, 311.13, 293.66, 277.18]; 
         notes.forEach((freq, i) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
-            osc.type = 'sawtooth';
+            osc.type = 'triangle'; // Softer than sawtooth
             osc.frequency.value = freq;
             osc.connect(gain);
             gain.connect(this.masterGain);
             
             const time = now + i * 0.4;
             gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(0.15, time + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+            gain.gain.linearRampToValueAtTime(0.1, time + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 1.2);
             
             osc.start(time);
-            osc.stop(time + 0.9);
+            osc.stop(time + 1.5);
         });
         
         setTimeout(() => {
             this.defeatTimeout = false;
             this.currentState = 'CALM';
-            this.playState('CALM');
-        }, 3000);
+            if (this.ctx) this.playState('CALM');
+        }, 3500);
     }
 
     playSFX(type) {
@@ -220,17 +233,17 @@ class AudioManager {
         gain.connect(this.masterGain);
         
         if (type === 'hit') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(150, now);
-            osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.linearRampToValueAtTime(0, now + 0.1);
-            osc.start(now); osc.stop(now + 0.1);
+            osc.type = 'triangle'; // Cleaner than square
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.08);
+            osc.start(now); osc.stop(now + 0.08);
         } else if (type === 'jump') {
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(200, now);
-            osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
-            gain.gain.setValueAtTime(0.05, now);
+            osc.frequency.setValueAtTime(180, now);
+            osc.frequency.exponentialRampToValueAtTime(500, now + 0.1);
+            gain.gain.setValueAtTime(0.04, now);
             gain.gain.linearRampToValueAtTime(0, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
         }
@@ -408,7 +421,7 @@ async function init() {
         if (!activeWeapon) { swinging = false; return; }
         const weaponTier = player.weapons[wpName] || 1;
         const range = wpName === 'stick' ? 3.5 : (wpName === 'sword' ? 5.0 : 25);
-        const damage = (wpName === 'stick' ? 1 : (wpName === 'sword' ? 3 : 2)) * weaponTier * (1 + player.level * 0.1);
+        const damage = (wpName === 'stick' ? 1 : (wpName === 'sword' ? 3 : 2)) * weaponTier * (1 + player.level * 0.1) * (player.dmgBoost || 1.0);
 
         const startZ = activeWeapon.position.z;
         let startT = performance.now();
@@ -485,6 +498,14 @@ async function init() {
     });
     document.getElementById('inv-bow')?.addEventListener('click', () => { if(player.upgradeWeapon('bow')) select(curBlock); });
     document.getElementById('inv-sword')?.addEventListener('click', () => { if(player.upgradeWeapon('sword')) select(curBlock); });
+    
+    document.querySelectorAll('.use-item-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const item = btn.dataset.item;
+            if (player) player.useItem(item);
+        });
+    });
 
     const keys = {w:0,a:0,s:0,d:0,space:0};
     let isBuild = false;
