@@ -160,7 +160,7 @@ function initTouchControls() {
     }, { passive: false });
 
     btnMagic.addEventListener('touchstart', (e) => {
-        if (player && magicCharged) player.useMagic();
+        if (player && magicCount > 0) player.useMagic();
         e.preventDefault();
     }, { passive: false });
 }
@@ -197,13 +197,14 @@ class Player {
             this.lastShot = now;
         }
 
-        if (keys['KeyX'] && magicCount > 0) this.useMagic();
+        if ((keys['KeyX'] || keys['KeyM']) && magicCount > 0) this.useMagic();
 
-        this.bullets.forEach((b, i) => {
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            const b = this.bullets[i];
             b.y -= b.speed;
             if (b.vx) b.x += b.vx;
             if (b.y < -20 || b.x < -20 || b.x > canvas.width + 20) this.bullets.splice(i, 1);
-        });
+        }
     }
 
     shoot() {
@@ -834,13 +835,15 @@ function loop() {
         updateHUD();
     }
 
-    enemies.forEach((e, i) => {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
         e.update(player);
         e.draw();
         if (e.y > canvas.height + 60 || e.hp <= 0) enemies.splice(i, 1);
-    });
+    }
 
-    enemyBullets.forEach((b, i) => {
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+        const b = enemyBullets[i];
         b.x += b.vx || 0;
         b.y += b.vy;
         
@@ -875,14 +878,16 @@ function loop() {
         } else if (b.y > canvas.height + 20 || b.y < -20 || b.x < -20 || b.x > canvas.width + 20) {
             enemyBullets.splice(i, 1);
         }
-    });
+    }
 
-    items.forEach((item, i) => {
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
         if (item.update(player)) items.splice(i, 1);
         else item.draw();
-    });
+    }
 
-    explosions.forEach((ex, i) => {
+    for (let i = explosions.length - 1; i >= 0; i--) {
+        const ex = explosions[i];
         ex.x += ex.vx; ex.y += ex.vy;
         ex.life--;
         ctx.save();
@@ -892,7 +897,7 @@ function loop() {
         ctx.fillRect(ex.x, ex.y, 5, 5);
         ctx.restore();
         if (ex.life <= 0) explosions.splice(i, 1);
-    });
+    }
 
     drawSkullEffect();
 
