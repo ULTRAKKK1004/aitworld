@@ -22,10 +22,21 @@ let baseSpeed = 5;
 let combo = 1;
 let comboTimer = 0;
 
+// Platform for first 5 seconds
+let platformActive = false;
+let platformTimer = 0;
+const PLATFORM_DURATION = 300; // 5 seconds at 60fps
+let platformY = 0;
+
 // Physics & Wind
 let gravity = 0.35; // Reduced to 70% of 0.5
 let windForce = 0;
 let nextWindChange = 100;
+
+// Audio Context
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let bgmInterval = null;
+let bgmStep = 0;
 
 // Player
 const player = {
@@ -80,7 +91,12 @@ function initGame() {
     windForce = 0;
     nextWindChange = 120;
     
-    player.y = canvas.height / 2;
+    // Platform setup
+    platformActive = true;
+    platformTimer = PLATFORM_DURATION;
+    platformY = canvas.height * 0.75;
+    
+    player.y = platformY - player.height;
     player.vy = 0;
     player.angle = 0;
     
@@ -104,6 +120,10 @@ function initGame() {
     startScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     
+    // Audio Start
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    startBGM();
+
     // Submit attempt
     fetch('/api/increment-attempts', {
         method: 'POST',
@@ -112,6 +132,93 @@ function initGame() {
     }).catch(e => console.error(e));
 
     gameLoop = requestAnimationFrame(update);
+}
+
+// AUDIO SYSTEM
+function playSFX(type) {
+    if (audioCtx.state === 'suspended') return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'jump') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.start(); osc.stop(now + 0.1);
+    } else if (type === 'hit') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc.start(); osc.stop(now + 0.5);
+    } else if (type === 'combo') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.start(); osc.stop(now + 0.1);
+    } else if (type === 'stage_up') {
+        [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'sine';
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(f, now + i * 0.1);
+            g.gain.setValueAtTime(0.1, now + i * 0.1);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.1);
+            o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.1);
+        });
+    }
+}
+
+function startBGM() {
+    if (bgmInterval) return;
+    bgmStep = 0;
+    bgmInterval = setInterval(() => {
+        if (!isPlaying) return;
+        const now = audioCtx.currentTime;
+        
+        // Bass
+        const bassOsc = audioCtx.createOscillator();
+        const bassGain = audioCtx.createGain();
+        bassOsc.type = 'square';
+        bassOsc.connect(bassGain); bassGain.connect(audioCtx.destination);
+        const bassNotes = [55, 55, 41.2, 49]; // A1, E1 context
+        bassOsc.frequency.setValueAtTime(bassNotes[Math.floor(bgmStep/4)%4], now);
+        bassGain.gain.setValueAtTime(0.05, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        bassOsc.start(); bassOsc.stop(now + 0.15);
+
+        // Melody
+        if (bgmStep % 2 === 0) {
+            const melOsc = audioCtx.createOscillator();
+            const melGain = audioCtx.createGain();
+            melOsc.type = 'triangle';
+            melOsc.connect(melGain); melGain.connect(audioCtx.destination);
+            const melNotes = [220, 261, 329, 392, 440, 523, 659, 783];
+            const note = melNotes[Math.floor(Math.random() * melNotes.length)];
+            melOsc.frequency.setValueAtTime(note, now);
+            melGain.gain.setValueAtTime(0.03, now);
+            melGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            melOsc.start(); melOsc.stop(now + 0.1);
+        }
+
+        bgmStep++;
+    }, 150);
+}
+
+function stopBGM() {
+    if (bgmInterval) {
+        clearInterval(bgmInterval);
+        bgmInterval = null;
+    }
 }
 
 function update() {
@@ -137,6 +244,13 @@ function update() {
         stage++;
         baseSpeed += 1;
         createParticles(player.x, player.y, 30, C_YELLOW);
+        playSFX('stage_up');
+    }
+    
+    // Platform timer
+    if (platformActive) {
+        platformTimer--;
+        if (platformTimer <= 0) platformActive = false;
     }
     
     // Combo decay
@@ -188,6 +302,14 @@ function updatePlayer() {
     player.vy += gravity + (windForce * 0.1);
     player.y += player.vy;
     
+    // Platform collision
+    if (platformActive) {
+        if (player.y + player.height > platformY) {
+            player.y = platformY - player.height;
+            player.vy = 0;
+        }
+    }
+    
     // Rotation based on velocity
     player.angle = Math.min(Math.max(player.vy * 0.05, -0.5), 0.5);
     
@@ -209,6 +331,7 @@ function jump() {
     if (!isPlaying) return;
     player.vy = player.jumpPower;
     createParticles(player.x, player.y + player.height/2, 5, C_CYAN);
+    playSFX('jump');
 }
 
 function handleSpawns() {
@@ -430,6 +553,30 @@ function drawEnvironment() {
         ctx.lineTo(canvas.width, y);
         ctx.stroke();
     }
+
+    // Support Platform (First 5 seconds)
+    if (platformActive) {
+        ctx.save();
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = C_CYAN;
+        ctx.strokeStyle = C_CYAN;
+        ctx.lineWidth = 4;
+        
+        // Pulsing alpha
+        ctx.globalAlpha = 0.5 + Math.sin(frameCount * 0.1) * 0.3;
+        
+        ctx.beginPath();
+        ctx.moveTo(0, platformY);
+        ctx.lineTo(canvas.width, platformY);
+        ctx.stroke();
+        
+        // Label
+        ctx.fillStyle = C_CYAN;
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`SAFETY PLATFORM: ${Math.ceil(platformTimer/60)}s`, canvas.width/2, platformY + 30);
+        ctx.restore();
+    }
 }
 
 function drawEntities() {
@@ -558,6 +705,7 @@ function showCombo() {
     comboValue.innerText = combo;
     comboDisplay.style.display = 'block';
     comboDisplay.style.transform = 'scale(1.5)';
+    playSFX('combo');
     setTimeout(() => { comboDisplay.style.transform = 'scale(1)'; }, 100);
 }
 
@@ -568,6 +716,8 @@ function hideCombo() {
 function gameOver() {
     isPlaying = false;
     cancelAnimationFrame(gameLoop);
+    stopBGM();
+    playSFX('hit');
     
     createParticles(player.x, player.y, 50, C_RED);
     drawParticles(); // Draw explosion once
