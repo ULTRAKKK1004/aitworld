@@ -176,6 +176,73 @@ app.get('/games/magicrush', isAuth, isPending, checkEventMode, (req, res) => {
   res.render('magicrush', { user: req.user });
 });
 
+// Scoreboard Route
+app.get('/scoreboard', isAuth, isPending, (req, res) => {
+  const userId = req.user.id;
+  const isAdminView = req.query.view === 'all' && req.user.role === 'ADMIN';
+
+  const getRankings = (orderByField) => {
+    // 1. Get Top 10
+    const top10 = db.prepare(`
+      SELECT id, username, email, best_score, total_score,
+      RANK() OVER (ORDER BY ${orderByField} DESC) as rank
+      FROM users 
+      WHERE username IS NOT NULL
+      ORDER BY ${orderByField} DESC 
+      LIMIT 10
+    `).all();
+
+    // 2. Get User's Rank
+    const userRankInfo = db.prepare(`
+      SELECT rank FROM (
+        SELECT id, RANK() OVER (ORDER BY ${orderByField} DESC) as rank
+        FROM users
+        WHERE username IS NOT NULL
+      ) WHERE id = ?
+    `).get(userId);
+
+    let context = [];
+    if (userRankInfo) {
+      const userRank = userRankInfo.rank;
+      // 3. Get Context (3 above, user, 3 below)
+      context = db.prepare(`
+        SELECT * FROM (
+          SELECT id, username, email, best_score, total_score,
+          RANK() OVER (ORDER BY ${orderByField} DESC) as rank
+          FROM users
+          WHERE username IS NOT NULL
+        )
+        WHERE rank BETWEEN ? AND ?
+        ORDER BY rank ASC
+      `).all(Math.max(1, userRank - 3), userRank + 3);
+    }
+
+    // 4. Get All (for Admin)
+    let all = [];
+    if (isAdminView) {
+      all = db.prepare(`
+        SELECT id, username, email, best_score, total_score,
+        RANK() OVER (ORDER BY ${orderByField} DESC) as rank
+        FROM users
+        WHERE username IS NOT NULL
+        ORDER BY ${orderByField} DESC
+      `).all();
+    }
+
+    return { top10, context, all };
+  };
+
+  const bestScoreRankings = getRankings('best_score');
+  const totalScoreRankings = getRankings('total_score');
+
+  res.render('scoreboard', {
+    user: req.user,
+    bestScoreRankings,
+    totalScoreRankings,
+    isAdminView
+  });
+});
+
 // Admin Routes
 app.get('/admin', isAdmin, (req, res) => {
   const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ranking Board - Tor-AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .ranking-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .ranking-section {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .ranking-section h2 {
+            margin-top: 0;
+            color: #f1c40f;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px solid #f1c40f;
+            display: inline-block;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+        }
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #eee;
+        }
+        .ranking-table th, .ranking-table td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        .ranking-table th {
+            background: rgba(255, 255, 255, 0.05);
+            color: #aaa;
+            font-weight: 500;
+        }
+        .ranking-table tr.current-user {
+            background: rgba(241, 196, 15, 0.2);
+            font-weight: bold;
+            color: #f1c40f;
+        }
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+        .rank-1 { background: #f1c40f; color: #000; box-shadow: 0 0 10px #f1c40f; }
+        .rank-2 { background: #bdc3c7; color: #000; box-shadow: 0 0 10px #bdc3c7; }
+        .rank-3 { background: #e67e22; color: #000; box-shadow: 0 0 10px #e67e22; }
+
+        .admin-controls {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+        .btn-view-all {
+            background: #f1c40f;
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .btn-view-all:hover {
+            background: #d4ac0d;
+            box-shadow: 0 0 15px #f1c40f;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #aaa;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            color: #fff;
+        }
+        .divider {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> 대시보드로 돌아가기</a>
+            <h1>RANKING BOARD</h1>
+        </header>
+
+        <% if (user.role === 'ADMIN') { %>
+            <div class="admin-controls">
+                <% if (isAdminView) { %>
+                    <a href="/scoreboard" class="btn-view-all">요약 보기</a>
+                <% } else { %>
+                    <a href="/scoreboard?view=all" class="btn-view-all">전체 순위 열람 (관리자)</a>
+                <% } %>
+            </div>
+        <% } %>
+
+        <div class="ranking-container">
+            <!-- Total Score Rankings -->
+            <div class="ranking-section">
+                <h2><i class="fas fa-plus-circle"></i> 총합 점수 순위</h2>
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>닉네임</th>
+                            <th>이메일</th>
+                            <th>총합 점수</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (isAdminView) { %>
+                            <% totalScoreRankings.all.forEach(row => { %>
+                                <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                    <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                    <td><%= row.username %></td>
+                                    <td><%= row.email %></td>
+                                    <td><%= row.total_score %></td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <% totalScoreRankings.top10.forEach(row => { %>
+                                <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                    <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                    <td><%= row.username %></td>
+                                    <td><%= row.email %></td>
+                                    <td><%= row.total_score %></td>
+                                </tr>
+                            <% }) %>
+
+                            <% if (!totalScoreRankings.top10.some(r => r.id === user.id)) { %>
+                                <tr class="divider"><td colspan="4">...</td></tr>
+                                <% totalScoreRankings.context.forEach(row => { %>
+                                    <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                        <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                        <td><%= row.username %></td>
+                                        <td><%= row.email %></td>
+                                        <td><%= row.total_score %></td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Best Score Rankings -->
+            <div class="ranking-section">
+                <h2><i class="fas fa-star"></i> 최고 기록 순위</h2>
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>닉네임</th>
+                            <th>이메일</th>
+                            <th>최고 기록</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (isAdminView) { %>
+                            <% bestScoreRankings.all.forEach(row => { %>
+                                <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                    <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                    <td><%= row.username %></td>
+                                    <td><%= row.email %></td>
+                                    <td><%= row.best_score %></td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <% bestScoreRankings.top10.forEach(row => { %>
+                                <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                    <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                    <td><%= row.username %></td>
+                                    <td><%= row.email %></td>
+                                    <td><%= row.best_score %></td>
+                                </tr>
+                            <% }) %>
+
+                            <% if (!bestScoreRankings.top10.some(r => r.id === user.id)) { %>
+                                <tr class="divider"><td colspan="4">...</td></tr>
+                                <% bestScoreRankings.context.forEach(row => { %>
+                                    <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                        <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                        <td><%= row.username %></td>
+                                        <td><%= row.email %></td>
+                                        <td><%= row.best_score %></td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
