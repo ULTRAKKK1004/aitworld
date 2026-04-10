@@ -333,8 +333,8 @@ class Enemy {
         this.y = -60;
         this.maxHp = 1 + Math.floor(stage / 3);
         this.hp = this.maxHp;
-        // Increased speed by 30% (original 2.2 -> 2.86, 0.16 -> 0.208)
-        this.speed = (2.2 + (stage * 0.16)) * 1.3;
+        // Increased base speed and scaling (original 2.2 -> 2.5, 0.16 -> 0.2)
+        this.speed = (2.5 + (stage * 0.2)) * 1.3;
         this.vx = (Math.random() - 0.5) * 2;
         this.vy = this.speed;
         this.colorHue = Math.random() * 360; // For colorful effects
@@ -366,7 +366,7 @@ class Enemy {
         this.y += this.vy;
 
         if (this.type === 'missile' && frameCount % 60 === 0 && Math.random() < 0.35) {
-            enemyBullets.push({ x: this.x + 20, y: this.y + 40, vx: 0, vy: 5.5, width: 4, height: 12 });
+            enemyBullets.push({ x: this.x + 20, y: this.y + 40, vx: 0, vy: 6.5, width: 4, height: 12 });
         }
 
         player.bullets.forEach((b, i) => {
@@ -727,7 +727,7 @@ function spawnItem(x, y) { items.push(new Item(x, y)); }
 
 function spawnEnemy() {
     const types = ['missile', 'missile', 'charger'];
-    if (stage > 3) types.push('exploder');
+    if (stage >= 3) types.push('exploder');
     if (stage > 7) types.push('suction');
     const type = types[Math.floor(Math.random() * types.length)];
     enemies.push(new Enemy(type, stage));
@@ -827,7 +827,7 @@ function loop() {
     player.update();
     player.draw();
 
-    if (frameCount % Math.max(10, 50 - stage * 2) === 0) spawnEnemy();
+    if (frameCount % Math.max(8, 40 - stage * 2) === 0) spawnEnemy();
 
     if (score > stage * 5000 && stage < 100) {
         stage++;
@@ -1030,7 +1030,7 @@ function startGame() {
     gameActive = true;
     player = new Player();
     enemies = []; enemyBullets = []; items = []; explosions = [];
-    score = 0; stage = 1; lives = 3; hp = 100; weaponLevel = 1;
+    score = 0; stage = 3; lives = 3; hp = 100; weaponLevel = 1;
     shieldLayers = 0;
     magicCount = 0;
     initBackground();
