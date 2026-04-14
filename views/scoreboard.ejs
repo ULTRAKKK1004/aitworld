@@ -132,7 +132,7 @@
                                     <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
                                     <td><%= row.username %></td>
                                     <td><%= row.email %></td>
-                                    <td><%= row.total_score %></td>
+                                    <td><%= row.total_score.toLocaleString() %></td>
                                 </tr>
                             <% }) %>
                         <% } else { %>
@@ -141,7 +141,7 @@
                                     <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
                                     <td><%= row.username %></td>
                                     <td><%= row.email %></td>
-                                    <td><%= row.total_score %></td>
+                                    <td><%= row.total_score.toLocaleString() %></td>
                                 </tr>
                             <% }) %>
 
@@ -152,7 +152,7 @@
                                         <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
                                         <td><%= row.username %></td>
                                         <td><%= row.email %></td>
-                                        <td><%= row.total_score %></td>
+                                        <td><%= row.total_score.toLocaleString() %></td>
                                     </tr>
                                 <% }) %>
                             <% } %>
@@ -180,7 +180,7 @@
                                     <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
                                     <td><%= row.username %></td>
                                     <td><%= row.email %></td>
-                                    <td><%= row.best_score %></td>
+                                    <td><%= row.best_score.toLocaleString() %></td>
                                 </tr>
                             <% }) %>
                         <% } else { %>
@@ -189,7 +189,7 @@
                                     <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
                                     <td><%= row.username %></td>
                                     <td><%= row.email %></td>
-                                    <td><%= row.best_score %></td>
+                                    <td><%= row.best_score.toLocaleString() %></td>
                                 </tr>
                             <% }) %>
 
@@ -200,7 +200,7 @@
                                         <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
                                         <td><%= row.username %></td>
                                         <td><%= row.email %></td>
-                                        <td><%= row.best_score %></td>
+                                        <td><%= row.best_score.toLocaleString() %></td>
                                     </tr>
                                 <% }) %>
                             <% } %>
@@ -208,6 +208,59 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Individual Game Rankings -->
+            <% if (typeof gameRankings !== 'undefined' && gameRankings) { %>
+                <% gameRankings.forEach(game => { %>
+                    <div class="ranking-section">
+                        <h2><i class="fas <%= game.icon %>"></i> <%= game.title %> 순위</h2>
+                        <table class="ranking-table">
+                            <thead>
+                                <tr>
+                                    <th>순위</th>
+                                    <th>닉네임</th>
+                                    <th>이메일</th>
+                                    <th>최고 점수</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (isAdminView) { %>
+                                    <% game.rankings.all.forEach(row => { %>
+                                        <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                            <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                            <td><%= row.username %></td>
+                                            <td><%= row.email %></td>
+                                            <td><%= row.score.toLocaleString() %></td>
+                                        </tr>
+                                    <% }) %>
+                                <% } else { %>
+                                    <% game.rankings.top10.forEach(row => { %>
+                                        <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                            <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                            <td><%= row.username %></td>
+                                            <td><%= row.email %></td>
+                                            <td><%= row.score.toLocaleString() %></td>
+                                        </tr>
+                                    <% }) %>
+
+                                    <% if (!game.rankings.top10.some(r => r.id === user.id) && game.rankings.context.length > 0) { %>
+                                        <tr class="divider"><td colspan="4">...</td></tr>
+                                        <% game.rankings.context.forEach(row => { %>
+                                            <tr class="<%= row.id === user.id ? 'current-user' : '' %>">
+                                                <td><span class="rank-badge rank-<%= row.rank %>"><%= row.rank %></span></td>
+                                                <td><%= row.username %></td>
+                                                <td><%= row.email %></td>
+                                                <td><%= row.score.toLocaleString() %></td>
+                                            </tr>
+                                        <% }) %>
+                                    <% } %>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% }) %>
+            <% } %>
+
         </div>
     </div>
 </body>

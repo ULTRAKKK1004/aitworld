@@ -184,10 +184,10 @@ app.get('/scoreboard', isAuth, isPending, (req, res) => {
   const getRankings = (orderByField) => {
     // 1. Get Top 10
     const top10 = db.prepare(`
-      SELECT id, username, email, best_score, total_score,
+      SELECT id, username, email, best_score, total_score, ${orderByField} as score,
       RANK() OVER (ORDER BY ${orderByField} DESC) as rank
       FROM users 
-      WHERE username IS NOT NULL
+      WHERE username IS NOT NULL AND ${orderByField} > 0
       ORDER BY ${orderByField} DESC 
       LIMIT 10
     `).all();
@@ -207,7 +207,7 @@ app.get('/scoreboard', isAuth, isPending, (req, res) => {
       // 3. Get Context (3 above, user, 3 below)
       context = db.prepare(`
         SELECT * FROM (
-          SELECT id, username, email, best_score, total_score,
+          SELECT id, username, email, best_score, total_score, ${orderByField} as score,
           RANK() OVER (ORDER BY ${orderByField} DESC) as rank
           FROM users
           WHERE username IS NOT NULL
@@ -221,7 +221,7 @@ app.get('/scoreboard', isAuth, isPending, (req, res) => {
     let all = [];
     if (isAdminView) {
       all = db.prepare(`
-        SELECT id, username, email, best_score, total_score,
+        SELECT id, username, email, best_score, total_score, ${orderByField} as score,
         RANK() OVER (ORDER BY ${orderByField} DESC) as rank
         FROM users
         WHERE username IS NOT NULL
@@ -234,12 +234,23 @@ app.get('/scoreboard', isAuth, isPending, (req, res) => {
 
   const bestScoreRankings = getRankings('best_score');
   const totalScoreRankings = getRankings('total_score');
+  
+  const gRankings = [
+    { title: '벽돌 깨기', field: 'brick_best_score', icon: 'fa-th', rankings: getRankings('brick_best_score') },
+    { title: '비행기 슈팅', field: 'airplane_best_score', icon: 'fa-plane', rankings: getRankings('airplane_best_score') },
+    { title: '용사 퀘스트', field: 'hero_best_score', icon: 'fa-shield-alt', rankings: getRankings('hero_best_score') },
+    { title: 'MC 월드', field: 'mc_world_best_score', icon: 'fa-cube', rankings: getRankings('mc_world_best_score') },
+    { title: '매직 러쉬', field: 'paper_rush_best_score', icon: 'fa-bolt', rankings: getRankings('paper_rush_best_score') }
+  ];
+
+  console.log(`[Scoreboard] Serving request for user: ${userId}, gameRankings count: ${gRankings.length}`);
 
   res.render('scoreboard', {
     user: req.user,
-    bestScoreRankings,
-    totalScoreRankings,
-    isAdminView
+    bestScoreRankings: bestScoreRankings,
+    totalScoreRankings: totalScoreRankings,
+    gameRankings: gRankings,
+    isAdminView: isAdminView
   });
 });
 
@@ -401,6 +412,27 @@ app.post('/admin/reset-data', isAdmin, (req, res) => {
   } catch (e) {
     console.error('Error resetting user data:', e);
     res.status(500).send('Failed to reset user data');
+  }
+});
+
+app.post('/admin/delete-user', isAdmin, (req, res) => {
+  try {
+    const { user_id } = req.body;
+    
+    // Prevent admin from deleting themselves
+    if (parseInt(user_id) === req.user.id) {
+      return res.status(400).send('Cannot delete your own account.');
+    }
+
+    // 1. Delete associated scores
+    db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
+    // 2. Delete user
+    db.prepare('DELETE FROM users WHERE id = ?').run(user_id);
+    
+    res.redirect('/admin');
+  } catch (e) {
+    console.error('Error deleting user:', e);
+    res.status(500).send('Failed to delete user');
   }
 });
 

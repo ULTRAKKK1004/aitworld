@@ -27,6 +27,8 @@
         .btn-update:hover { background: var(--primary); color: #000; }
         .btn-reset { color: #e74c3c; border-color: #e74c3c; }
         .btn-reset:hover { background: #e74c3c; color: #fff; }
+        .btn-delete { color: #fff; background: #c0392b; border-color: #c0392b; }
+        .btn-delete:hover { background: #e74c3c; border-color: #e74c3c; }
         
         .score-list { max-height: 400px; overflow-y: auto; }
         .score-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
@@ -125,6 +127,10 @@
                                 <form action="/admin/reset-data" method="POST" class="action-form" onsubmit="return confirm('정말 이 회원의 게임 데이터를 초기화하시겠습니까?')">
                                     <input type="hidden" name="user_id" value="<%= u.id %>">
                                     <button type="submit" class="btn-small btn-reset">데이터 초기화</button>
+                                </form>
+                                <form action="/admin/delete-user" method="POST" class="action-form" onsubmit="return confirm('정말 이 회원을 삭제(퇴출)하시겠습니까? 이 작업은 되돌릴 수 없습니다.')">
+                                    <input type="hidden" name="user_id" value="<%= u.id %>">
+                                    <button type="submit" class="btn-small btn-delete">회원 삭제</button>
                                 </form>
                             </td>
                         </tr>
