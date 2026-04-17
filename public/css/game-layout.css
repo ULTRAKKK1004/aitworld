@@ -1,29 +1,30 @@
 .game-layout {
     display: flex;
     height: 100vh;
-    max-width: 1600px;
-    margin: 0 auto;
+    width: 100vw;
+    margin: 0;
     overflow: hidden;
     background-color: #000;
 }
 
 .sidebar {
-    flex: 0 0 300px;
-    padding: 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border-left: 1px solid rgba(0, 255, 255, 0.1);
-    border-right: 1px solid rgba(0, 255, 255, 0.1);
+    flex: 0 0 200px; /* 사이드바 너비 고정 */
+    padding: 15px;
+    background: rgba(10, 10, 10, 0.9);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
+    z-index: 10;
 }
 
 .left-sidebar {
-    border-right: 1px solid rgba(0, 255, 255, 0.2);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .right-sidebar {
-    border-left: 1px solid rgba(0, 255, 255, 0.2);
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
     overflow-y: auto;
 }
 
@@ -34,17 +35,24 @@
     align-items: center;
     background: #000;
     position: relative;
+    padding: 0;
+    height: 100vh;
 }
 
 #game-container {
     position: relative;
-    max-width: 500px;
-    width: 95%;
-    aspect-ratio: 450/800;
-    height: auto;
-    border: 2px solid #333;
-    overflow: hidden;
-    background: #222;
+    height: 100vh; /* 브라우저 높이 꽉 채움 */
+    width: auto;   /* 비율에 따라 너비 자동 결정 */
+    aspect-ratio: 9 / 16; /* 세로 비율 고정 */
+    max-height: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    border: none;
+    background: #111;
+    box-shadow: 0 0 30px rgba(0,0,0,1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 canvas {
@@ -302,28 +310,27 @@ h3 {
 
     #game-container {
         position: relative !important;
-        width: 90vw !important;
-        height: 160vw !important; /* 9:16 ratio */
-        max-width: 450px !important;
-        max-height: 800px !important;
+        width: auto !important;
+        height: 100vh !important; /* 화면 높이를 꽉 채움 */
+        aspect-ratio: 450/800 !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         transform: none !important; 
-        border: 1px solid #333 !important;
+        border: none !important;
         background: #111 !important;
         box-shadow: 0 0 30px rgba(0,0,0,0.8) !important;
     }
 }
 
-/* 가로 모드: 전체 화면 꽉 채우기 */
-@media (max-width: 1100px) and (orientation: landscape) {
+/* 가로 모드 전용 보정 */
+@media screen and (orientation: landscape) {
     #game-container {
-        width: auto !important;
         height: 100vh !important;
-        aspect-ratio: 450/800 !important;
+        width: auto !important;
         max-width: none !important;
         max-height: none !important;
-        border: none !important;
     }
 }
 

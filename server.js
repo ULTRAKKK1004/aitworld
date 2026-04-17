@@ -165,6 +165,7 @@ app.get('/games/airplane-shooter', isAuth, isPending, checkEventMode, (req, res)
 });
 
 app.get('/games/hero-quest', isAuth, isPending, checkEventMode, (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.render('hero-quest', { user: req.user });
 });
 

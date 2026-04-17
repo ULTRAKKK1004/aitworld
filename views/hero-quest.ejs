@@ -2,66 +2,98 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Hero's Quest - Tor-AI</title>
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/game-layout.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
+        body, html {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
+            background-color: #000;
             touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
         }
+
+        /* Essential Layout */
         #game-container {
-            background-color: #222;
-            touch-action: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            z-index: 1;
         }
+
         canvas {
             display: block;
             image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            max-width: 100%;
+            max-height: 100%;
+            /* Ensure the canvas itself isn't being pushed by margins */
+            margin: 0 !important;
+        }
+
+        /* Floating UI Elements */
+        .back-btn-floating {
+            position: fixed;
+            top: env(safe-area-inset-top, 20px);
+            left: env(safe-area-inset-left, 20px);
+            z-index: 1001;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Rotation Warning Overlay */
+        #rotate-warning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            color: #fff;
+            z-index: 10000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        #rotate-warning i { font-size: 5rem; margin-bottom: 20px; animation: tilt 2s infinite; }
+        @keyframes tilt { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+
+        /* Media Query for Portrait Mode */
+        @media screen and (orientation: portrait) {
+            #rotate-warning { display: flex !important; }
+            #game-container, .back-btn-floating { display: none !important; }
         }
     </style>
     <!-- Phaser 3 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 </head>
 <body>
-    <div class="game-layout">
-        <aside class="sidebar left-sidebar">
-            <div class="user-profile">
-                <p>플레이어: <strong><%= user.username %></strong></p>
-                <p>내 최고 점수: <span id="my-best-score"><%= user.hero_best_score || 0 %></span></p>
-                <p>플레이 횟수: <span id="my-attempts"><%= user.hero_attempts %></span></p>
-                <p>내 현재 순위: <span id="my-rank">-</span></p>
-            </div>
-            <div class="motivational-phrases" id="motivation">
-                <p>"영웅이여, 전설을 써 내려가라!"</p>
-                <p>"끝까지 포기하지 마세요!"</p>
-            </div>
-            <div style="margin-top: 20px;">
-                <a href="/dashboard" class="main-btn" style="text-decoration:none; display:inline-block; border:1px solid #fff; color:#fff; padding:5px 15px; font-size:12px;">대시보드로 돌아가기</a>
-            </div>
-        </aside>
-
-        <main class="game-area">
-            <div id="game-container"></div>
-        </main>
-
-        <aside class="sidebar right-sidebar">
-            <h3>명예의 전당 (Top 10)</h3>
-            <div class="leaderboard" id="top10">
-                <!-- Top 10 users -->
-            </div>
-            
-            <h3>내 경쟁자들</h3>
-            <div class="leaderboard" id="rivals">
-                <!-- Similar score users -->
-            </div>
-        </aside>
+    <div id="rotate-warning">
+        <i class="fas fa-mobile-screen fa-rotate-90"></i>
+        <p>가로 모드로 회전해주세요!</p>
     </div>
+
+    <a href="/dashboard" class="back-btn-floating"><i class="fas fa-arrow-left"></i> 대시보드</a>
+
+    <div id="game-container"></div>
 
     <!-- Game Scripts -->
     <script src="/games/hero-quest/js/audio.js"></script>

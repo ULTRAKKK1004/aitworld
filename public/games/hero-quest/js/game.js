@@ -245,13 +245,17 @@ class GameScene extends Phaser.Scene {
     setupMobileControls() {
         if (!this.sys.game.device.input.touch && !this.sys.game.device.input.mspointer) return;
         const cw = this.cameras.main.width; const ch = this.cameras.main.height;
-        const createZone = (x, y, w, h, flag, label, color) => {
-            let z = this.add.rectangle(x, y, w, h, color, 0.2).setScrollFactor(0).setDepth(90).setInteractive();
+        const createZone = (x, y, radius, flag, label, color) => {
+            let z = this.add.circle(x, y, radius, color, 0.3).setScrollFactor(0).setDepth(90).setInteractive();
+            z.setStrokeStyle(2, 0xffffff, 0.8);
             this.add.text(x, y, label, {fontSize:'32px', fill:'#fff', stroke:'#000', strokeThickness:4}).setOrigin(0.5).setScrollFactor(0).setDepth(91);
             z.on('pointerdown', () => this[flag] = true); z.on('pointerup', () => this[flag] = false); z.on('pointerout', () => this[flag] = false);
         };
-        createZone(80, ch * 0.9 - 80, 140, 140, 'btnLeft', '◀', 0xffffff); createZone(240, ch * 0.9 - 80, 140, 140, 'btnRight', '▶', 0xffffff);
-        createZone(cw - 240, ch * 0.9 - 80, 140, 140, 'btnFire', 'A', 0xff0000); createZone(cw - 80, ch * 0.9 - 80, 140, 140, 'btnJump', 'B', 0x00ff00);
+        const r = 65;
+        createZone(80, ch * 0.9 - 80, r, 'btnLeft', '◀', 0x333333); 
+        createZone(220, ch * 0.9 - 80, r, 'btnRight', '▶', 0x333333);
+        createZone(cw - 220, ch * 0.9 - 80, r, 'btnFire', 'A', 0xff0000); 
+        createZone(cw - 80, ch * 0.9 - 80, r, 'btnJump', 'B', 0x00ff00);
     }
 
     update() {
@@ -360,6 +364,21 @@ class VictoryScene extends Phaser.Scene {
     }
 }
 
-const config = { type: Phaser.AUTO, width: 800, height: 480, parent: 'game-container', pixelArt: false, input: { activePointers: 4 }, scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, physics: { default: 'arcade', arcade: { gravity: { y: 1400 }, debug: false } }, scene: [BootScene, MenuScene, GameScene, GameOverScene, VictoryScene] };
+const config = { 
+    type: Phaser.AUTO, 
+    parent: 'game-container', 
+    pixelArt: false, 
+    input: { activePointers: 4 }, 
+    scale: { 
+        mode: Phaser.Scale.FIT, 
+        width: 800,
+        height: 480
+    }, 
+    physics: { 
+        default: 'arcade', 
+        arcade: { gravity: { y: 1400 }, debug: false } 
+    }, 
+    scene: [BootScene, MenuScene, GameScene, GameOverScene, VictoryScene] 
+};
 const game = new Phaser.Game(config);
 game.events.on('ready', () => zzfxX = game.sound.context);
