@@ -2,10 +2,11 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Tactical Airplane Shooter 1987 - Tor-AI</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/airplane.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { 
             overflow: hidden; 
@@ -13,9 +14,34 @@
             margin: 0; 
             padding: 0;
             font-family: 'Courier New', Courier, monospace;
-            touch-action: none; /* Prevents browser zoom/pan */
+            touch-action: none; 
             user-select: none;
             -webkit-user-select: none;
+        }
+
+        /* Force Portrait Warning on Mobile */
+        #rotate-warning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background: #000;
+            color: #0f0; 
+            z-index: 100000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        #rotate-warning i { font-size: 5rem; margin-bottom: 20px; animation: tilt-to-portrait 2s infinite; }
+        @keyframes tilt-to-portrait { 0%, 100% { transform: rotate(90deg); } 50% { transform: rotate(0deg); } }
+
+        /* 가로 모드일 때만 경고창 표시 */
+        @media screen and (orientation: landscape) {
+            #rotate-warning { display: flex !important; }
+            #game-container { display: none !important; }
         }
         
         #game-container {
@@ -150,7 +176,6 @@
         .rank-info .rank-section:last-child {
             border-bottom: none;
         }
-        }
         
         .rank-info .rival-item.current {
             color: #0ff;
@@ -233,6 +258,7 @@
         }
 
         .back-link:hover { background: rgba(0, 255, 0, 0.2); }
+        
         /* Mobile Controls */
         #mobile-controls {
             height: 180px;
@@ -334,6 +360,13 @@
     </style>
 </head>
 <body class="crt">
+    <!-- Orientation Warning Overlay -->
+    <div id="rotate-warning">
+        <i class="fas fa-mobile-screen"></i>
+        <p>세로 모드로 전환해주세요!</p>
+        <p style="font-size: 14px; color: #888; margin-top: 10px;">이 게임은 세로 화면에 최적화되어 있습니다.</p>
+    </div>
+
     <div id="game-container">
         <div class="hud">
             <div class="stats-panel">
