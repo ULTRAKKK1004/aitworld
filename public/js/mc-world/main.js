@@ -427,8 +427,15 @@ async function init() {
         const activeWeapon = weapons[wpName];
         if (!activeWeapon) { swinging = false; return; }
         const weaponTier = player.weapons[wpName] || 1;
-        const range = wpName === 'stick' ? 3.5 : (wpName === 'sword' ? 5.0 : 25);
-        const damage = (wpName === 'stick' ? 1 : (wpName === 'sword' ? 3 : 2)) * weaponTier * (1 + player.level * 0.1) * (player.dmgBoost || 1.0);
+        
+        let baseRange = wpName === 'stick' ? 3.5 : (wpName === 'sword' ? 5.0 : 50 + (player.level * 0.5));
+        const range = baseRange + (player.bonusAtkRange || 0);
+        
+        let baseWeapDmg = wpName === 'stick' ? 1 : (wpName === 'sword' ? 15 : 2);
+        baseWeapDmg += (player.bonusWeapAtk || 0);
+        
+        const levelDmg = baseWeapDmg * weaponTier * (1 + player.level * 0.1);
+        const damage = (levelDmg + (player.bonusUserAtk || 0)) * (player.dmgBoost || 1.0);
 
         const startZ = activeWeapon.position.z;
         let startT = performance.now();

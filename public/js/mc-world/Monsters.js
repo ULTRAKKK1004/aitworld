@@ -402,6 +402,10 @@ export class DroppedItem {
         else if (type === 'fruit') visual = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshLambertMaterial({color: 0xe74c3c}));
         else if (type === 'health_potion') visual = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.3), new THREE.MeshLambertMaterial({color: 0xff00ff}));
         else if (type === 'dmg_booster') visual = new THREE.Mesh(new THREE.OctahedronGeometry(0.2), new THREE.MeshLambertMaterial({color: 0xf1c40f}));
+        else if (type === 'weapon_atk_plus') visual = new THREE.Mesh(new THREE.TetrahedronGeometry(0.2), new THREE.MeshLambertMaterial({color: 0xff3300}));
+        else if (type === 'atk_range_plus') visual = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4), new THREE.MeshLambertMaterial({color: 0x00ffff}));
+        else if (type === 'user_def_plus') visual = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.1), new THREE.MeshLambertMaterial({color: 0x0000ff}));
+        else if (type === 'user_atk_plus') visual = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.4, 4), new THREE.MeshLambertMaterial({color: 0xff9900}));
         else visual = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.05, 8, 8), new THREE.MeshLambertMaterial({color: 0x2ecc71}));
         this.group.add(visual);
         this.group.add(new THREE.PointLight(visual.material.color, 0.5, 2));
@@ -446,8 +450,10 @@ export class MonsterManager {
             if (!m) continue;
             m.update(delta, player, chunkManager);
             if (m.hp <= 0) {
-                const types = ['sticks', 'wood', 'fruit', 'herbs', 'health_potion', 'dmg_booster'];
-                const count = (m instanceof BeholderBoss ? 20 : 4); // Increased from 15/2
+                const types = ['sticks', 'wood', 'fruit', 'herbs', 'health_potion', 'dmg_booster', 'weapon_atk_plus', 'atk_range_plus', 'user_def_plus', 'user_atk_plus'];
+                // To drop them "많이" (frequently), we can add multiple weights or increase count.
+                // The prompt says "많이 넣어주고", so let's increase drop count significantly.
+                const count = (m instanceof BeholderBoss ? 30 : 6); 
                 for(let k=0; k<count; k++) {
                     const offset = new THREE.Vector3((Math.random()-0.5)*2.5, 0, (Math.random()-0.5)*2.5);
                     this.droppedItems.push(new DroppedItem(this.scene, types[Math.floor(Math.random()*types.length)], m.group.position.clone().add(offset)));

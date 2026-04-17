@@ -8,10 +8,14 @@ export class PlayerData {
         this.maxHp = 20;
         this.mp = 10;
         this.maxMp = 10;
-        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0, health_potion: 0, dmg_booster: 0 };
+        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0, health_potion: 0, dmg_booster: 0, weapon_atk_plus: 0, atk_range_plus: 0, user_def_plus: 0, user_atk_plus: 0 };
         this.weapons = { stick: 1, bow: 0, sword: 0 };
         this.dmgBoost = 1.0;
         this.dmgBoostTimer = 0;
+        this.bonusWeapAtk = 0;
+        this.bonusAtkRange = 0;
+        this.bonusDef = 0;
+        this.bonusUserAtk = 0;
         this.lastVillage = { x: 16, z: 16 };
         this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
@@ -57,14 +61,23 @@ export class PlayerData {
             this.hp = this.maxHp;
             this.mp = this.maxMp;
             this.showNotification("LEVEL UP! HP & MP Recovered.");
+            
+            if ((this.level - 1) % 10 === 0 && this.level > 1) {
+                this.bonusWeapAtk = 0;
+                this.bonusAtkRange = 0;
+                this.bonusDef = 0;
+                this.bonusUserAtk = 0;
+                this.showNotification("Stat bonuses reset for new tier!");
+            }
         }
         this.updateUI();
     }
 
     takeDamage(amount) {
-        this.hp -= (amount || 0);
+        let finalAmount = Math.max(1, (amount || 0) - (this.bonusDef || 0));
+        this.hp -= finalAmount;
         this.flashDamageEffect();
-        this.showFloatingText(`-${Math.floor(amount)} HP`, '#e74c3c');
+        this.showFloatingText(`-${Math.floor(finalAmount)} HP`, '#e74c3c');
         if (this.hp <= 0) {
             this.die();
         }
@@ -127,8 +140,39 @@ export class PlayerData {
             this.useItem('fruit');
         } else if (type === 'herbs' && this.mp < this.maxMp * 0.3) {
             this.useItem('herbs');
+        } else if (['weapon_atk_plus', 'atk_range_plus', 'user_def_plus', 'user_atk_plus'].includes(type)) {
+            this.useItem(type);
         }
         this.updateUI();
+    }
+
+    applyStatItem(statName, itemName) {
+        let currentStat = this[statName] || 0;
+        let success = true;
+
+        if (this.level >= 20) {
+            let chance = 0.5;
+            if (this.level >= 30 && currentStat >= 7) {
+                chance = Math.max(0.1, chance - (currentStat - 6) * 0.1);
+            }
+            if (Math.random() > chance) {
+                success = false;
+            }
+        } else {
+            let maxLimit = (this.level <= 10) ? 3 : 5;
+            if (currentStat >= maxLimit) {
+                this.showNotification(`Limit (${maxLimit}) reached for Lv.${this.level}`);
+                return false;
+            }
+        }
+
+        if (success) {
+            this[statName] = currentStat + 1;
+            this.showFloatingText(`${itemName} SUCCESS! (+${this[statName]})`, '#00ff00');
+        } else {
+            this.showFloatingText(`${itemName} FAILED!`, '#ff0000');
+        }
+        return true;
     }
 
     useItem(type) {
@@ -152,6 +196,14 @@ export class PlayerData {
             this.mp = Math.min(this.maxMp, this.mp + 15);
             this.inventory.herbs--;
             this.showFloatingText("+15 MP", "#3498db");
+        } else if (type === 'weapon_atk_plus') {
+            if (this.applyStatItem('bonusWeapAtk', 'Weap Atk+')) this.inventory[type]--;
+        } else if (type === 'atk_range_plus') {
+            if (this.applyStatItem('bonusAtkRange', 'Range+')) this.inventory[type]--;
+        } else if (type === 'user_def_plus') {
+            if (this.applyStatItem('bonusDef', 'Def+')) this.inventory[type]--;
+        } else if (type === 'user_atk_plus') {
+            if (this.applyStatItem('bonusUserAtk', 'User Atk+')) this.inventory[type]--;
         }
         this.updateUI();
         if (window.audioManager) window.audioManager.playSFX('jump'); 
@@ -160,6 +212,28 @@ export class PlayerData {
     heal(amount) {
         this.hp = Math.min(this.maxHp, this.hp + (amount || 0));
         this.updateUI();
+    }
+
+    getWeaponName(type) {
+        const tier = this.weapons[type] || 0;
+        if (tier === 0) return "Locked";
+        if (type === 'bow') {
+            if (tier <= 3) return `활 +${tier}`;
+            if (tier <= 6) return `강한활 +${tier-3}`;
+            if (tier <= 9) return `조총 +${tier-6}`;
+            if (tier <= 12) return `권총 +${tier-9}`;
+            if (tier <= 15) return `장총 +${tier-12}`;
+            return `바주카포 +${tier-15}`;
+        } else if (type === 'sword') {
+            if (tier <= 3) return `검 +${tier}`;
+            if (tier <= 6) return `장검 +${tier-3}`;
+            if (tier <= 9) return `전사의검 +${tier-6}`;
+            if (tier <= 12) return `전사의 장검 +${tier-9}`;
+            if (tier <= 15) return `전사의 쌍검 +${tier-12}`;
+            if (tier <= 18) return `전자검 +${tier-15}`;
+            return `레이저검 +${tier-18}`;
+        }
+        return `Level ${tier}`;
     }
 
     upgradeWeapon(type) {
@@ -178,8 +252,7 @@ export class PlayerData {
             this.inventory.sticks -= reqSticks;
             this.inventory.wood = Math.max(0, (this.inventory.wood || 0) - reqWood);
             this.weapons[type] = (this.weapons[type] || 0) + 1;
-            const tierNames = ["Locked", "Wooden", "Stone", "Iron", "Gold", "Diamond"];
-            const name = tierNames[this.weapons[type]] || "Epic";
+            const name = this.getWeaponName(type);
             this.showNotification(`${type.toUpperCase()} UPGRADED TO ${name}!`);
             this.updateUI();
             return true;
@@ -240,9 +313,8 @@ export class PlayerData {
         if(invDmgBooster) invDmgBooster.innerText = this.inventory.dmg_booster || 0;
         if(invLevel) invLevel.innerText = this.level;
         
-        const tierNames = ["Locked", "Wooden", "Stone", "Iron", "Gold", "Diamond"];
-        if(bowLevel) bowLevel.innerText = tierNames[this.weapons.bow] || "Epic " + this.weapons.bow;
-        if(swordLevel) swordLevel.innerText = tierNames[this.weapons.sword] || "Epic " + this.weapons.sword;
+        if(bowLevel) bowLevel.innerText = this.getWeaponName('bow');
+        if(swordLevel) swordLevel.innerText = this.getWeaponName('sword');
     }
 
     showNotification(msg) {
