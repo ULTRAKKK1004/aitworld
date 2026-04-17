@@ -271,6 +271,12 @@ async function init() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.layers.enable(0); 
 
+    const onWindowResize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', onWindowResize);
     minimapCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 1000);
     minimapCamera.up.set(0, 0, -1);
     minimapCamera.layers.enable(0); 
@@ -317,6 +323,7 @@ async function init() {
 
     const intro = document.getElementById('intro-overlay');
     const startAction = () => {
+        if (typeof onWindowResize === 'function') onWindowResize();
         if (!('ontouchstart' in window)) controls.lock();
         if (intro) intro.style.display = 'none';
         if(!audioManager) {
