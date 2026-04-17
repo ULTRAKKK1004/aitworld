@@ -19,6 +19,7 @@ export class PlayerData {
         this.lastVillage = { x: 16, z: 16 };
         this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
+        this.deathCount = 0;
         this.info = "";
         this.idleTime = 0;
         this.lastPos = new THREE.Vector3();
@@ -60,7 +61,11 @@ export class PlayerData {
             this.maxMp += 5;
             this.hp = this.maxHp;
             this.mp = this.maxMp;
-            this.showNotification("LEVEL UP! HP & MP Recovered.");
+            
+            // Level up bonus score
+            const bonus = this.level * 5000;
+            this.score += bonus;
+            this.showNotification(`LEVEL UP! +${bonus} Bonus Score!`);
             
             if ((this.level - 1) % 10 === 0 && this.level > 1) {
                 this.bonusWeapAtk = 0;
@@ -135,6 +140,10 @@ export class PlayerData {
             this.inventory[type] = amount;
         }
         
+        // Item pickup score scaling
+        const itemScore = 10 * (1 + this.level * 0.1);
+        this.score += itemScore;
+
         // Auto-consume basic resources if HP/MP low
         if (type === 'fruit' && this.hp < this.maxHp * 0.5) {
             this.useItem('fruit');
@@ -266,8 +275,34 @@ export class PlayerData {
         this.hp = this.maxHp;
         this.mp = this.maxMp;
         this.teleportToSafe();
-        this.showNotification("YOU FAINTED! Respawning...");
+        
+        this.deathCount++;
+        let penaltyMsg = "YOU FAINTED! Respawning...";
+        
+        if (this.deathCount >= 10) {
+            this.score = 0;
+            this.deathCount = 0;
+            penaltyMsg = "10 DEATHS: SCORE RESET TO 0!";
+        } else if (this.level >= 40) {
+            this.level = Math.max(39, this.level - 1);
+            this.xp = 0;
+            penaltyMsg = `LEVEL DOWN! (Deaths: ${this.deathCount}/10)`;
+        } else if (this.level >= 30) {
+            this.xp = 0;
+            penaltyMsg = `XP RESET! (Deaths: ${this.deathCount}/10)`;
+        } else if (this.level >= 20) {
+            this.xp = Math.floor(this.xp * 0.3);
+            penaltyMsg = `70% XP LOST! (Deaths: ${this.deathCount}/10)`;
+        } else if (this.level >= 10) {
+            this.xp = Math.floor(this.xp * 0.5);
+            penaltyMsg = `50% XP LOST! (Deaths: ${this.deathCount}/10)`;
+        } else {
+            penaltyMsg = `YOU FAINTED! (Deaths: ${this.deathCount}/10)`;
+        }
+
+        this.showNotification(penaltyMsg);
         if (window.audioManager) window.audioManager.playDefeat();
+        this.updateUI();
     }
 
     teleportToSafe() {

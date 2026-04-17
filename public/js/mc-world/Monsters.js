@@ -109,6 +109,12 @@ class Monster {
         if(!this.group || this.hp <= 0 || !player || !this.spawnPoint) return;
         if(this.cooldown > 0) this.cooldown -= delta;
         
+        // Dynamic Attack Range: 50% of player's bow range
+        // Player bow range is 50 + (player.level * 0.5) + bonusAtkRange
+        let playerBowRange = 50 + (player.level * 0.5) + (player.bonusAtkRange || 0);
+        this.attackRange = player.level >= 10 ? playerBowRange * 0.5 : 4.0;
+        this.stoppingDistance = player.level >= 10 ? this.attackRange * 0.8 : 2.8;
+
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
         const dist2D = Math.sqrt(dx * dx + dz * dz);
@@ -161,13 +167,26 @@ class Monster {
             }
         } else if (this.state === 'ATTACK') {
             const dy = Math.abs(player.position.y - this.group.position.y);
-            if (dist2D > this.attackRange + 1.2 || dy > 4.0) this.state = 'CHASE';
+            if (dist2D > this.attackRange + 1.2 || dy > 10.0) this.state = 'CHASE';
             else {
                 this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
                 if (this.cooldown <= 0) {
-                    player.takeDamage(this.damage);
-                    this.cooldown = 1.5;
-                    this.lungeTimer = 0.3;
+                    if (player.level >= 10) {
+                        // Ranged attack (Beam)
+                        this.shootBeam(player);
+                        this.cooldown = 2.0;
+                    } else {
+                        // Melee attack
+                        player.takeDamage(this.damage);
+                        this.cooldown = 1.5;
+                        this.lungeTimer = 0.3;
+                    }
+
+                    // Bonus: If very close, explode
+                    if (dist2D < 2.0) {
+                        player.takeDamage(this.damage * 1.5);
+                        this.showExplosion();
+                    }
                 }
             }
         } else if (this.state === 'ROAM') {
@@ -214,6 +233,38 @@ class Monster {
             this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, groundY, 0.2);
         }
         if (this.group.position.y < -10) this.hp = 0;
+    }
+
+    shootBeam(player) {
+        const start = this.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+        const end = player.position.clone();
+        
+        const curve = new THREE.LineCurve3(start, end);
+        const geo = new THREE.TubeGeometry(curve, 1, 0.05, 8, false);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.8 });
+        const beam = new THREE.Mesh(geo, mat);
+        this.scene.add(beam);
+        
+        player.takeDamage(this.damage);
+        
+        setTimeout(() => {
+            this.scene.remove(beam);
+            geo.dispose();
+            mat.dispose();
+        }, 200);
+    }
+
+    showExplosion() {
+        const geo = new THREE.SphereGeometry(2, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.6 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(this.group.position);
+        this.scene.add(mesh);
+        setTimeout(() => {
+            this.scene.remove(mesh);
+            geo.dispose();
+            mat.dispose();
+        }, 300);
     }
 }
 
@@ -459,7 +510,7 @@ export class MonsterManager {
                     this.droppedItems.push(new DroppedItem(this.scene, types[Math.floor(Math.random()*types.length)], m.group.position.clone().add(offset)));
                 }
                 player.addXp(m.level * 25);
-                player.score += m.level * 100;
+                player.score += m.level * 100 * (1 + player.level * 0.1);
                 if (window.audioManager) window.audioManager.playVictory();
                 this.monsters.splice(i, 1);
             }
