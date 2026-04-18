@@ -157,11 +157,77 @@
     <script src="/js/game-logic.js"></script>
     <script src="/js/scoreboard.js"></script>
     <script>
-        const USER_BRICK_PADDLE_MULTIPLIER = <%= user.brick_paddle_multiplier || 1.0 %>;
-        const USER_BRICK_SCORE_MULTIPLIER = <%= user.brick_score_multiplier || 1.0 %>;
-        const USER_BRICK_ITEM = '<%= user.brick_item || 'basic' %>';
-        const USER_BRICK_BALL_DAMAGE = <%= user.brick_ball_damage || 1 %>;
-        const USER_BRICK_RESPAWNS = <%= user.brick_respawns || 10 %>;
+        let USER_BRICK_PADDLE_MULTIPLIER = <%= user.brick_paddle_multiplier || 1.0 %>;
+        let USER_BRICK_SCORE_MULTIPLIER = <%= user.brick_score_multiplier || 1.0 %>;
+        let USER_BRICK_ITEM = '<%= user.brick_item || 'basic' %>';
+        let USER_BRICK_BALL_DAMAGE = <%= user.brick_ball_damage || 1 %>;
+        let USER_BRICK_RESPAWNS = <%= user.brick_respawns || 10 %>;
+
+        let shopItems = {
+            brick_extra_ball: 0,
+            brick_wide_paddle: 0
+        };
+
+        async function loadShopItems() {
+            try {
+                const res = await fetch('/api/brick/load');
+                const data = await res.json();
+                if (data.success) {
+                    if (data.multiplier) USER_BRICK_SCORE_MULTIPLIER = data.multiplier;
+                    
+                    if (data.items) {
+                        data.items.forEach(item => {
+                            if (shopItems.hasOwnProperty(item.item_key)) {
+                                shopItems[item.item_key] = item.quantity;
+                            }
+                        });
+                        applyBrickShopItems();
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load shop items", e);
+            }
+        }
+
+        function applyBrickShopItems() {
+            if (shopItems.brick_extra_ball > 0) {
+                // If we have extra ball item, automatically use 1
+                useShopItemSilent('brick_extra_ball');
+                if (typeof addExtraBall === 'function') addExtraBall();
+                customNotify("유료 아이템 사용 (EXTRA BALL +1)", "#0ff");
+            }
+            if (shopItems.brick_wide_paddle > 0) {
+                // If we have wide paddle item, automatically use 1
+                useShopItemSilent('brick_wide_paddle');
+                USER_BRICK_PADDLE_MULTIPLIER *= 1.5;
+                customNotify("유료 아이템 사용 (WIDE PADDLE x1.5)", "#f1c40f");
+            }
+        }
+
+        async function useShopItemSilent(itemKey) {
+            try {
+                await fetch('/api/shop/consume', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemKey })
+                });
+            } catch (e) {
+                console.error("Failed to sync item consumption", e);
+            }
+        }
+
+        function customNotify(msg, color = '#0ff') {
+            const container = document.getElementById('active-effects');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = 'effect-text';
+            el.style.borderColor = color;
+            el.style.color = color;
+            el.style.textShadow = `0 0 10px ${color}`;
+            el.innerText = msg;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }
         
         // Track attempts for this game
         fetch('/api/increment-attempts', {
@@ -169,6 +235,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ game: 'brick' })
         });
+
+        loadShopItems();
     </script>
 </body>
 </html>

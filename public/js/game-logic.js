@@ -534,12 +534,17 @@ function initStage(stageNum) {
     gameState.gravityActive = false;
     gameState.suctionActive = false;
     resetEffects();
-    
+
     // Apply initial item effect if not basic (only at the start of the game)
     if (stageNum === gameState.selectedStage && typeof USER_BRICK_ITEM !== 'undefined' && USER_BRICK_ITEM !== 'basic') {
         applyItemEffect(USER_BRICK_ITEM);
     }
 
+    if (gameState.pendingExtraBall) {
+        spawnNewBall(gameState.paddleX + gameState.currentPaddleWidth/2, PADDLE_Y - 20, (Math.random() - 0.5) * 4, -5);
+        gameState.pendingExtraBall = false;
+    }
+    
     gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120));
     let baseHp = 3 + ((gameState.stage - 1) * 2);
     for (let r = 0; r < BLOCK_ROWS; r++) {
@@ -628,7 +633,10 @@ function resetEffects() {
 }
 
 function getStagePaddleWidth(stage) {
-    let width = PADDLE_WIDTH;
+    let baseW = BASE_PADDLE_WIDTH;
+    if (typeof USER_BRICK_PADDLE_MULTIPLIER !== 'undefined') baseW *= USER_BRICK_PADDLE_MULTIPLIER;
+    
+    let width = baseW;
     if (stage > 10) {
         width -= (stage - 10) * 5;
         if (width < 20) width = 20;
@@ -836,7 +844,23 @@ function update() {
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)'; ctx.lineWidth = 2; ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-    ctx.fillStyle = '#0ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#0ff'; ctx.fillRect(gameState.paddleX, PADDLE_Y, gameState.currentPaddleWidth, PADDLE_HEIGHT);
+    
+    // Draw Paddle
+    const isWide = (typeof USER_BRICK_PADDLE_MULTIPLIER !== 'undefined' && USER_BRICK_PADDLE_MULTIPLIER > 1.0);
+    if (isWide) {
+        const baseWidth = gameState.currentPaddleWidth / USER_BRICK_PADDLE_MULTIPLIER;
+        const extensionWidth = (gameState.currentPaddleWidth - baseWidth) / 2;
+        // Center (Original)
+        ctx.fillStyle = '#0ff'; ctx.shadowBlur = 10; ctx.shadowColor = '#0ff';
+        ctx.fillRect(gameState.paddleX + extensionWidth, PADDLE_Y, baseWidth, PADDLE_HEIGHT);
+        // Extensions (Premium)
+        ctx.fillStyle = '#f1c40f'; ctx.shadowBlur = 20; ctx.shadowColor = '#f1c40f';
+        ctx.fillRect(gameState.paddleX, PADDLE_Y, extensionWidth, PADDLE_HEIGHT);
+        ctx.fillRect(gameState.paddleX + extensionWidth + baseWidth, PADDLE_Y, extensionWidth, PADDLE_HEIGHT);
+    } else {
+        ctx.fillStyle = '#0ff'; ctx.shadowBlur = 20; ctx.shadowColor = '#0ff'; 
+        ctx.fillRect(gameState.paddleX, PADDLE_Y, gameState.currentPaddleWidth, PADDLE_HEIGHT);
+    }
     ctx.shadowBlur = 0;
     gameState.blocks.forEach(b => {
         if (!b.active) return;
