@@ -162,6 +162,8 @@
         let USER_BRICK_ITEM = '<%= user.brick_item || 'basic' %>';
         let USER_BRICK_BALL_DAMAGE = <%= user.brick_ball_damage || 1 %>;
         let USER_BRICK_RESPAWNS = <%= user.brick_respawns || 10 %>;
+        let USER_BRICK_BALL_LEVEL = <%= user.brick_ball_level || 1 %>;
+        let USER_BRICK_BALL_BONUS_DAMAGE = <%= user.brick_ball_bonus_damage || 0 %>;
 
         let shopItems = {
             brick_extra_ball: 0,
@@ -174,6 +176,13 @@
                 const data = await res.json();
                 if (data.success) {
                     if (data.multiplier) USER_BRICK_SCORE_MULTIPLIER = data.multiplier;
+                    if (data.ballLevel) {
+                        USER_BRICK_BALL_LEVEL = data.ballLevel;
+                        USER_BRICK_BALL_BONUS_DAMAGE = data.ballBonusDamage || 0;
+                        if (USER_BRICK_BALL_LEVEL > 1) {
+                            customNotify(`GIANT BALL LEVEL ${USER_BRICK_BALL_LEVEL} ACTIVATED (+${USER_BRICK_BALL_BONUS_DAMAGE} DMG)`, "#e74c3c");
+                        }
+                    }
                     
                     if (data.items) {
                         data.items.forEach(item => {

@@ -136,6 +136,8 @@ addColumn('users', 'total_spent', 'INTEGER DEFAULT 0');
 addColumn('users', 'gacha_draws_used', 'INTEGER DEFAULT 0');
 addColumn('users', 'hero_score_multiplier', 'REAL DEFAULT 1.0');
 addColumn('users', 'mc_world_score_multiplier', 'REAL DEFAULT 1.0');
+addColumn('users', 'brick_ball_level', 'INTEGER DEFAULT 1');
+addColumn('users', 'brick_ball_bonus_damage', 'INTEGER DEFAULT 0');
 
 // Initial Shop Items
 const items = [
@@ -146,6 +148,7 @@ const items = [
   // Brick Crasher Items
   ['Extra Ball', 'One more ball for Brick Crasher', 300, 'brick', 'brick_extra_ball', 'consumable'],
   ['Wide Paddle', 'Increases paddle width for one game', 800, 'brick', 'brick_wide_paddle', 'consumable'],
+  ['Giant Ball Upgrade', 'Increases Ball Level and Damage (+1 Damage per level, max +5)', 5000, 'brick', 'brick_giant_ball', 'permanent'],
   
   // Hero Quest Items
   ['Mana Potion', 'Restores Mana for Hero Quest', 600, 'hero', 'hero_mana_potion', 'consumable'],
@@ -201,7 +204,9 @@ db.exec(`
     paper_rush_attempts = CAST(IFNULL(paper_rush_attempts, 0) AS INTEGER),
     wins = CAST(IFNULL(wins, 0) AS INTEGER),
     losses = CAST(IFNULL(losses, 0) AS INTEGER),
-    total_spent = CAST(IFNULL(total_spent, 0) AS INTEGER)
+    total_spent = CAST(IFNULL(total_spent, 0) AS INTEGER),
+    brick_ball_level = CAST(IFNULL(brick_ball_level, 1) AS INTEGER),
+    brick_ball_bonus_damage = CAST(IFNULL(brick_ball_bonus_damage, 0) AS INTEGER)
 `);
 
 

@@ -386,6 +386,39 @@ app.get('/api/airplane-shooter/load', isAuth, isPending, (req, res) => {
   }
 });
 
+app.get('/api/brick/load', isAuth, isPending, (req, res) => {
+  const user_id = req.user ? req.user.id : null;
+  if (!user_id) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+  try {
+    const row = db.prepare('SELECT brick_paddle_multiplier, brick_score_multiplier, brick_ball_damage, brick_respawns, brick_ball_level, brick_ball_bonus_damage FROM users WHERE id = ?').get(user_id);
+    const items = db.prepare(`
+      SELECT si.item_key, up.quantity 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ? AND si.game_type = 'brick'
+    `).all(user_id);
+
+    if (row) {
+      res.json({
+        success: true,
+        multiplier: row.brick_score_multiplier || 1.0,
+        paddleMultiplier: row.brick_paddle_multiplier || 1.0,
+        ballDamage: (row.brick_ball_damage || 1) + (row.brick_ball_bonus_damage || 0),
+        ballLevel: row.brick_ball_level || 1,
+        ballBonusDamage: row.brick_ball_bonus_damage || 0,
+        respawns: row.brick_respawns || 10,
+        items: items
+      });
+    } else {
+      res.json({ success: true, multiplier: 1.0, items: [] });
+    }
+  } catch(e) {
+    console.error('[Brick Load] Error:', e);
+    res.status(500).json({ success: false, error: 'Failed to load brick data' });
+  }
+});
+
 app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
   try {
     const { saveData, level, info, score } = req.body;
@@ -824,7 +857,15 @@ app.post('/api/shop/buy', isAuth, isPending, (req, res) => {
       // 1. Update total_spent
       db.prepare('UPDATE users SET total_spent = total_spent + ? WHERE id = ?').run(item.price, userId);
       
-      // 2. Add to user_purchases
+      // 2. Special Logic for Giant Ball (Permanent Upgrade with levels)
+      if (item.item_key === 'brick_giant_ball') {
+        const u = db.prepare('SELECT brick_ball_level, brick_ball_bonus_damage FROM users WHERE id = ?').get(userId);
+        if ((u.brick_ball_bonus_damage || 0) < 5) {
+          db.prepare('UPDATE users SET brick_ball_level = IFNULL(brick_ball_level, 1) + 1, brick_ball_bonus_damage = IFNULL(brick_ball_bonus_damage, 0) + 1 WHERE id = ?').run(userId);
+        }
+      }
+
+      // 3. Add to user_purchases
       const existing = db.prepare('SELECT id, quantity FROM user_purchases WHERE user_id = ? AND item_id = ?').get(userId, itemId);
       if (existing) {
         db.prepare('UPDATE user_purchases SET quantity = quantity + 1 WHERE id = ?').run(existing.id);

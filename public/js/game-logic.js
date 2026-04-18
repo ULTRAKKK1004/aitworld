@@ -211,10 +211,14 @@ class Item {
 class Ball {
     constructor(x, y) {
         this.x = x; this.y = y;
-        this.damage = (typeof USER_BRICK_BALL_DAMAGE !== 'undefined') ? USER_BRICK_BALL_DAMAGE : 1;
-        this.radius = 5 + (this.damage - 1) * 0.5;
+        const bLevel = (typeof USER_BRICK_BALL_LEVEL !== 'undefined') ? USER_BRICK_BALL_LEVEL : 1;
+        const bonusDmg = (typeof USER_BRICK_BALL_BONUS_DAMAGE !== 'undefined') ? USER_BRICK_BALL_BONUS_DAMAGE : 0;
+        this.damage = ((typeof USER_BRICK_BALL_DAMAGE !== 'undefined') ? USER_BRICK_BALL_DAMAGE : 1) + bonusDmg;
+        this.radius = 5 + (bLevel - 1) * 2 + (this.damage - 1) * 0.5;
         this.baseSpeed = 5 + (gameState.stage * 0.5);
-        this.active = true; this.color = '#FFF';
+        this.active = true; 
+        this.level = bLevel;
+        this.color = bLevel > 1 ? '#e74c3c' : '#FFF';
         this.dx = (Math.random() * 6) - 3; this.dy = -(4 + Math.random() * 2);
         this.updateSpeed();
     }
@@ -256,10 +260,20 @@ class Ball {
     }
     draw() {
         if (!this.active) return;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fillStyle = this.color;
-        ctx.shadowBlur = gameState.effects.doubleSpeed ? 20 : 15;
-        ctx.shadowColor = gameState.effects.doubleSpeed ? '#f00' : this.color;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); 
+        ctx.fillStyle = this.color;
+        if (this.level > 1) {
+            ctx.shadowBlur = 25; ctx.shadowColor = '#e74c3c';
+            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+            grad.addColorStop(0, '#fff'); grad.addColorStop(0.4, this.color); grad.addColorStop(1, 'rgba(231, 76, 60, 0)');
+            ctx.fillStyle = grad;
+        } else {
+            ctx.shadowBlur = gameState.effects.doubleSpeed ? 20 : 15;
+            ctx.shadowColor = gameState.effects.doubleSpeed ? '#f00' : this.color;
+        }
         ctx.fill(); ctx.closePath();
+        ctx.restore();
     }
 }
 function getNeonColor(hp) {
