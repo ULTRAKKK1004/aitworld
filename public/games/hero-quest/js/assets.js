@@ -17,11 +17,53 @@ var AssetGenerator = {
                 ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.moveTo(15, 8); ctx.lineTo(20, 2); ctx.lineTo(25, 8); ctx.fill();
             });
             // Regular Enemies
-            const drawE = (k, c) => this.draw(scene, k, 40, 40, (ctx) => {
-                ctx.fillStyle = c; ctx.beginPath(); ctx.arc(20, 20, 16, 0, 7); ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(12, 15); ctx.lineTo(28, 15); ctx.stroke();
+            const drawE = (k, c, eyeColor = '#fff') => this.draw(scene, k, 40, 40, (ctx) => {
+                ctx.fillStyle = c; 
+                // Draw a more complex body than just a circle
+                ctx.beginPath();
+                ctx.moveTo(20, 10);
+                ctx.bezierCurveTo(35, 10, 35, 35, 20, 35);
+                ctx.bezierCurveTo(5, 35, 5, 10, 20, 10);
+                ctx.fill();
+                // Eyes
+                ctx.fillStyle = eyeColor;
+                ctx.beginPath(); ctx.arc(15, 18, 4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(25, 18, 4, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(15, 18, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(25, 18, 2, 0, Math.PI*2); ctx.fill();
             });
             drawE('enemy1', '#8B4513'); drawE('enemy2', '#00AA00'); drawE('enemy3', '#FF0000');
+            
+            // New Diverse Enemies
+            // Slime-like
+            this.draw(scene, 'slime', 40, 40, (ctx) => {
+                ctx.fillStyle = '#00FF7F'; ctx.beginPath();
+                ctx.moveTo(5, 35); ctx.quadraticCurveTo(20, 5, 35, 35); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(15, 25, 3, 0, 7); ctx.arc(25, 25, 3, 0, 7); ctx.fill();
+            });
+            // Bat-like (Flying)
+            this.draw(scene, 'bat', 40, 40, (ctx) => {
+                ctx.fillStyle = '#4B0082'; ctx.beginPath();
+                ctx.moveTo(20, 15); ctx.lineTo(5, 10); ctx.lineTo(10, 25); ctx.lineTo(20, 20);
+                ctx.lineTo(30, 25); ctx.lineTo(35, 10); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.arc(17, 18, 2, 0, 7); ctx.arc(23, 18, 2, 0, 7); ctx.fill();
+            });
+            // Bird-like (Flying)
+            this.draw(scene, 'bird', 40, 40, (ctx) => {
+                ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(20, 20, 12, 0, 7); ctx.fill();
+                ctx.fillStyle = '#FF4500'; ctx.beginPath(); ctx.moveTo(25, 18); ctx.lineTo(35, 20); ctx.lineTo(25, 22); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(18, 17, 2, 0, 7); ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(5, 10); ctx.stroke();
+            });
+            // Dragon-like (Mini Boss or Strong Enemy)
+            this.draw(scene, 'dragon', 60, 60, (ctx) => {
+                ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.moveTo(10, 50); ctx.lineTo(30, 10); ctx.lineTo(50, 50); ctx.fill();
+                ctx.fillStyle = '#FFA500'; ctx.beginPath(); ctx.arc(30, 25, 15, 0, 7); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(25, 20, 3, 0, 7); ctx.arc(35, 20, 3, 0, 7); ctx.fill();
+                ctx.fillStyle = '#FFFF00'; ctx.beginPath(); ctx.moveTo(30, 30); ctx.lineTo(45, 35); ctx.lineTo(30, 40); ctx.fill();
+            });
+
             // Scary Organic Bosses (120x120)
             const drawScaryBoss = (k, primaryColor, eyeColor, featureType) => this.draw(scene, k, 120, 120, (ctx) => {
                 const center = 60;
@@ -96,6 +138,16 @@ var AssetGenerator = {
             this.draw(scene, 'mine', 24, 24, (ctx) => { ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(12, 12, 10, 0, 7); ctx.fill(); ctx.fillStyle = '#f00'; ctx.beginPath(); ctx.arc(12, 12, 4, 0, 7); ctx.fill(); });
             this.draw(scene, 'item_box', 32, 32, (ctx) => { ctx.fillStyle = '#FFD700'; ctx.fillRect(0, 0, 32, 32); ctx.fillStyle = '#000'; ctx.font = 'bold 24px Arial'; ctx.fillText('?', 8, 25); });
             this.draw(scene, 'brick', 32, 32, (ctx) => { ctx.fillStyle = '#8B4513'; ctx.fillRect(0, 0, 32, 32); ctx.strokeStyle = '#000'; ctx.strokeRect(0, 0, 32, 32); });
+            this.draw(scene, 'pipe', 64, 64, (ctx) => {
+                ctx.fillStyle = '#008000'; ctx.fillRect(10, 20, 44, 44);
+                ctx.fillStyle = '#006400'; ctx.fillRect(5, 0, 54, 20);
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(10, 20, 44, 44); ctx.strokeRect(5, 0, 54, 20);
+            });
+            this.draw(scene, 'portal', 64, 64, (ctx) => {
+                const grad = ctx.createRadialGradient(32, 32, 5, 32, 32, 30);
+                grad.addColorStop(0, '#fff'); grad.addColorStop(0.5, '#00f'); grad.addColorStop(1, '#000');
+                ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(32, 32, 30, 0, 7); ctx.fill();
+            });
             this.draw(scene, 'door', 80, 100, (ctx) => { ctx.fillStyle = '#4A2E1B'; ctx.fillRect(0, 0, 80, 100); ctx.fillStyle = '#8B4513'; ctx.fillRect(8, 8, 64, 92); });
             this.draw(scene, 'fireball', 24, 24, (ctx) => { ctx.fillStyle = '#FF4500'; ctx.beginPath(); ctx.arc(12, 12, 10, 0, 7); ctx.fill(); });
             this.draw(scene, 'cloud', 50, 40, (ctx) => { ctx.fillStyle = '#eee'; ctx.beginPath(); ctx.arc(15, 25, 12, 0, 7); ctx.arc(25, 15, 15, 0, 7); ctx.arc(35, 25, 12, 0, 7); ctx.fill(); });

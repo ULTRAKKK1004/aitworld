@@ -1,5 +1,18 @@
 var multiTouchInitialized = false;
-var GameState = { currentStage: 1, playerHP: 5, playerMaxHP: 5, playerLives: 3, score: 0, playerSpeed: 350, isMega: false, isReversed: false, scoreMultiplier: 1 };
+var GameState = { 
+    currentStage: 1, 
+    playerHP: 5, 
+    playerMaxHP: 5, 
+    playerLives: 3, 
+    score: 0, 
+    playerSpeed: 500, 
+    manaRegen: 0.05,
+    maxJumps: 2,
+    hasShield: 0,
+    isMega: false, 
+    isReversed: false, 
+    scoreMultiplier: 1 
+};
 
 class BootScene extends Phaser.Scene {
     constructor() { super('BootScene'); }
@@ -26,9 +39,24 @@ class MenuScene extends Phaser.Scene {
         this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
         
         const startBtn = this.add.text(this.cameras.main.centerX, 280, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
-            .setOrigin(0.5).setInteractive().on('pointerup', () => {
+            .setOrigin(0.5).setInteractive().on('pointerup', async () => {
                 resumeAudio(); 
-                GameState.currentStage = 1; GameState.score = 0; GameState.playerHP = 5; GameState.playerLives = 3;
+                
+                // Fetch user stats from DB before starting
+                try {
+                    const res = await fetch('/api/hero-stats');
+                    const stats = await res.json();
+                    if (stats) {
+                        GameState.playerMaxHP = stats.hero_hp || 5;
+                        GameState.playerHP = GameState.playerMaxHP;
+                        GameState.manaRegen = stats.hero_mana_regen || 0.05;
+                        GameState.playerSpeed = stats.hero_speed || 500;
+                        GameState.maxJumps = stats.hero_max_jumps || 2;
+                        GameState.hasShield = stats.hero_shield || 0;
+                    }
+                } catch (e) { console.error("Failed to load hero stats:", e); }
+
+                GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
                 GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
                 fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
                 this.scene.start('GameScene');
@@ -44,10 +72,20 @@ class MenuScene extends Phaser.Scene {
 
 class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
+    init(data) {
+        this.bonusLevelData = data ? data.bonus : null;
+    }
     create() {
         this.isDying = false; this.isTransitioning = false;
-        this.levelData = LevelData[GameState.currentStage - 1];
-        if (!this.levelData) { this.scene.start('VictoryScene'); return; }
+        
+        if (this.bonusLevelData) {
+            this.levelData = this.bonusLevelData;
+        } else {
+            this.levelData = LevelGenerator.generate(GameState.currentStage);
+        }
+        
+        if (GameState.currentStage > 100) { this.scene.start('VictoryScene'); return; }
+        
         this.cameras.main.setBackgroundColor(this.levelData.bgColor);
         try { BGM.start(this.levelData.musicTheme); } catch(e) {}
         
@@ -60,6 +98,7 @@ class GameScene extends Phaser.Scene {
         this.items = this.physics.add.group();
         this.exits = this.physics.add.staticGroup();
         this.doors = this.physics.add.staticGroup();
+        this.bonusEntrances = this.physics.add.staticGroup();
         this.projectiles = this.physics.add.group(); 
         this.enemyProjectiles = this.physics.add.group();
         
@@ -89,6 +128,7 @@ class GameScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.chests, (p, c) => c.open(), null, this);
         this.physics.add.overlap(this.player, this.items, (p, i) => i.collect(p), null, this);
         this.physics.add.overlap(this.player, this.exits, this.reachExit, null, this);
+        this.physics.add.overlap(this.player, this.bonusEntrances, this.enterBonus, null, this);
         if (this.princess) this.physics.add.overlap(this.player, this.princess, () => this.winGame(), null, this);
         
         this.physics.add.overlap(this.projectiles, this.enemies, (proj, enemy) => {
@@ -105,17 +145,11 @@ class GameScene extends Phaser.Scene {
         this.setupUI(); this.setupMobileControls();
         this.timeLimitTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => { this.timeLimit--; this.updateHUD(); if (this.timeLimit <= 0) this.die(); } });
         
-        // 간헐적 구름 괴물 스폰 루프
         this.scheduleCloudMonster();
 
-        // 보스 스테이지일 경우 주기적으로 일반 적들 스폰
         if (this.levelData.name.includes("BOSS")) {
-            this.time.addEvent({
-                delay: 3000,
-                callback: this.spawnBossStageMinions,
-                callbackScope: this,
-                loop: true
-            });
+            this.showMessage("BOSS FIGHT! STOMP ON HEAD!");
+            this.time.addEvent({ delay: 3000, callback: this.spawnBossStageMinions, callbackScope: this, loop: true });
         }
     }
 
@@ -138,23 +172,17 @@ class GameScene extends Phaser.Scene {
 
     spawnBossStageMinions() {
         if (this.isDying || !this.player || !this.boss || !this.boss.active) return;
-        if (this.enemies.countActive(true) > 20) return;
-
+        if (this.enemies.countActive(true) > 10) return;
         const rx = this.player.x + (Math.random() < 0.5 ? -500 : 500);
         const ry = 100;
-        
-        // 지금까지 등장한 모든 적들 중 랜덤 스폰
-        const enemyTypes = [1, 2, 3, 'M', 'F', 'U'];
-        const type = enemyTypes[Phaser.Math.Between(0, Math.min(enemyTypes.length - 1, GameState.currentStage))];
-        
+        const enemyTypes = ['1', '2', '3', 'S', 'b'];
+        const type = enemyTypes[Phaser.Math.Between(0, enemyTypes.length - 1)];
         let newEnemy;
-        if (type === 1 || type === 2 || type === 3) newEnemy = new PatrolEnemy(this, rx, ry, type);
-        else if (type === 'M') newEnemy = new MissileEnemy(this, rx, ry);
-        else if (type === 'F') newEnemy = new ChaserEnemy(this, rx, ry);
-        else if (type === 'U') newEnemy = new SunEnemy(this, rx, ry);
-        
+        if (['1', '2', '3'].includes(type)) newEnemy = new PatrolEnemy(this, rx, ry, parseInt(type));
+        else if (type === 'S') newEnemy = new SlimeEnemy(this, rx, ry);
+        else if (type === 'b') newEnemy = new BatEnemy(this, rx, ry);
         if (newEnemy) {
-            if (type === 'U') this.flyingEnemies.add(newEnemy);
+            if (type === 'b') this.flyingEnemies.add(newEnemy);
             else this.enemies.add(newEnemy);
         }
     }
@@ -185,6 +213,12 @@ class GameScene extends Phaser.Scene {
                 else if (char === 'F') this.enemies.add(new ChaserEnemy(this, px, py));
                 else if (char === 'W') this.flyingEnemies.add(new CloudEnemy(this, px, py));
                 else if (char === 'U') this.flyingEnemies.add(new SunEnemy(this, px, py));
+                else if (char === 'S') this.enemies.add(new SlimeEnemy(this, px, py));
+                else if (char === 'b') this.flyingEnemies.add(new BatEnemy(this, px, py));
+                else if (char === 'v') this.flyingEnemies.add(new BirdEnemy(this, px, py));
+                else if (char === 'g') this.enemies.add(new DragonEnemy(this, px, py));
+                else if (char === 'O') this.bonusEntrances.add(new BonusEntrance(this, px, py, 'portal', 'sky'));
+                else if (char === 'I') this.bonusEntrances.add(new BonusEntrance(this, px, py, 'pipe', 'underground'));
                 else if (char === 'C') this.chests.add(new Chest(this, px, py));
                 else if (char === 'D') this.doors.add(new Door(this, px, py));
                 else if (char === 'E') this.exits.add(this.physics.add.staticSprite(px, py - 30, 'door'));
@@ -198,12 +232,21 @@ class GameScene extends Phaser.Scene {
                     else if (char === '7') b = new MidBoss(this, px, py);
                     else if (char === '8') b = new FinalBoss(this, px, py);
                     if (b) { this.enemies.add(b); this.boss = b; }
-                    for(let i=-2; i<=2; i++) { if (i !== 0) { 
-                        this.itemBoxes.add(new ItemBox(this, px + i*150, py - 150)); 
-                    } }
+                    for(let i=-2; i<=2; i++) { if (i !== 0) { this.itemBoxes.add(new ItemBox(this, px + i*150, py - 150)); } }
                 }
             }
         }
+    }
+
+    enterBonus(p, entrance) {
+        if (this.isTransitioning) return;
+        this.isTransitioning = true;
+        this.showMessage("ENTERING BONUS STAGE!");
+        AudioSystem.playPowerup();
+        const bonusData = LevelGenerator.generateBonus(entrance.targetStage, GameState.currentStage);
+        this.cameras.main.fade(800, 255, 255, 255, false, (cam, pct) => {
+            if (pct === 1) this.scene.restart({ bonus: bonusData });
+        });
     }
 
     respawnEnemy(oldEnemy) {
@@ -212,19 +255,21 @@ class GameScene extends Phaser.Scene {
             if (!this.isDying && this.player) {
                 const rx = this.player.x + (Math.random() < 0.5 ? -500 : 500);
                 const ry = 100;
-                
-                const enemyTypes = [1, 2, 3, 'M', 'F', 'U'];
-                const maxIndex = Math.min(enemyTypes.length - 1, Math.floor(GameState.currentStage / 1.5));
+                const enemyTypes = ['1', '2', '3', 'M', 'F', 'U', 'S', 'b', 'v'];
+                const maxIndex = Math.min(enemyTypes.length - 1, Math.floor(GameState.currentStage / 5) + 3);
                 const type = enemyTypes[Phaser.Math.Between(0, maxIndex)];
                 
                 let newEnemy;
-                if (typeof type === 'number') newEnemy = new PatrolEnemy(this, rx, ry, type);
+                if (type === '1' || type === '2' || type === '3') newEnemy = new PatrolEnemy(this, rx, ry, parseInt(type));
                 else if (type === 'M') newEnemy = new MissileEnemy(this, rx, ry);
                 else if (type === 'F') newEnemy = new ChaserEnemy(this, rx, ry);
                 else if (type === 'U') newEnemy = new SunEnemy(this, rx, ry);
+                else if (type === 'S') newEnemy = new SlimeEnemy(this, rx, ry);
+                else if (type === 'b') newEnemy = new BatEnemy(this, rx, ry);
+                else if (type === 'v') newEnemy = new BirdEnemy(this, rx, ry);
                 
                 if (newEnemy) {
-                    if (type === 'U') this.flyingEnemies.add(newEnemy);
+                    if (['U', 'b', 'v'].includes(type)) this.flyingEnemies.add(newEnemy);
                     else this.enemies.add(newEnemy);
                 }
             }

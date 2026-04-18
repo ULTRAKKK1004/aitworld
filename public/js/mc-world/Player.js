@@ -23,6 +23,7 @@ export class PlayerData {
         this.info = "";
         this.idleTime = 0;
         this.lastPos = new THREE.Vector3();
+        this.loaded = false;
     }
 
     update(delta, isInSafeZone) {
@@ -371,6 +372,11 @@ export class PlayerData {
     }
 
     async save() {
+        if (!this.loaded) {
+            console.log("Skipping save: Data not yet loaded.");
+            return;
+        }
+
         if(window.gameControls && window.gameControls.getObject) {
             const p = window.gameControls.getObject().position;
             if (p) this.position.set(p.x, p.y, p.z);
@@ -442,6 +448,10 @@ export class PlayerData {
         try {
             console.log("Loading data from server...");
             const res = await fetch('/api/mc-world/load');
+            if (!res.ok) {
+                console.error("Load failed with status:", res.status);
+                return;
+            }
             const data = await res.json();
             if (data.success) {
                 console.log("Load response data:", data);
@@ -473,6 +483,7 @@ export class PlayerData {
         } catch(e) {
             console.error("Load failed:", e);
         }
+        this.loaded = true;
         this.updateUI();
     }
 }

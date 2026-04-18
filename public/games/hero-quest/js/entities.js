@@ -4,22 +4,29 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         scene.add.existing(this); scene.physics.add.existing(this);
         this.setCollideWorldBounds(true); this.body.onWorldBounds = true;
         this.setDragX(16000); this.setMaxVelocity(600, 1200);
-        this.health = 5; this.maxHealth = 5; this.mp = 10; this.maxMaxMP = 10;
+        this.health = GameState.playerHP; this.maxHealth = GameState.playerMaxHP; this.mp = 10; this.maxMaxMP = 10;
         this.isInvulnerable = false; this.isRainbow = false; 
         this.isMega = GameState.isMega;
         this.isReversed = GameState.isReversed; 
         this.scoreMultiplier = GameState.scoreMultiplier;
-        this.baseSpeed = 500; this.speed = 500; this.jumpForce = -750; this.jumps = 0; this.maxJumps = 2;
+        this.baseSpeed = GameState.playerSpeed; this.speed = GameState.playerSpeed; this.jumpForce = -750; this.jumps = 0; this.maxJumps = GameState.maxJumps;
+        this.hasShield = GameState.hasShield > 0;
         this.body.setSize(24, 32); this.body.setOffset(8, 8);
+        if (this.hasShield) { this.shieldSprite = scene.add.circle(x, y, 30, 0x00ffff, 0.3); }
     }
     preUpdate(time, delta) {
         super.preUpdate(time, delta);
         if (this.body.blocked.down || this.body.touching.down) { this.jumps = 0; }
-        if (this.mp < this.maxMaxMP) this.mp += 0.05;
+        if (this.mp < this.maxMaxMP) this.mp += GameState.manaRegen;
         if (this.isRainbow) { this.setTint(Phaser.Display.Color.RandomRGB().color); }
         else if (this.isMega) { this.setTint(0xffa500); }
         else if (this.isInvulnerable) { this.setTint(0xff0000); }
         else { this.clearTint(); }
+
+        if (this.hasShield && this.shieldSprite) {
+            this.shieldSprite.x = this.x; this.shieldSprite.y = this.y;
+            this.shieldSprite.setAlpha(0.3 + Math.sin(time / 200) * 0.1);
+        }
     }
     doJump() {
         if (this.jumps < this.maxJumps) {
@@ -40,6 +47,16 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     }
     takeDamage(amount) {
         if (this.isInvulnerable || this.isRainbow) return false;
+        
+        if (this.hasShield) {
+            this.hasShield = false;
+            if (this.shieldSprite) this.shieldSprite.destroy();
+            this.scene.showMessage("SHIELD BROKEN!");
+            this.isInvulnerable = true;
+            this.scene.time.delayedCall(1500, () => { if (this.active) this.isInvulnerable = false; });
+            return false;
+        }
+
         this.health -= amount; AudioSystem.playPlayerHit();
         
         // Reset persistent effects on damage
@@ -122,6 +139,11 @@ class Boss extends Enemy {
         const color = per > 0.5 ? 0x00ff00 : (per > 0.2 ? 0xffff00 : 0xff0000);
         this.hpBar.fillStyle(color, 1);
         this.hpBar.fillRect(x + 2, y + 2, (width - 4) * per, height - 4);
+
+        // Weak point indicator (pulsing arrow)
+        this.hpBar.fillStyle(0xffff00, 1);
+        const ty = y - 20 + Math.sin(this.scene.time.now / 100) * 5;
+        this.hpBar.fillTriangle(this.x, ty + 15, this.x - 10, ty, this.x + 10, ty);
     }
     preUpdate(time, delta) {
         super.preUpdate(time, delta);
@@ -150,7 +172,12 @@ class Boss extends Enemy {
         const dmg = isStomp ? amount * 10 : amount * 2; 
         this.hp -= dmg; this.setTint(0xffffff);
         this.updateHpBar();
-        if (isStomp) { this.isStunned = true; this.setVelocityX(0); this.scene.showMessage("STUNNED!"); this.scene.time.delayedCall(800, () => { if (this.active) this.isStunned = false; }); }
+        if (isStomp) { 
+            this.isStunned = true; 
+            this.setVelocityX(0); 
+            this.scene.showMessage("CRITICAL STOMP! STUNNED!"); 
+            this.scene.time.delayedCall(800, () => { if (this.active) this.clearTint(); this.isStunned = false; }); 
+        }
         else { this.scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); }); }
         if (this.hp <= 0) { 
             this.hpBar.destroy();
@@ -176,6 +203,56 @@ class Door extends Phaser.Physics.Arcade.Sprite { constructor(scene, x, y) { sup
 class ChaserEnemy extends Enemy { constructor(scene, x, y) { super(scene, x, y, 'enemy2', 2, 350); this.speed = 260; } preUpdate(time, delta) { super.preUpdate(time, delta); if (!this.active || !this.scene.player) return; if (Math.abs(this.scene.player.x - this.x) < 500) this.setVelocityX((this.scene.player.x < this.x ? -1 : 1) * this.speed); else this.setVelocityX(0); this.setFlipX(this.body.velocity.x > 0); } }
 class CloudEnemy extends Enemy { constructor(scene, x, y) { super(scene, x, y, 'cloud', 1, 200); this.body.setAllowGravity(false); scene.time.addEvent({ delay: 2000, callback: this.dropSpike, callbackScope: this, loop: true }); } preUpdate(time, delta) { super.preUpdate(time, delta); if (!this.active || !this.scene.player) return; this.x += (this.scene.player.x - this.x) * 0.04; this.y += (this.scene.player.y - 220 - this.y) * 0.04; } dropSpike() { if (!this.active || !this.scene.player) return; const s = this.scene.enemyProjectiles.create(this.x, this.y + 20, 'fireball'); if (s) s.body.setAllowGravity(true); AudioSystem.playHit(); } }
 class SunEnemy extends Enemy { constructor(scene, x, y) { super(scene, x, y, 'sun', 2, 450); this.body.setAllowGravity(false); this.startY = y; } preUpdate(time, delta) { super.preUpdate(time, delta); if (!this.active || !this.scene.player) return; this.x += Math.cos(time / 400) * 6; this.y = this.startY + Math.sin(time / 400) * 200; } }
+
+class SlimeEnemy extends Enemy {
+    constructor(scene, x, y) { super(scene, x, y, 'slime', 1, 150); this.speed = 100; this.jumpTimer = 0; }
+    preUpdate(time, delta) {
+        super.preUpdate(time, delta);
+        if (!this.active || !this.scene.player) return;
+        this.jumpTimer += delta;
+        if (this.jumpTimer > 2000 && this.body.blocked.down) { this.setVelocityY(-400); this.jumpTimer = 0; }
+        this.setVelocityX((this.scene.player.x < this.x ? -1 : 1) * this.speed);
+    }
+}
+
+class BatEnemy extends Enemy {
+    constructor(scene, x, y) { super(scene, x, y, 'bat', 1, 250); this.body.setAllowGravity(false); this.startY = y; this.speed = 200; }
+    preUpdate(time, delta) {
+        super.preUpdate(time, delta);
+        if (!this.active || !this.scene.player) return;
+        this.setVelocityX((this.scene.player.x < this.x ? -1 : 1) * this.speed);
+        this.y = this.startY + Math.sin(time / 200) * 50;
+    }
+}
+
+class BirdEnemy extends Enemy {
+    constructor(scene, x, y) { super(scene, x, y, 'bird', 2, 300); this.body.setAllowGravity(false); this.isDiving = false; }
+    preUpdate(time, delta) {
+        super.preUpdate(time, delta);
+        if (!this.active || !this.scene.player) return;
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, this.scene.player.x, this.scene.player.y);
+        if (dist < 300 && !this.isDiving) { this.isDiving = true; this.scene.physics.moveToObject(this, this.scene.player, 400); }
+        if (this.isDiving && this.body.blocked.down) { this.isDiving = false; this.setVelocityY(-200); }
+        if (!this.isDiving) this.x += (this.scene.player.x - this.x) * 0.02;
+    }
+}
+
+class DragonEnemy extends Enemy {
+    constructor(scene, x, y) { super(scene, x, y, 'dragon', 3, 1000); this.setScale(1.2); scene.time.addEvent({ delay: 2500, callback: this.fire, callbackScope: this, loop: true }); }
+    fire() { 
+        if (!this.active || !this.scene.player) return;
+        const f = this.scene.enemyProjectiles.create(this.x, this.y, 'fireball');
+        if (f) { f.setTint(0xffaa00); f.body.setAllowGravity(false); this.scene.physics.moveToObject(f, this.scene.player, 300); }
+    }
+}
+
+class BonusEntrance extends Phaser.Physics.Arcade.Sprite {
+    constructor(scene, x, y, type, targetStage) {
+        super(scene, x, y, type);
+        scene.add.existing(this); scene.physics.add.existing(this, true);
+        this.targetStage = targetStage;
+    }
+}
 
 class Item extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, key, type) { super(scene, x, y, key); scene.add.existing(this); scene.physics.add.existing(this); this.itemType = type; this.setBounce(0.6); this.setVelocity(Phaser.Math.Between(-150, 150), -400); }

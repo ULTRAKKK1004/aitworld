@@ -17,11 +17,17 @@ const io = new Server(server);
 // Middleware
 const isAuth = (req, res, next) => {
   if (req.isAuthenticated()) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
   res.redirect('/');
 };
 
 const isPending = (req, res, next) => {
-  if (req.user.role === 'PENDING') {
+  if (req.user && req.user.role === 'PENDING') {
+    if (req.path.startsWith('/api/')) {
+      return res.status(403).json({ success: false, error: 'Your account is pending approval.' });
+    }
     return res.status(403).send('Your account is pending approval.');
   }
   next();
@@ -292,6 +298,16 @@ app.post('/admin/update-role', isAdmin, (req, res) => {
   }
 });
 
+app.get('/api/hero-stats', isAuth, isPending, (req, res) => {
+  try {
+    const user = db.prepare('SELECT hero_hp, hero_mana_regen, hero_speed, hero_max_jumps, hero_shield FROM users WHERE id = ?').get(req.user.id);
+    res.json(user);
+  } catch (err) {
+    console.error('Error fetching hero stats:', err);
+    res.status(500).json({ error: 'Failed to fetch hero stats' });
+  }
+});
+
 app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
   const { game } = req.body;
   const user_id = req.user.id;
@@ -313,7 +329,7 @@ app.post('/api/airplane-shooter/save', isAuth, isPending, (req, res) => {
   try {
     const { saveData, level, shield } = req.body;
     const user_id = req.user.id;
-    const jsonString = JSON.stringify(saveData);
+    const jsonString = saveData ? JSON.stringify(saveData) : null;
     db.prepare('UPDATE users SET airplane_save = ?, airplane_level = ?, airplane_shield = ? WHERE id = ?').run(jsonString, level, shield, user_id);
     res.json({ success: true });
   } catch(e) {
@@ -341,7 +357,7 @@ app.get('/api/airplane-shooter/load', isAuth, isPending, (req, res) => {
     if (row) {
       res.json({
         success: true,
-        saveData: row.airplane_save ? JSON.parse(row.airplane_save) : null,
+        saveData: (row.airplane_save && row.airplane_save.trim() !== "") ? JSON.parse(row.airplane_save) : null,
         level: row.airplane_level || 1,
         shield: row.airplane_shield || 0
       });
@@ -366,11 +382,16 @@ app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
 
     console.log(`[MC-World Save] User:${user_id}, Level:${level}, Score:${score}`);
     
-    const jsonString = JSON.stringify(saveData);
+    const jsonString = saveData ? JSON.stringify(saveData) : null;
     
     // Update basic save data
-    const stmt = db.prepare('UPDATE users SET mc_world_save = ?, mc_world_level = ?, mc_world_info = ? WHERE id = ?');
-    stmt.run(jsonString, level || 1, info || null, user_id);
+    if (level !== undefined && level !== null) {
+      const stmt = db.prepare('UPDATE users SET mc_world_save = ?, mc_world_level = ?, mc_world_info = ? WHERE id = ?');
+      stmt.run(jsonString, level, info || null, user_id);
+    } else {
+      const stmt = db.prepare('UPDATE users SET mc_world_save = ?, mc_world_info = ? WHERE id = ?');
+      stmt.run(jsonString, info || null, user_id);
+    }
     
     // Update best score separately for safety
     if (score !== undefined) {
@@ -443,7 +464,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
     if (row) {
       res.json({ 
         success: true, 
-        saveData: row.mc_world_save ? JSON.parse(row.mc_world_save) : null,
+        saveData: (row.mc_world_save && row.mc_world_save.trim() !== "") ? JSON.parse(row.mc_world_save) : null,
         level: row.mc_world_level,
         info: row.mc_world_info
       });
@@ -458,7 +479,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   try {
     const { user_id } = req.body;
-    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, paper_rush_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, paper_rush_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL, paper_rush_level = 1, paper_rush_shield = 0, paper_rush_multiplier = 1, paper_rush_platform = 0, airplane_level = 1, airplane_shield = 0, airplane_score_multiplier = 1.0, airplane_item = 'basic', airplane_missile_multiplier = 1.0, brick_paddle_multiplier = 1.0, brick_score_multiplier = 1.0, brick_item = 'basic', brick_ball_damage = 1, brick_respawns = 10 WHERE id = ?").run(user_id);
+    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, paper_rush_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, paper_rush_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL, paper_rush_level = 1, paper_rush_shield = 0, paper_rush_multiplier = 1, paper_rush_platform = 0, airplane_level = 1, airplane_shield = 0, airplane_score_multiplier = 1.0, airplane_item = 'basic', airplane_missile_multiplier = 1.0, brick_paddle_multiplier = 1.0, brick_score_multiplier = 1.0, brick_item = 'basic', brick_ball_damage = 1, brick_respawns = 10, hero_hp = 5, hero_mana_regen = 0.05, hero_speed = 500, hero_max_jumps = 2, hero_shield = 0 WHERE id = ?").run(user_id);
     db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
     res.redirect('/admin');
   } catch (e) {

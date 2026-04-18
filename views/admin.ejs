@@ -106,7 +106,10 @@
                             </td>
                             <td>
                                 <%= u.hero_attempts %><br>
-                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.hero_best_score || 0 %></span>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.hero_best_score || 0 %></span><br>
+                                <span style="font-size: 0.7rem; color: #0f0;">HP: <%= u.hero_hp || 5 %> | Mana: <%= u.hero_mana_regen || 0.05 %></span><br>
+                                <span style="font-size: 0.7rem; color: #0ff;">Spd: <%= u.hero_speed || 500 %> | Jumps: <%= u.hero_max_jumps || 2 %></span><br>
+                                <span style="font-size: 0.7rem; color: #ff0;">Shield: <%= u.hero_shield || 0 %></span>
                             </td>
                             <td>
                                 Lv.<%= u.paper_rush_level || 1 %><br>

@@ -80,12 +80,11 @@ addColumn('users', 'airplane_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'brick_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'hero_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'mc_world_best_score', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'magicrush_best_score', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'total_score', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'brick_attempts', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'airplane_attempts', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('users', 'hero_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'mc_world_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'mc_world_save', 'TEXT');
+addColumn('users', 'mc_world_level', 'INTEGER DEFAULT 1');
+addColumn('users', 'mc_world_info', 'TEXT');
+addColumn('users', 'magicrush_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'magicrush_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'paper_rush_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'paper_rush_attempts', 'INTEGER NOT NULL DEFAULT 0');
@@ -104,6 +103,11 @@ addColumn('users', 'airplane_shield', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'airplane_score_multiplier', 'REAL DEFAULT 1.0');
 addColumn('users', 'airplane_item', "TEXT DEFAULT 'basic'");
 addColumn('users', 'airplane_missile_multiplier', 'REAL DEFAULT 1.0');
+addColumn('users', 'hero_hp', 'INTEGER DEFAULT 5');
+addColumn('users', 'hero_mana_regen', 'REAL DEFAULT 0.05');
+addColumn('users', 'hero_speed', 'INTEGER DEFAULT 500');
+addColumn('users', 'hero_max_jumps', 'INTEGER DEFAULT 2');
+addColumn('users', 'hero_shield', 'INTEGER DEFAULT 0');
 
 // Data migration
 db.exec(`
@@ -120,7 +124,16 @@ db.exec(`
     brick_ball_damage = CAST(IFNULL(brick_ball_damage, 1) AS INTEGER),
     brick_respawns = CAST(IFNULL(brick_respawns, 10) AS INTEGER),
     hero_best_score = CAST(IFNULL(hero_best_score, 0) AS INTEGER),
+    hero_hp = CAST(IFNULL(hero_hp, 5) AS INTEGER),
+    hero_mana_regen = CAST(IFNULL(hero_mana_regen, 0.05) AS REAL),
+    hero_speed = CAST(IFNULL(hero_speed, 500) AS INTEGER),
+    hero_max_jumps = CAST(IFNULL(hero_max_jumps, 2) AS INTEGER),
+    hero_shield = CAST(IFNULL(hero_shield, 0) AS INTEGER),
     mc_world_best_score = CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
+    mc_world_level = CAST(IFNULL(mc_world_level, 1) AS INTEGER),
+    mc_world_attempts = CAST(IFNULL(mc_world_attempts, 0) AS INTEGER),
+    magicrush_best_score = CAST(IFNULL(magicrush_best_score, 0) AS INTEGER),
+    magicrush_attempts = CAST(IFNULL(magicrush_attempts, 0) AS INTEGER),
     paper_rush_best_score = CAST(IFNULL(paper_rush_best_score, 0) AS INTEGER),
     paper_rush_level = CAST(IFNULL(paper_rush_level, 1) AS INTEGER),
     paper_rush_shield = CAST(IFNULL(paper_rush_shield, 0) AS INTEGER),
@@ -131,7 +144,6 @@ db.exec(`
     brick_attempts = CAST(IFNULL(brick_attempts, 0) AS INTEGER),
     airplane_attempts = CAST(IFNULL(airplane_attempts, 0) AS INTEGER),
     hero_attempts = CAST(IFNULL(hero_attempts, 0) AS INTEGER),
-    mc_world_attempts = CAST(IFNULL(mc_world_attempts, 0) AS INTEGER),
     paper_rush_attempts = CAST(IFNULL(paper_rush_attempts, 0) AS INTEGER),
     wins = CAST(IFNULL(wins, 0) AS INTEGER),
     losses = CAST(IFNULL(losses, 0) AS INTEGER)
