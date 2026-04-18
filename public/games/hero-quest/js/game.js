@@ -133,7 +133,7 @@ class GameScene extends Phaser.Scene {
         this.projectiles = this.physics.add.group(); 
         this.enemyProjectiles = this.physics.add.group();
         
-        this.boss = null; this.player = null; this.princess = null; this.timeLimit = 400;
+        this.boss = null; this.player = null; this.princess = null; this.timeLimit = 100;
 
         this.createParallaxBackground();
         this.buildLevel();
@@ -174,7 +174,14 @@ class GameScene extends Phaser.Scene {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.fireKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
         this.setupUI(); this.setupMobileControls();
-        this.timeLimitTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => { this.timeLimit--; this.updateHUD(); if (this.timeLimit <= 0) this.die(); } });
+        this.timeLimitTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => { 
+            this.timeLimit--; 
+            this.updateHUD(); 
+            if (this.timeLimit <= 0) {
+                this.showMessage("TIME UP!");
+                this.die(); 
+            } 
+        } });
         
         this.scheduleCloudMonster();
 
