@@ -361,6 +361,27 @@ export class PlayerData {
         
         if(bowLevel) bowLevel.innerText = this.getWeaponName('bow');
         if(swordLevel) swordLevel.innerText = this.getWeaponName('sword');
+
+        // Update Hotbar Icons
+        const hbBow = document.getElementById('hotbar-bow');
+        const hbSword = document.getElementById('hotbar-sword');
+        if (hbBow) {
+            const bTier = this.weapons.bow || 0;
+            let bUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/bow_pulling_2.png';
+            if (bTier >= 16) bUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/netherite_hoe.png'; // Bazooka proxy
+            else if (bTier >= 13) bUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/iron_hoe.png'; // Rifle proxy
+            else if (bTier >= 10) bUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/stone_hoe.png'; // Pistol proxy
+            else if (bTier >= 7) bUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/wooden_hoe.png'; // Musket proxy
+            hbBow.style.backgroundImage = `url('${bUrl}')`;
+        }
+        if (hbSword) {
+            const sTier = this.weapons.sword || 0;
+            let sUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/iron_sword.png';
+            if (sTier >= 19) sUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/netherite_sword.png';
+            else if (sTier >= 16) sUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/diamond_sword.png';
+            else if (sTier >= 7) sUrl = 'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/golden_sword.png';
+            hbSword.style.backgroundImage = `url('${sUrl}')`;
+        }
     }
 
     showNotification(msg) {

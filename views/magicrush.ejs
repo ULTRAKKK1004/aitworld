@@ -29,14 +29,19 @@
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100;
+            justify-content: center; align-items: center; z-index: 500;
         }
-        #start-btn {
+        #game-over-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 600;
+        }
+        #start-btn, #restart-btn {
             background: #0ff; color: #000; border: none; padding: 15px 40px;
             font-size: 24px; font-weight: bold; cursor: pointer; border-radius: 5px;
-            box-shadow: 0 0 20px #0ff; transition: 0.3s;
+            box-shadow: 0 0 20px #0ff; transition: 0.3s; z-index: 1000;
         }
-        #start-btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #0ff; }
+        #start-btn:hover, #restart-btn:hover { transform: scale(1.1); box-shadow: 0 0 30px #0ff; }
         
         .rivals-list { margin-top: 20px; font-size: 14px; color: #0ff; text-align: left; }
         .rival-item { margin-bottom: 5px; }
@@ -72,21 +77,22 @@
             </div>
         </div>
 
-        <div id="game-over-screen" class="hidden" style="display:none;">
-            <h1>FLIGHT ENDED</h1>
-            <div class="score-display">
-                <div class="final-stat">
-                    <span>SCORE</span>
-                    <span id="final-score">0</span>
+        <div id="game-over-screen" style="display:none;">
+            <h1 style="color: #f0f; font-size: 48px; margin-bottom: 20px; text-shadow: 0 0 20px #f0f;">MISSION ENDED</h1>
+            <div class="score-display" style="text-align: center; margin-bottom: 30px;">
+                <div class="final-stat" style="color: #fff; font-size: 20px; margin-bottom: 10px;">
+                    STAGE: <span id="final-stage" style="color: #0ff;">1</span>
                 </div>
-                <div class="final-stat highlight">
-                    <span>BEST</span>
-                    <span id="final-best">0</span>
+                <div class="final-stat" style="color: #fff; font-size: 20px; margin-bottom: 10px;">
+                    SCORE: <span id="final-score" style="color: #0ff;">0</span>
+                </div>
+                <div class="final-stat highlight" style="color: #f1c40f; font-size: 24px; font-weight: bold;">
+                    BEST: <span id="final-best">0</span>
                 </div>
             </div>
-            <button id="restart-btn">RETRY FLIGHT</button>
+            <button id="restart-btn">RETRY MISSION</button>
             <div id="end-rank-info"></div>
-            <a href="/dashboard" class="back-btn">Back to Dashboard</a>
+            <a href="/dashboard" class="back-btn" style="color: #888; margin-top: 20px; text-decoration: none;">Back to Dashboard</a>
         </div>
 
         <div id="tap-area"></div>

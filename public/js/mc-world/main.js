@@ -373,8 +373,8 @@ async function init() {
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/iron_block.png',
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_planks.png',
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/glass.png',
-        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/tnt_side.png',
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/water_still.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/tnt_side.png',
         ];    await Promise.all(blockUrls.map((url, i) => new Promise(res => {
         loader.load(url, img => { if(ctx) ctx.drawImage(img, i*32, 0, 32, 32); res(); }, undefined, () => {
             if(ctx) { ctx.fillStyle = '#ff00ff'; ctx.fillRect(i*32, 0, 32, 32); }
@@ -389,6 +389,7 @@ async function init() {
     player = new PlayerData();
     await player.load(); 
     monsterManager = new MonsterManager(scene);
+    updateWeaponModel();
 
     if (player.position) chunkManager.updatePlayerPosition(player.position.x, player.position.z);
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
@@ -410,12 +411,65 @@ async function init() {
     b_c.rotation.y = Math.PI/2; weapons.bow.add(b_c); weapons.bow.position.set(0.4, -0.3, -0.6);
     weaponGroup.add(weapons.bow);
 
+    const updateWeaponModel = () => {
+        if(!player) return;
+        
+        // Sword Model Update
+        weapons.sword.clear();
+        const sTier = player.weapons.sword || 0;
+        let sCol = 0xADD8E6; // Default
+        if (sTier >= 19) sCol = 0xff0000; // Laser (Red)
+        else if (sTier >= 16) sCol = 0x00ffff; // Electronic (Cyan)
+        else if (sTier >= 7) sCol = 0xf1c40f; // Golden/Warrior
+        
+        const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.1), new THREE.MeshLambertMaterial({color: 0x444444}));
+        const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7 + (sTier * 0.02), 0.03), new THREE.MeshLambertMaterial({color: sCol, emissive: sTier >= 16 ? sCol : 0, emissiveIntensity: 0.5}));
+        b.position.y = 0.4 + (sTier * 0.01);
+        weapons.sword.add(h, b);
+
+        // Bow/Gun Model Update
+        weapons.bow.clear();
+        const bTier = player.weapons.bow || 0;
+        if (bTier >= 16) { // Bazooka
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.2), new THREE.MeshLambertMaterial({color: 0x2c3e50}));
+            barrel.rotation.x = Math.PI/2;
+            const scope = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.1), new THREE.MeshLambertMaterial({color: 0x34495e}));
+            scope.position.set(0.1, 0.2, 0);
+            weapons.bow.add(barrel, scope);
+            weapons.bow.position.set(0.5, -0.3, -0.5);
+        } else if (bTier >= 13) { // Rifle
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 1.0), new THREE.MeshLambertMaterial({color: 0x3d2b1f}));
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), new THREE.MeshLambertMaterial({color: 0x7f8c8d}));
+            barrel.rotation.x = Math.PI/2; barrel.position.z = -0.5;
+            weapons.bow.add(body, barrel);
+            weapons.bow.position.set(0.4, -0.3, -0.5);
+        } else if (bTier >= 10) { // Pistol
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.4), new THREE.MeshLambertMaterial({color: 0x2c3e50}));
+            const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.08), new THREE.MeshLambertMaterial({color: 0x34495e}));
+            grip.position.y = -0.15;
+            weapons.bow.add(body, grip);
+            weapons.bow.position.set(0.4, -0.3, -0.5);
+        } else if (bTier >= 7) { // Musket
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.9), new THREE.MeshLambertMaterial({color: 0x8B4513}));
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7), new THREE.MeshLambertMaterial({color: 0x555555}));
+            barrel.rotation.x = Math.PI/2; barrel.position.z = -0.3;
+            weapons.bow.add(body, barrel);
+            weapons.bow.position.set(0.4, -0.3, -0.5);
+        } else { // Classic Bow
+            const b_c = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.02, 8, 12, Math.PI), new THREE.MeshLambertMaterial({color: 0x8B4513}));
+            b_c.rotation.y = Math.PI/2;
+            weapons.bow.add(b_c);
+            weapons.bow.position.set(0.4, -0.3, -0.6);
+        }
+    };
+
     let curBlock = 10;
     const select = (id) => {
         curBlock = id;
         document.querySelectorAll('.hotbar-item').forEach(el => el.classList.remove('active'));
         const item = document.querySelector(`.hotbar-item[data-block="${id}"]`);
         if(item) item.classList.add('active');
+        updateWeaponModel();
         if (weapons.stick) weapons.stick.visible = (id === 10);
         if (weapons.sword) weapons.sword.visible = (id === 11);
         if (weapons.bow) weapons.bow.visible = (id === 9);
@@ -485,8 +539,8 @@ async function init() {
 
     const explode = (x, y, z) => {
         // Visual effect
-        const geo = new THREE.SphereGeometry(3, 16, 16);
-        const mat = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.7 });
+        const geo = new THREE.SphereGeometry(7, 24, 24);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.8 });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.set(x, y, z);
         scene.add(mesh);
@@ -495,20 +549,20 @@ async function init() {
         if (window.audioManager) window.audioManager.playSFX('explode');
         
         // Shake camera or show text
-        player.showFloatingText("BOOM!", "#ff0000");
+        player.showFloatingText("MEGA BOOM!", "#ff0000");
 
         // Damage monsters
         monsterManager.monsters.forEach(m => {
             const dist = m.group.position.distanceTo(new THREE.Vector3(x, y, z));
-            if (dist < 5) {
-                const damage = (5 - dist) * 20;
+            if (dist < 15) {
+                const damage = (15 - dist) * 60;
                 m.takeDamage(damage);
                 player.score += Math.floor(damage);
             }
         });
 
         // Destroy blocks in radius
-        const radius = 3;
+        const radius = 9;
         for (let dx = -radius; dx <= radius; dx++) {
             for (let dy = -radius; dy <= radius; dy++) {
                 for (let dz = -radius; dz <= radius; dz++) {
@@ -530,7 +584,7 @@ async function init() {
             scene.remove(mesh);
             geo.dispose();
             mat.dispose();
-        }, 500);
+        }, 800);
     };
 
     const triggerInteraction = () => {

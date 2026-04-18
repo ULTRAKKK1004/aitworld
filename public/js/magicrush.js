@@ -540,6 +540,14 @@ function createParticles(x, y, count, color) {
     }
 }
 
+function spawnParticle(x, y, color) {
+    particles.push({
+        x: x, y: y,
+        vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+        life: 1, color: color, size: Math.random()*2+1
+    });
+}
+
 function updateEnvironment() {
     for (let s of stars) {
         s.x -= s.speed * (baseSpeed/5);
@@ -790,8 +798,12 @@ function gameOver() {
     createParticles(player.x, player.y, 50, C_RED);
     drawParticles(); // Draw explosion once
     
-    document.getElementById('final-stage').innerText = stage;
-    document.getElementById('final-score').innerText = Math.floor(score);
+    const fs = document.getElementById('final-stage');
+    if (fs) fs.innerText = stage;
+    const fsc = document.getElementById('final-score');
+    if (fsc) fsc.innerText = Math.floor(score);
+    const fb = document.getElementById('final-best');
+    if (fb) fb.innerText = GAME_USER.bestScore;
     
     let taunts = [
         "종이비행기 조종이 처음이신가요?",
@@ -826,7 +838,7 @@ function saveGameState() {
 
 function submitScore(finalScore) {
     if (finalScore > GAME_USER.bestScore) {
-        bestScoreDisplay.innerText = finalScore;
+        if (bestScoreDisplay) bestScoreDisplay.innerText = finalScore;
         GAME_USER.bestScore = finalScore;
     }
     
@@ -840,6 +852,7 @@ function submitScore(finalScore) {
 function fetchLeaderboard(context) {
     const targetId = context === 'start' ? 'start-rank-info' : 'end-rank-info';
     const target = document.getElementById(targetId);
+    if (!target) return;
     
     fetch('/api/leaderboard?gameType=paper_rush')
         .then(res => res.json())
@@ -847,10 +860,11 @@ function fetchLeaderboard(context) {
             let html = `<div style="color:${C_YELLOW}; font-weight:bold; margin-bottom:10px;">GLOBAL TOP</div>`;
             html += `<div class="rivals-list">`;
             
-            // Show top 3 + rivals
-            data.top10.slice(0, 3).forEach((u, i) => {
-                html += `<div class="rival-item">#${i+1} ${u.username}: ${u.best_score}</div>`;
-            });
+            if (data.top10) {
+                data.top10.slice(0, 3).forEach((u, i) => {
+                    html += `<div class="rival-item">#${i+1} ${u.username}: ${u.best_score}</div>`;
+                });
+            }
             
             if (data.rivals && data.rivals.length > 0) {
                 html += `<div style="margin:10px 0; color:#888;">--- RIVALS ---</div>`;
@@ -879,18 +893,33 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-tapArea.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    jump();
-}, {passive: false});
+if (tapArea) {
+    tapArea.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        jump();
+    }, {passive: false});
 
-tapArea.addEventListener('mousedown', (e) => {
-    if (e.button === 0) jump();
-});
+    tapArea.addEventListener('mousedown', (e) => {
+        if (e.button === 0) jump();
+    });
+}
 
-document.getElementById('start-btn').addEventListener('click', initGame);
-document.getElementById('restart-btn').addEventListener('click', initGame);
+const sBtn = document.getElementById('start-btn');
+if (sBtn) sBtn.addEventListener('click', initGame);
+const rBtn = document.getElementById('restart-btn');
+if (rBtn) rBtn.addEventListener('click', initGame);
 
 // Initial setup
 drawInitialBackground();
 fetchLeaderboard('start');
+
+window.setWindBoost = function(active) {
+    hasWindBoost = active;
+    if (active && player) {
+        player.jumpPower = -10; // Boosted jump
+    }
+};
+
+window.setGoldenGlider = function(active) {
+    hasGoldenGlider = active;
+};
