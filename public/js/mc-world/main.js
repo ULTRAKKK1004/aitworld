@@ -389,7 +389,6 @@ async function init() {
     player = new PlayerData();
     await player.load(); 
     monsterManager = new MonsterManager(scene);
-    updateWeaponModel();
 
     if (player.position) chunkManager.updatePlayerPosition(player.position.x, player.position.z);
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
