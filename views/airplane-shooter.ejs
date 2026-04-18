@@ -522,15 +522,35 @@
         }
 
         function applyItemEffect(itemKey) {
-            if (typeof player === 'undefined') return;
-            
+            // Airplane logic uses global variables for HP and Shield
             if (itemKey === 'airplane_hp_potion') {
-                player.hp = Math.min(player.hp + 50, 100);
-                if (typeof showNotification === 'function') showNotification("HP Potion Used! +50 HP");
+                const maxHP = planeLevel * 100;
+                hp = Math.min(hp + 50, maxHP);
+                if (typeof updateHUD === 'function') updateHUD();
+                customNotify("HP Potion Used! +50 HP");
             } else if (itemKey === 'airplane_shield') {
-                player.shield = (player.shield || 0) + 100;
-                if (typeof showNotification === 'function') showNotification("Shield Battery Used! +100 Shield");
+                shieldLayers = (shieldLayers || 0) + 1;
+                if (typeof updateHUD === 'function') updateHUD();
+                customNotify("Shield Battery Used! +1 Layer");
             }
+        }
+
+        function customNotify(msg) {
+            const notif = document.createElement('div');
+            notif.innerText = msg;
+            notif.style.position = 'fixed';
+            notif.style.bottom = '250px';
+            notif.style.left = '50%';
+            notif.style.transform = 'translateX(-50%)';
+            notif.style.background = 'rgba(241, 196, 15, 0.9)';
+            notif.style.color = '#000';
+            notif.style.padding = '10px 20px';
+            notif.style.borderRadius = '20px';
+            notif.style.fontWeight = 'bold';
+            notif.style.zIndex = '1000';
+            notif.style.boxShadow = '0 0 15px rgba(241, 196, 15, 0.5)';
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 2000);
         }
 
         window.addEventListener('keydown', (e) => {
