@@ -348,6 +348,18 @@
             animation: magic-pulse 1s infinite;
         }
 
+        .btn-round.btn-item {
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            border-color: #f1c40f;
+            color: #f1c40f;
+            background: rgba(241, 196, 15, 0.1);
+            box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);
+            display: none; /* Only show if item exists */
+        }
+        .btn-round.btn-item:active { background: rgba(241, 196, 15, 0.5); }
+
         @keyframes magic-pulse {
             0% { box-shadow: 0 0 10px rgba(255, 255, 0, 0.5); }
             50% { box-shadow: 0 0 25px rgba(255, 255, 0, 0.9); }
@@ -403,6 +415,8 @@
                 </div>
             </div>
             <div class="action-buttons">
+                <div id="btn-item-potion-touch" class="touch-zone btn-round btn-item" onclick="useShopItem('airplane_hp_potion')">P</div>
+                <div id="btn-item-shield-touch" class="touch-zone btn-round btn-item" onclick="useShopItem('airplane_shield')">S</div>
                 <div id="btn-magic-touch" class="touch-zone btn-round btn-magic">M</div>
                 <div id="btn-shoot-touch" class="touch-zone btn-round">FIRE</div>
             </div>
@@ -464,6 +478,12 @@
         function updateShopUI() {
             document.getElementById('potion-count').innerText = shopItems.airplane_hp_potion;
             document.getElementById('shield-count').innerText = shopItems.airplane_shield;
+            
+            // Toggle mobile buttons
+            const potionBtn = document.getElementById('btn-item-potion-touch');
+            const shieldBtn = document.getElementById('btn-item-shield-touch');
+            if (potionBtn) potionBtn.style.display = shopItems.airplane_hp_potion > 0 ? 'flex' : 'none';
+            if (shieldBtn) shieldBtn.style.display = shopItems.airplane_shield > 0 ? 'flex' : 'none';
         }
 
         async function useShopItem(itemKey) {

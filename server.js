@@ -271,7 +271,7 @@ app.get('/scoreboard', isAuth, isPending, (req, res) => {
 app.get('/admin', isAdmin, (req, res) => {
   const users = db.prepare(`
     SELECT u.*, 
-    (SELECT GROUP_CONCAT(si.name || "(x" || up.quantity || ")", ", ") 
+    (SELECT GROUP_CONCAT(si.name || '(x' || up.quantity || ')', ', ') 
      FROM user_purchases up 
      JOIN shop_items si ON up.item_id = si.id 
      WHERE up.user_id = u.id) as purchases
