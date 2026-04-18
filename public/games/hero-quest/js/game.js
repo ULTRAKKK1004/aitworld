@@ -108,6 +108,7 @@ class GameScene extends Phaser.Scene {
     }
     create() {
         this.isDying = false; this.isTransitioning = false;
+        this.cameras.main.resetFX(); // Ensure any previous fade is cleared
         
         if (this.bonusLevelData) {
             this.levelData = this.bonusLevelData;
@@ -365,7 +366,12 @@ class GameScene extends Phaser.Scene {
 
     update() {
         if (!this.player || !this.player.active || this.isDying || this.isTransitioning) return;
-        if (this.player.y > 480) { this.die(); return; }
+        if (this.player.y > 480) { 
+            this.player.setVelocityY(0);
+            this.player.setAccelerationX(0);
+            this.die(); 
+            return; 
+        }
 
         // Auto-use Mana Potion if low
         if (this.player.mp < 2 && GameState.items && GameState.items.hero_mana_potion > 0) {

@@ -23,14 +23,23 @@ var LevelGenerator = {
         for(let x=0; x<width; x++) { layout[0][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
-        // Ground with gaps (One block lower to allow more jump space)
+        // Ground with gaps (Irregular and wider)
+        let gapRemaining = 0;
         for(let x=1; x<width-1; x++) {
-            if (x > 10 && x < width-10 && Math.random() < 0.15) {
-                // Gap - goes all the way down
-            } else {
-                layout[height-2][x] = '#';
-                layout[height-3][x] = '#';
+            if (gapRemaining > 0) {
+                gapRemaining--;
+                continue;
             }
+
+            // Probability of starting a gap increases slightly with stage
+            const gapChance = 0.08 + (stage * 0.001);
+            if (x > 15 && x < width-15 && Math.random() < gapChance) {
+                gapRemaining = Math.floor(Math.random() * 4) + 2; // 2 to 5 blocks wide
+                continue;
+            }
+
+            layout[height-2][x] = '#';
+            layout[height-3][x] = '#';
         }
 
         // Platforms & Obstacles
