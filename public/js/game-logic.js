@@ -614,6 +614,13 @@ function applyItemEffect(itemType) {
     addActiveEffect(effectText);
 }
 function addActiveEffect(text) {
+    if (!activeEffectsDiv) return;
+    
+    // LIMIT TO 2 MESSAGES: Remove oldest if 2 or more exist
+    while (activeEffectsDiv.children.length >= 2) {
+        activeEffectsDiv.removeChild(activeEffectsDiv.firstChild);
+    }
+
     const div = document.createElement('div'); div.className = 'effect-text'; div.innerText = text;
     if (text.includes("패널티")) {
         div.style.color = "#f00";
