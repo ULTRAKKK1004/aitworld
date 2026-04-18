@@ -146,8 +146,18 @@ class GameScene extends Phaser.Scene {
         this.physics.world.setBoundsCollision(true, true, true, false);
 
         this.physics.add.collider(this.player, this.platforms);
-        this.physics.add.collider(this.player, this.bricks, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 32)) b.hit(); });
-        this.physics.add.collider(this.player, this.itemBoxes, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 32)) b.hit(); });
+        this.physics.add.collider(this.player, this.bricks, (p, b) => { 
+            if (b.body.touching.down || (p.y > b.y && Math.abs(p.x - b.x) < 40)) {
+                this.tweens.add({ targets: b, scaleX: 1.2, scaleY: 1.2, duration: 50, yoyo: true });
+                b.hit(); 
+            }
+        });
+        this.physics.add.collider(this.player, this.itemBoxes, (p, b) => { 
+            if (b.body.touching.down || (p.y > b.y && Math.abs(p.x - b.x) < 40)) {
+                this.tweens.add({ targets: b, scaleX: 1.2, scaleY: 1.2, duration: 50, yoyo: true });
+                b.hit(); 
+            }
+        });
         this.physics.add.collider(this.enemies, this.platforms);
         this.physics.add.collider(this.items, this.platforms);
         this.physics.add.collider(this.projectiles, this.platforms, (p) => p.destroy());
