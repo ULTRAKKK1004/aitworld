@@ -380,6 +380,7 @@ class Player {
 
 // Exit and save score
 function exitToDashboard() {
+    saveGameState();
     if (score > 0) {
         console.log('[Airplane] Saving final score before exit:', score);
         fetch('/api/submit-score', {
@@ -812,6 +813,7 @@ function spawnEnemy() {
 
 function endGame() {
     gameActive = false;
+    saveGameState();
     if (bgmInterval) clearInterval(bgmInterval);
     if (gameOverScreen) gameOverScreen.style.display = 'flex';
     const fs = document.getElementById('final-score');
@@ -896,6 +898,50 @@ function loadAirplaneRank(elementId) {
         });
 }
 
+async function saveGameState() {
+    if (!gameActive) return;
+    const data = {
+        planeLevel: planeLevel,
+        evolutionItems: evolutionItems,
+        shieldLayers: shieldLayers,
+        weaponLevel: weaponLevel,
+        lives: lives
+    };
+    try {
+        await fetch('/api/airplane-shooter/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                saveData: data,
+                level: planeLevel,
+                shield: shieldLayers
+            })
+        });
+    } catch(e) {
+        console.error('Save failed:', e);
+    }
+}
+
+async function loadGameState() {
+    try {
+        const res = await fetch('/api/airplane-shooter/load');
+        const data = await res.json();
+        if (data.success && data.saveData) {
+            const s = data.saveData;
+            planeLevel = s.planeLevel || data.level || 1;
+            evolutionItems = s.evolutionItems || 0;
+            shieldLayers = s.shieldLayers || data.shield || 0;
+            weaponLevel = s.weaponLevel || 1;
+            lives = s.lives !== undefined ? s.lives : 3;
+            hp = planeLevel * 100;
+            return true;
+        }
+    } catch(e) {
+        console.error('Load failed:', e);
+    }
+    return false;
+}
+
 function loop() {
     if (!gameActive) return;
     frameCount++;
@@ -914,6 +960,9 @@ function loop() {
         playSFX('stage_up');
         updateHUD();
     }
+
+    // Auto-save every 10 seconds
+    if (frameCount % 600 === 0) saveGameState();
 
     // Protection bar drawing
     const oneMinute = 60000;
@@ -1118,23 +1167,31 @@ function startBGM() {
     }, 125);
 }
 
-function startGame() {
+async function startGame() {
     if (!canvas) initDOMElements();
-    audioCtx.resume().then(() => {
-        startBGM();
-    });
+    await audioCtx.resume();
+    startBGM();
+
     if (startScreen) startScreen.style.display = 'none';
+    
+    // Reset to base defaults before loading
+    lives = 3;
+    planeLevel = 1;
+    evolutionItems = 0;
+    shieldLayers = 0;
+    weaponLevel = 1;
+    magicCount = 0;
+    hp = 100;
+
+    // Load saved progression
+    await loadGameState();
+
     gameActive = true;
     startTime = Date.now();
     player = new Player();
     enemies = []; enemyBullets = []; items = []; explosions = [];
-    score = 0; stage = 3; lives = 3; 
-    planeLevel = 1;
-    evolutionItems = 0;
-    hp = 100; 
-    weaponLevel = 1;
-    shieldLayers = 0;
-    magicCount = 0;
+    score = 0; stage = 3; 
+    
     initBackground();
     initTouchControls();
     updateHUD();
@@ -1150,3 +1207,7 @@ function startGame() {
 window.onload = function() {
     initDOMElements();
 };
+
+window.addEventListener('beforeunload', () => {
+    if (gameActive) saveGameState();
+});

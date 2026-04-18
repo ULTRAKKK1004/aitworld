@@ -26,6 +26,9 @@ db.exec(`
     mc_world_save TEXT,
     mc_world_level INTEGER DEFAULT 1,
     mc_world_info TEXT,
+    airplane_save TEXT,
+    airplane_level INTEGER DEFAULT 1,
+    airplane_shield INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
@@ -78,6 +81,9 @@ addColumn('users', 'mc_world_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'magicrush_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'paper_rush_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'paper_rush_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'airplane_save', 'TEXT');
+addColumn('users', 'airplane_level', 'INTEGER NOT NULL DEFAULT 1');
+addColumn('users', 'airplane_shield', 'INTEGER NOT NULL DEFAULT 0');
 
 // Data migration
 db.exec(`

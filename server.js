@@ -303,6 +303,39 @@ app.post('/api/increment-attempts', isAuth, isPending, (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/airplane-shooter/save', isAuth, isPending, (req, res) => {
+  try {
+    const { saveData, level, shield } = req.body;
+    const user_id = req.user.id;
+    const jsonString = JSON.stringify(saveData);
+    db.prepare('UPDATE users SET airplane_save = ?, airplane_level = ?, airplane_shield = ? WHERE id = ?').run(jsonString, level, shield, user_id);
+    res.json({ success: true });
+  } catch(e) {
+    console.error('[Airplane Save] Error:', e);
+    res.status(500).json({ success: false, error: 'Failed to save data' });
+  }
+});
+
+app.get('/api/airplane-shooter/load', isAuth, isPending, (req, res) => {
+  const user_id = req.user.id;
+  try {
+    const row = db.prepare('SELECT airplane_save, airplane_level, airplane_shield FROM users WHERE id = ?').get(user_id);
+    if (row) {
+      res.json({
+        success: true,
+        saveData: row.airplane_save ? JSON.parse(row.airplane_save) : null,
+        level: row.airplane_level || 1,
+        shield: row.airplane_shield || 0
+      });
+    } else {
+      res.json({ success: true, saveData: null, level: 1, shield: 0 });
+    }
+  } catch(e) {
+    console.error('[Airplane Load] Error:', e);
+    res.status(500).json({ success: false, error: 'Failed to load data' });
+  }
+});
+
 app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
   try {
     const { saveData, level, info, score } = req.body;
