@@ -35,11 +35,11 @@ class MenuScene extends Phaser.Scene {
         const resumeAudio = () => { let ctx = getAudioContext(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
         this.input.once('pointerdown', resumeAudio);
         this.cameras.main.setBackgroundColor('#87CEEB');
-        this.add.rectangle(0, 300, 800, 200, 0x228B22).setOrigin(0, 0);
-        this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+        this.add.rectangle(0, 300, 800, 200, 0x228B22).setOrigin(0, 0).setDepth(1);
+        this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setDepth(2);
         
         const startBtn = this.add.text(this.cameras.main.centerX, 280, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
-            .setOrigin(0.5).setInteractive().on('pointerup', async () => {
+            .setOrigin(0.5).setInteractive().setDepth(10).on('pointerdown', async () => {
                 resumeAudio(); 
                 
                 // Fetch user stats from DB before starting
@@ -64,7 +64,7 @@ class MenuScene extends Phaser.Scene {
         this.tweens.add({ targets: startBtn, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, loop: -1 });
 
         const backBtn = this.add.text(this.cameras.main.centerX, 380, "[ BACK TO DASHBOARD ]", { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 3 })
-            .setOrigin(0.5).setInteractive().on('pointerup', () => {
+            .setOrigin(0.5).setInteractive().setDepth(10).on('pointerdown', () => {
                 window.location.href = '/dashboard';
             });
     }
