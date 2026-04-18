@@ -39,7 +39,28 @@ db.exec(`
     brick_respawns INTEGER DEFAULT 10,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
+    total_spent INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+  );
+
+  CREATE TABLE IF NOT EXISTS shop_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    price INTEGER NOT NULL,
+    game_type TEXT, -- airplane, brick, hero, etc.
+    item_key TEXT UNIQUE, -- internal identifier
+    category TEXT DEFAULT 'consumable' -- consumable, permanent
+  );
+
+  CREATE TABLE IF NOT EXISTS user_purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    item_id INTEGER,
+    quantity INTEGER DEFAULT 1,
+    purchased_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (item_id) REFERENCES shop_items(id)
   );
 
   CREATE TABLE IF NOT EXISTS scores (
@@ -108,6 +129,33 @@ addColumn('users', 'hero_mana_regen', 'REAL DEFAULT 0.05');
 addColumn('users', 'hero_speed', 'INTEGER DEFAULT 500');
 addColumn('users', 'hero_max_jumps', 'INTEGER DEFAULT 2');
 addColumn('users', 'hero_shield', 'INTEGER DEFAULT 0');
+addColumn('users', 'total_spent', 'INTEGER DEFAULT 0');
+
+// Initial Shop Items
+const items = [
+  // Airplane Items
+  ['HP Potion (Airplane)', 'Restores HP in Airplane Shooter', 500, 'airplane-shooter', 'airplane_hp_potion', 'consumable'],
+  ['Shield Battery', 'Gives extra shield for Airplane', 1000, 'airplane-shooter', 'airplane_shield', 'consumable'],
+  
+  // Brick Crasher Items
+  ['Extra Ball', 'One more ball for Brick Crasher', 300, 'brick', 'brick_extra_ball', 'consumable'],
+  ['Wide Paddle', 'Increases paddle width for one game', 800, 'brick', 'brick_wide_paddle', 'consumable'],
+  
+  // Hero Quest Items
+  ['Mana Potion', 'Restores Mana for Hero Quest', 600, 'hero', 'hero_mana_potion', 'consumable'],
+  ['Resurrection Stone', 'Respawn where you died', 2000, 'hero', 'hero_revive', 'consumable'],
+  
+  // MC World Items
+  ['TNT Block (x5)', 'Pack of 5 explosive blocks', 1500, 'mc-world', 'mc_tnt_pack', 'consumable'],
+  ['Magic Seeds', 'Fast growing special plants', 700, 'mc-world', 'mc_seeds', 'consumable'],
+
+  // Paper Rush Items
+  ['Wind Boost', 'Extra lift in Paper Rush', 400, 'paper_rush', 'paper_wind_boost', 'consumable'],
+  ['Golden Glider', 'Increases score multiplier permanently', 15000, 'paper_rush', 'paper_golden_glider', 'permanent']
+];
+
+const insertItem = db.prepare('INSERT OR IGNORE INTO shop_items (name, description, price, game_type, item_key, category) VALUES (?, ?, ?, ?, ?, ?)');
+items.forEach(item => insertItem.run(...item));
 
 // Data migration
 db.exec(`
@@ -146,7 +194,8 @@ db.exec(`
     hero_attempts = CAST(IFNULL(hero_attempts, 0) AS INTEGER),
     paper_rush_attempts = CAST(IFNULL(paper_rush_attempts, 0) AS INTEGER),
     wins = CAST(IFNULL(wins, 0) AS INTEGER),
-    losses = CAST(IFNULL(losses, 0) AS INTEGER)
+    losses = CAST(IFNULL(losses, 0) AS INTEGER),
+    total_spent = CAST(IFNULL(total_spent, 0) AS INTEGER)
 `);
 
 

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Shop - Tor-AI</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .shop-container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .shop-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; background: rgba(0, 243, 255, 0.05); padding: 30px; border-radius: 20px; border: 1px solid rgba(0, 243, 255, 0.1); }
+        .balance-card { text-align: right; }
+        .balance-label { color: var(--text-dim); font-size: 0.9rem; }
+        .balance-value { font-size: 2rem; color: var(--primary); font-weight: bold; text-shadow: 0 0 15px var(--primary); }
+        
+        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .item-card { background: var(--card-bg); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 25px; transition: 0.3s; position: relative; overflow: hidden; }
+        .item-card:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 10px 30px rgba(0, 243, 255, 0.1); }
+        
+        .game-badge { position: absolute; top: 15px; right: 15px; font-size: 0.7rem; background: rgba(255, 255, 255, 0.1); padding: 4px 10px; border-radius: 10px; color: var(--text-dim); text-transform: uppercase; }
+        .item-icon { font-size: 2.5rem; margin-bottom: 20px; color: var(--primary); }
+        .item-name { font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #fff; }
+        .item-desc { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 20px; height: 40px; overflow: hidden; }
+        .item-footer { display: flex; justify-content: space-between; align-items: center; }
+        .item-price { font-weight: bold; font-size: 1.1rem; color: #f1c40f; }
+        .buy-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .buy-btn:hover { background: #fff; transform: scale(1.05); }
+        .buy-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .purchased-section { margin-top: 60px; }
+        .purchase-history { background: rgba(255,255,255,0.02); border-radius: 15px; padding: 20px; }
+        .purchase-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .nav-links { margin-bottom: 20px; }
+        .nav-links a { color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: bold; }
+        
+        /* Categories */
+        .category-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
+        .tab-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px 15px; border-radius: 30px; cursor: pointer; font-size: 0.9rem; }
+        .tab-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="shop-container">
+        <div class="nav-links">
+            <a href="/dashboard"><i class="fas fa-arrow-left"></i> 대시보드로 돌아가기</a>
+        </div>
+
+        <div class="shop-header">
+            <div class="shop-title">
+                <h1 style="margin:0; font-size: 2.5rem; color: var(--primary);">ITEM SHOP</h1>
+                <p style="margin:5px 0 0 0; color: var(--text-dim);">게임에서 사용할 수 있는 특별한 아이템을 구매하세요.</p>
+            </div>
+            <div class="balance-card">
+                <div class="balance-label">사용 가능한 한도 (총합점수 - 사용금액)</div>
+                <div class="balance-value">
+                    <i class="fas fa-coins"></i> 
+                    <span id="current-balance"><%= (userData.total_score || 0) - (userData.total_spent || 0) %></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="category-tabs">
+            <button class="tab-btn active" onclick="filterItems('all')">모두 보기</button>
+            <button class="tab-btn" onclick="filterItems('airplane-shooter')">Airplane</button>
+            <button class="tab-btn" onclick="filterItems('brick')">Brick</button>
+            <button class="tab-btn" onclick="filterItems('hero')">Hero</button>
+            <button class="tab-btn" onclick="filterItems('mc-world')">MC World</button>
+            <button class="tab-btn" onclick="filterItems('paper_rush')">Paper Rush</button>
+        </div>
+
+        <div class="item-grid">
+            <% items.forEach(item => { %>
+                <div class="item-card" data-game="<%= item.game_type %>">
+                    <span class="game-badge"><%= item.game_type %></span>
+                    <div class="item-icon">
+                        <% if(item.item_key.includes('hp') || item.item_key.includes('mana')) { %>
+                            <i class="fas fa-flask"></i>
+                        <% } else if(item.item_key.includes('shield')) { %>
+                            <i class="fas fa-shield-alt"></i>
+                        <% } else if(item.item_key.includes('ball') || item.item_key.includes('seeds')) { %>
+                            <i class="fas fa-circle"></i>
+                        <% } else if(item.item_key.includes('tnt')) { %>
+                            <i class="fas fa-bomb"></i>
+                        <% } else { %>
+                            <i class="fas fa-gem"></i>
+                        <% } %>
+                    </div>
+                    <div class="item-name"><%= item.name %></div>
+                    <div class="item-desc"><%= item.description %></div>
+                    <div class="item-footer">
+                        <div class="item-price"><%= item.price.toLocaleString() %> pts</div>
+                        <button class="buy-btn" onclick="buyItem('<%= item.id %>', '<%= item.name %>', <%= item.price %>)">구매하기</button>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+
+        <div class="purchased-section">
+            <h2 style="color: var(--primary);"><i class="fas fa-history"></i> 구매 내역</h2>
+            <div class="purchase-history">
+                <% if(purchases.length === 0) { %>
+                    <p style="color: var(--text-dim); text-align: center; padding: 20px;">아직 구매한 아이템이 없습니다.</p>
+                <% } else { %>
+                    <% purchases.forEach(p => { %>
+                        <div class="purchase-item">
+                            <span><strong><%= p.name %></strong> (x<%= p.quantity %>)</span>
+                            <span style="color: var(--text-dim);"><%= new Date(p.purchased_at).toLocaleString() %></span>
+                        </div>
+                    <% }) %>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function buyItem(itemId, itemName, price) {
+            const currentBalance = parseInt(document.getElementById('current-balance').innerText);
+            if (currentBalance < price) {
+                alert('총합점수가 부족합니다! 더 많은 게임을 플레이하여 점수를 쌓으세요.');
+                return;
+            }
+
+            if (!confirm(`'${itemName}' 아이템을 구매하시겠습니까?`)) return;
+
+            try {
+                const response = await fetch('/api/shop/buy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message);
+                    location.reload();
+                } else {
+                    alert('구매 실패: ' + result.error);
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                alert('구매 처리 중 오류가 발생했습니다.');
+            }
+        }
+
+        function filterItems(category) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.innerText.toLowerCase().replace(' ', '-') === category || (category === 'all' && btn.innerText === '모두 보기'));
+            });
+
+            document.querySelectorAll('.item-card').forEach(card => {
+                if (category === 'all' || card.dataset.game === category) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

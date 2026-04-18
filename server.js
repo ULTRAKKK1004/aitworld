@@ -717,6 +717,84 @@ io.on('connection', (socket) => {
   });
 });
 
+// MC World Multiplayer Mock (For main server integration)
+app.get('/games/mc-world-online', (req, res) => {
+  res.redirect('http://' + req.hostname + ':3501');
+});
+
+// --- Shop Routes ---
+app.get('/shop', isAuth, isPending, (req, res) => {
+  try {
+    const items = db.prepare('SELECT * FROM shop_items').all();
+    const user = db.prepare('SELECT total_score, total_spent FROM users WHERE id = ?').get(req.user.id);
+    const purchases = db.prepare(`
+      SELECT si.name, si.item_key, up.quantity, up.purchased_at 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ?
+      ORDER BY up.purchased_at DESC
+    `).all(req.user.id);
+    
+    res.render('shop', { 
+      user: req.user, 
+      userData: user,
+      items: items,
+      purchases: purchases
+    });
+  } catch (err) {
+    console.error('Error loading shop:', err);
+    res.status(500).send('Failed to load shop');
+  }
+});
+
+app.post('/api/shop/buy', isAuth, isPending, (req, res) => {
+  const { itemId } = req.body;
+  const userId = req.user.id;
+  
+  try {
+    const item = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(itemId);
+    if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
+    
+    const user = db.prepare('SELECT total_score, total_spent FROM users WHERE id = ?').get(userId);
+    
+    // Check if user has enough "balance" (Total Score - Total Spent)
+    const balance = (user.total_score || 0) - (user.total_spent || 0);
+    
+    if (balance < item.price) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Insufficient points. Need ${item.price - balance} more total score points.` 
+      });
+    }
+    
+    // Process Purchase
+    const transaction = db.transaction(() => {
+      // 1. Update total_spent
+      db.prepare('UPDATE users SET total_spent = total_spent + ? WHERE id = ?').run(item.price, userId);
+      
+      // 2. Add to user_purchases
+      const existing = db.prepare('SELECT id, quantity FROM user_purchases WHERE user_id = ? AND item_id = ?').get(userId, itemId);
+      if (existing) {
+        db.prepare('UPDATE user_purchases SET quantity = quantity + 1 WHERE id = ?').run(existing.id);
+      } else {
+        db.prepare('INSERT INTO user_purchases (user_id, item_id, quantity) VALUES (?, ?, 1)').run(userId, itemId);
+      }
+    });
+    
+    transaction();
+    
+    res.json({ 
+      success: true, 
+      message: `${item.name} purchased successfully!`,
+      newSpent: user.total_spent + item.price
+    });
+    
+  } catch (err) {
+    console.error('Purchase error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 const PORT = process.env.PORT || 3500;
 server.listen(PORT, () => {
   console.log(`[MC-World 2.0] Server running on http://localhost:${PORT}`);
