@@ -8,7 +8,7 @@ export class PlayerData {
         this.maxHp = 20;
         this.mp = 10;
         this.maxMp = 10;
-        this.inventory = { sticks: 0, wood: 0, fruit: 0, herbs: 0, health_potion: 0, dmg_booster: 0, weapon_atk_plus: 0, atk_range_plus: 0, user_def_plus: 0, user_atk_plus: 0 };
+        this.inventory = { tnt: 0, sticks: 0, wood: 0, fruit: 0, herbs: 0, health_potion: 0, dmg_booster: 0, weapon_atk_plus: 0, atk_range_plus: 0, user_def_plus: 0, user_atk_plus: 0 };
         this.weapons = { stick: 1, bow: 0, sword: 0 };
         this.dmgBoost = 1.0;
         this.dmgBoostTimer = 0;
@@ -337,6 +337,7 @@ export class PlayerData {
         const invWood = document.getElementById('inv-wood');
         const invFruit = document.getElementById('inv-fruit');
         const invHerbs = document.getElementById('inv-herbs');
+        const hotbarTntCount = document.getElementById('hotbar-tnt-count');
         const invLevel = document.getElementById('inv-level');
         const bowLevel = document.getElementById('bow-level');
         const swordLevel = document.getElementById('sword-level');
@@ -345,10 +346,17 @@ export class PlayerData {
         if(invWood) invWood.innerText = this.inventory.wood || 0;
         if(invFruit) invFruit.innerText = this.inventory.fruit || 0;
         if(invHerbs) invHerbs.innerText = this.inventory.herbs || 0;
+        if(hotbarTntCount) hotbarTntCount.innerText = this.inventory.tnt || 0;
         const invHealthPotion = document.getElementById('inv-health-potion');
         const invDmgBooster = document.getElementById('inv-dmg-booster');
         if(invHealthPotion) invHealthPotion.innerText = this.inventory.health_potion || 0;
         if(invDmgBooster) invDmgBooster.innerText = this.inventory.dmg_booster || 0;
+        const invAtkScroll = document.getElementById('inv-atk-scroll');
+        const invRangeScroll = document.getElementById('inv-range-scroll');
+        const invDefScroll = document.getElementById('inv-def-scroll');
+        if(invAtkScroll) invAtkScroll.innerText = this.inventory.weapon_atk_plus || 0;
+        if(invRangeScroll) invRangeScroll.innerText = this.inventory.atk_range_plus || 0;
+        if(invDefScroll) invDefScroll.innerText = this.inventory.user_def_plus || 0;
         if(invLevel) invLevel.innerText = this.level;
         
         if(bowLevel) bowLevel.innerText = this.getWeaponName('bow');
@@ -491,6 +499,37 @@ export class PlayerData {
                         } else if (item.item_key === 'mc_seeds') {
                             this.inventory.herbs = (this.inventory.herbs || 0) + (item.quantity * 10);
                             itemsApplied.push(`Seeds x${item.quantity * 10}`);
+                        } else if (item.item_key === 'mc_gold_sword') {
+                            if ((this.weapons.sword || 0) < 5) { this.weapons.sword = 5; itemsApplied.push("Golden Sword Applied"); }
+                        } else if (item.item_key === 'mc_dragon_bow') {
+                            if ((this.weapons.bow || 0) < 5) { this.weapons.bow = 5; itemsApplied.push("Dragon Bow Applied"); }
+                        } else if (item.item_key === 'mc_warrior_sword') {
+                            if ((this.weapons.sword || 0) < 7) { this.weapons.sword = 7; itemsApplied.push("Warrior Sword Applied"); }
+                        } else if (item.item_key === 'mc_musket') {
+                            if ((this.weapons.bow || 0) < 7) { this.weapons.bow = 7; itemsApplied.push("Musket Applied"); }
+                        } else if (item.item_key === 'mc_warrior_long_sword') {
+                            if ((this.weapons.sword || 0) < 10) { this.weapons.sword = 10; itemsApplied.push("Warrior Long Sword Applied"); }
+                        } else if (item.item_key === 'mc_pistol') {
+                            if ((this.weapons.bow || 0) < 10) { this.weapons.bow = 10; itemsApplied.push("Pistol Applied"); }
+                        } else if (item.item_key === 'mc_warrior_dual_swords') {
+                            if ((this.weapons.sword || 0) < 13) { this.weapons.sword = 13; itemsApplied.push("Warrior Dual Swords Applied"); }
+                        } else if (item.item_key === 'mc_rifle') {
+                            if ((this.weapons.bow || 0) < 13) { this.weapons.bow = 13; itemsApplied.push("Rifle Applied"); }
+                        } else if (item.item_key === 'mc_electronic_sword') {
+                            if ((this.weapons.sword || 0) < 16) { this.weapons.sword = 16; itemsApplied.push("Electronic Sword Applied"); }
+                        } else if (item.item_key === 'mc_bazooka') {
+                            if ((this.weapons.bow || 0) < 16) { this.weapons.bow = 16; itemsApplied.push("Bazooka Applied"); }
+                        } else if (item.item_key === 'mc_laser_sword') {
+                            if ((this.weapons.sword || 0) < 19) { this.weapons.sword = 19; itemsApplied.push("Laser Sword Applied"); }
+                        } else if (item.item_key === 'mc_atk_scroll') {
+                            this.inventory.weapon_atk_plus = (this.inventory.weapon_atk_plus || 0) + item.quantity;
+                            itemsApplied.push(`Atk Scroll x${item.quantity}`);
+                        } else if (item.item_key === 'mc_range_scroll') {
+                            this.inventory.atk_range_plus = (this.inventory.atk_range_plus || 0) + item.quantity;
+                            itemsApplied.push(`Range Scroll x${item.quantity}`);
+                        } else if (item.item_key === 'mc_def_scroll') {
+                            this.inventory.user_def_plus = (this.inventory.user_def_plus || 0) + item.quantity;
+                            itemsApplied.push(`Def Scroll x${item.quantity}`);
                         }
                     });
                     if (itemsApplied.length > 0) {

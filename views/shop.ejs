@@ -38,10 +38,19 @@
         .category-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
         .tab-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px 15px; border-radius: 30px; cursor: pointer; font-size: 0.9rem; }
         .tab-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+        
+        /* Toast Notification Styling */
+        #message-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: rgba(0, 0, 0, 0.9); color: #fff; padding: 15px 25px; border-radius: 10px; border-left: 5px solid var(--primary); box-shadow: 0 5px 15px rgba(0,0,0,0.3); transform: translateX(120%); transition: 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); opacity: 0; }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast.error { border-left-color: #e74c3c; }
+        .toast.success { border-left-color: #2ecc71; }
+
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
+    <div id="message-container"></div>
     <div class="shop-container">
         <div class="nav-links">
             <a href="/dashboard"><i class="fas fa-arrow-left"></i> 대시보드로 돌아가기</a>
@@ -107,6 +116,9 @@
                     <div class="item-footer">
                         <div class="item-price"><%= item.price.toLocaleString() %> pts</div>
                         <button class="buy-btn" onclick="buyItem('<%= item.id %>', '<%= item.name %>', <%= item.price %>)">구매하기</button>
+                        <% if (user && user.role === 'ADMIN') { %>
+                            <button class="buy-btn" style="background: #e74c3c; margin-top: 5px;" onclick="updatePrice('<%= item.id %>')">가격 수정 (Admin)</button>
+                        <% } %>
                     </div>
                 </div>
             <% }) %>
@@ -130,6 +142,40 @@
     </div>
 
     <script>
+        /* Category Filter Logic */
+        function filterItems(category) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                const btnCategory = btn.innerText.toLowerCase().replace(' ', '-');
+                btn.classList.toggle('active', btnCategory === category || (category === 'all' && btn.innerText === '모두 보기'));
+            });
+
+            document.querySelectorAll('.item-card').forEach(card => {
+                if (category === 'all' || card.dataset.game === category) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        /* Simple Toast Notification System */
+        function showMessage(msg, type = 'success') {
+            const container = document.getElementById('message-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = msg;
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
         async function drawGacha() {
             const btn = document.getElementById('gacha-btn');
             const resultBox = document.getElementById('gacha-result');
@@ -158,14 +204,14 @@
                     if (data.remaining <= 0) btn.disabled = true;
                     else btn.disabled = false;
                     
-                    setTimeout(() => { if(confirm(msg + "\n\n인벤토리를 확인하시겠습니까?")) location.reload(); }, 1500);
+                    showMessage(msg);
                 } else {
-                    alert('뽑기 실패: ' + data.error);
+                    showMessage('뽑기 실패: ' + data.error, 'error');
                     btn.disabled = false;
                 }
             } catch (err) {
                 console.error(err);
-                alert('통신 오류가 발생했습니다.');
+                showMessage('통신 오류가 발생했습니다.', 'error');
                 btn.disabled = false;
             }
         }
@@ -173,11 +219,9 @@
         async function buyItem(itemId, itemName, price) {
             const currentBalance = parseInt(document.getElementById('current-balance').innerText);
             if (currentBalance < price) {
-                alert('총합점수가 부족합니다! 더 많은 게임을 플레이하여 점수를 쌓으세요.');
+                showMessage('총합점수가 부족합니다!', 'error');
                 return;
             }
-
-            if (!confirm(`'${itemName}' 아이템을 구매하시겠습니까?`)) return;
 
             try {
                 const response = await fetch('/api/shop/buy', {
@@ -188,29 +232,41 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    alert(result.message);
-                    location.reload();
+                    showMessage('구매 되었습니다.');
+                    // Update balance on UI
+                    document.getElementById('current-balance').innerText = currentBalance - price;
+                    // Optional: refresh page after a short delay if needed to show new inventory
+                    setTimeout(() => location.reload(), 1500);
                 } else {
-                    alert('구매 실패: ' + result.error);
+                    showMessage('구매 실패: ' + result.error, 'error');
                 }
             } catch (err) {
                 console.error('Error:', err);
-                alert('구매 처리 중 오류가 발생했습니다.');
+                showMessage('구매 처리 중 오류가 발생했습니다.', 'error');
             }
         }
 
-        function filterItems(category) {
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.innerText.toLowerCase().replace(' ', '-') === category || (category === 'all' && btn.innerText === '모두 보기'));
-            });
+        async function updatePrice(itemId) {
+            const newPrice = prompt("새로운 가격을 입력하세요:");
+            if (newPrice === null || newPrice === "") return;
+            if (isNaN(newPrice)) { showMessage("숫자만 입력 가능합니다.", "error"); return; }
 
-            document.querySelectorAll('.item-card').forEach(card => {
-                if (category === 'all' || card.dataset.game === category) {
-                    card.style.display = 'block';
+            try {
+                const response = await fetch('/admin/shop/update-price', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId, newPrice })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message);
+                    setTimeout(() => location.reload(), 1000);
                 } else {
-                    card.style.display = 'none';
+                    showMessage("실패: " + result.error, "error");
                 }
-            });
+            } catch (err) {
+                showMessage("오류 발생", "error");
+            }
         }
     </script>
 </body>

@@ -246,6 +246,25 @@ class AudioManager {
             gain.gain.setValueAtTime(0.04, now);
             gain.gain.linearRampToValueAtTime(0, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'explode') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.5);
+            osc.start(now); osc.stop(now + 0.5);
+            
+            // Add a second noise-like osc for impact
+            const osc2 = this.ctx.createOscillator();
+            const gain2 = this.ctx.createGain();
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(40, now);
+            osc2.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+            osc2.connect(gain2);
+            gain2.connect(this.masterGain);
+            gain2.gain.setValueAtTime(0.4, now);
+            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc2.start(now); osc2.stop(now + 0.3);
         }
     }
 }
@@ -354,9 +373,9 @@ async function init() {
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/iron_block.png',
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_planks.png',
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/glass.png',
+        'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/tnt_side.png',
         'https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/water_still.png',
-    ];
-    await Promise.all(blockUrls.map((url, i) => new Promise(res => {
+        ];    await Promise.all(blockUrls.map((url, i) => new Promise(res => {
         loader.load(url, img => { if(ctx) ctx.drawImage(img, i*32, 0, 32, 32); res(); }, undefined, () => {
             if(ctx) { ctx.fillStyle = '#ff00ff'; ctx.fillRect(i*32, 0, 32, 32); }
             res(); 
@@ -398,8 +417,8 @@ async function init() {
         const item = document.querySelector(`.hotbar-item[data-block="${id}"]`);
         if(item) item.classList.add('active');
         if (weapons.stick) weapons.stick.visible = (id === 10);
-        if (weapons.sword) weapons.sword.visible = (id === 11 && (player.weapons.sword || 0) > 0);
-        if (weapons.bow) weapons.bow.visible = (id === 9 && (player.weapons.bow || 0) > 0);
+        if (weapons.sword) weapons.sword.visible = (id === 11);
+        if (weapons.bow) weapons.bow.visible = (id === 9);
     };
     select(10);
 
@@ -464,6 +483,56 @@ async function init() {
         }
     };
 
+    const explode = (x, y, z) => {
+        // Visual effect
+        const geo = new THREE.SphereGeometry(3, 16, 16);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.7 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y, z);
+        scene.add(mesh);
+        
+        // Explosion Sound
+        if (window.audioManager) window.audioManager.playSFX('explode');
+        
+        // Shake camera or show text
+        player.showFloatingText("BOOM!", "#ff0000");
+
+        // Damage monsters
+        monsterManager.monsters.forEach(m => {
+            const dist = m.group.position.distanceTo(new THREE.Vector3(x, y, z));
+            if (dist < 5) {
+                const damage = (5 - dist) * 20;
+                m.takeDamage(damage);
+                player.score += Math.floor(damage);
+            }
+        });
+
+        // Destroy blocks in radius
+        const radius = 3;
+        for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dz = -radius; dz <= radius; dz++) {
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    if (dist <= radius) {
+                        const vx = Math.floor(x + dx);
+                        const vy = Math.floor(y + dy);
+                        const vz = Math.floor(z + dz);
+                        const block = chunkManager.getVoxelGlobal(vx, vy, vz);
+                        if (block !== 0 && block !== -1) {
+                            chunkManager.setVoxelGlobal(vx, vy, vz, 0);
+                        }
+                    }
+                }
+            }
+        }
+
+        setTimeout(() => {
+            scene.remove(mesh);
+            geo.dispose();
+            mat.dispose();
+        }, 500);
+    };
+
     const triggerInteraction = () => {
         if (!chunkManager || !player) return;
         if (curBlock === 10 || curBlock === 11 || curBlock === 9) { attack(); return; }
@@ -483,6 +552,16 @@ async function init() {
                 if (curBlock === 9) { 
                     if ((player.inventory.wood || 0) > 0) { chunkManager.setVoxelGlobal(x, y, z, 9); player.addItem('wood', -1); }
                     else player.showNotification("Not enough wood!");
+                    return;
+                }
+                if (curBlock === 12) {
+                    if ((player.inventory.tnt || 0) > 0) {
+                        chunkManager.setVoxelGlobal(x, y, z, 12);
+                        player.addItem('tnt', -1);
+                        setTimeout(() => explode(x, y, z), 1500);
+                    } else {
+                        player.showNotification("Not enough TNT!");
+                    }
                     return;
                 }
                 chunkManager.setVoxelGlobal(x, y, z, curBlock);

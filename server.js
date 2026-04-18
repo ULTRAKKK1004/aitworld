@@ -909,8 +909,7 @@ app.post('/api/shop/buy', isAuth, isPending, (req, res) => {
     
     res.json({ 
       success: true, 
-      message: `${item.name} purchased successfully!`,
-      newSpent: user.total_spent + item.price
+      message: '구매 되었습니다.'
     });
     
   } catch (err) {
@@ -953,16 +952,21 @@ app.post('/api/shop/gacha', isAuth, isPending, (req, res) => {
       db.prepare(`UPDATE users SET ${game} = ? WHERE id = ?`).run(val, userId);
       result = { type: 'multiplier', game: game.replace('_score_multiplier', '').replace('_multiplier', ''), value: val };
     } else { // 40% chance for Item
-      const items = db.prepare('SELECT * FROM shop_items WHERE category = "consumable"').all();
-      const item = items[Math.floor(Math.random() * items.length)];
-      
-      const existing = db.prepare('SELECT id FROM user_purchases WHERE user_id = ? AND item_id = ?').get(userId, item.id);
-      if (existing) {
-        db.prepare('UPDATE user_purchases SET quantity = quantity + 1 WHERE id = ?').run(existing.id);
+      const items = db.prepare('SELECT * FROM shop_items WHERE category = "consumable" AND game_type = "mc-world"').all();
+      if (items.length > 0) {
+        const item = items[Math.floor(Math.random() * items.length)];
+        const existing = db.prepare('SELECT id FROM user_purchases WHERE user_id = ? AND item_id = ?').get(userId, item.id);
+        if (existing) {
+          db.prepare('UPDATE user_purchases SET quantity = quantity + 1 WHERE id = ?').run(existing.id);
+        } else {
+          db.prepare('INSERT INTO user_purchases (user_id, item_id, quantity) VALUES (?, ?, 1)').run(userId, item.id);
+        }
+        result = { type: 'item', name: item.name };
       } else {
-        db.prepare('INSERT INTO user_purchases (user_id, item_id, quantity) VALUES (?, ?, 1)').run(userId, item.id);
+        // Fallback if no consumables found
+        result = { type: 'multiplier', game: 'mc_world', value: 2.0 };
+        db.prepare(`UPDATE users SET mc_world_score_multiplier = 2.0 WHERE id = ?`).run(userId);
       }
-      result = { type: 'item', name: item.name };
     }
 
     // Increment draws used
@@ -1069,6 +1073,18 @@ app.post('/admin/inventory/update', isAdmin, (req, res) => {
     res.redirect(`/admin/inventory/${user_id}`);
   } catch (err) {
     res.status(500).send('Update error');
+  }
+});
+
+// Admin Shop Price Management
+app.post('/admin/shop/update-price', isAdmin, (req, res) => {
+  const { itemId, newPrice } = req.body;
+  try {
+    db.prepare('UPDATE shop_items SET price = ? WHERE id = ?').run(parseInt(newPrice), itemId);
+    res.json({ success: true, message: '가격이 성공적으로 업데이트되었습니다.' });
+  } catch (err) {
+    console.error('Price update error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

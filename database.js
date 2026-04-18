@@ -157,6 +157,20 @@ const items = [
   // MC World Items
   ['TNT Block (x5)', 'Pack of 5 explosive blocks', 1500, 'mc-world', 'mc_tnt_pack', 'consumable'],
   ['Magic Seeds', 'Fast growing special plants', 700, 'mc-world', 'mc_seeds', 'consumable'],
+  ['Golden Sword', 'Tier 5 Sword from the start', 3000, 'mc-world', 'mc_gold_sword', 'permanent'],
+  ['Dragon Bow', 'Tier 5 Bow from the start', 3000, 'mc-world', 'mc_dragon_bow', 'permanent'],
+  ['Warrior Sword', 'Tier 7 Sword from the start', 10000, 'mc-world', 'mc_warrior_sword', 'permanent'],
+  ['Musket', 'Tier 7 Bow from the start', 1000000, 'mc-world', 'mc_musket', 'permanent'],
+  ['Warrior Long Sword', 'Tier 10 Sword from the start', 30000, 'mc-world', 'mc_warrior_long_sword', 'permanent'],
+  ['Pistol', 'Tier 10 Bow from the start', 20000000, 'mc-world', 'mc_pistol', 'permanent'],
+  ['Warrior Dual Swords', 'Tier 13 Sword from the start', 80000, 'mc-world', 'mc_warrior_dual_swords', 'permanent'],
+  ['Rifle', 'Tier 13 Bow from the start', 50000000, 'mc-world', 'mc_rifle', 'permanent'],
+  ['Electronic Sword', 'Tier 16 Sword from the start', 200000, 'mc-world', 'mc_electronic_sword', 'permanent'],
+  ['Bazooka', 'Tier 16 Bow from the start', 100000000, 'mc-world', 'mc_bazooka', 'permanent'],
+  ['Laser Sword', 'Tier 19 Sword from the start', 300000000, 'mc-world', 'mc_laser_sword', 'permanent'],
+  ['Weapon Atk Scroll', 'Increases weapon attack bonus by 1', 1200, 'mc-world', 'mc_atk_scroll', 'consumable'],
+  ['Attack Range Scroll', 'Increases attack range bonus by 1', 1000, 'mc-world', 'mc_range_scroll', 'consumable'],
+  ['Defense Scroll', 'Increases defense bonus by 1', 1000, 'mc-world', 'mc_def_scroll', 'consumable'],
 
   // Paper Rush Items
   ['Wind Boost', 'Extra lift in Paper Rush', 400, 'paper_rush', 'paper_wind_boost', 'consumable'],

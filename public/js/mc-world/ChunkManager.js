@@ -176,7 +176,7 @@ export class ChunkManager {
         }
 
         const layers = [
-            { material: this.solidMaterial, voxels: [1,2,3,4,7,8,9,10] },
+            { material: this.solidMaterial, voxels: [1,2,3,4,7,8,9,10,12] },
             { material: this.alphaMaterial, voxels: [5,6] },
             { material: this.waterMaterial, voxels: [11] }
         ];
