@@ -268,7 +268,7 @@ async function init() {
     scene.background = new THREE.Color(skyColor); 
     scene.fog = new THREE.Fog(skyColor, 100, 150);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
     camera.layers.enable(0); 
 
     const onWindowResize = () => {

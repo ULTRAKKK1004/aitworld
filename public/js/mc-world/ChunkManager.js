@@ -21,6 +21,8 @@ export class ChunkManager {
             {cx: 10, cz: -10, name: "Sun Valley", theme: "sand", floor: 2, wall: 7},
             {cx: -10, cz: -10, name: "Dark Crag", theme: "lava", floor: 3, wall: 3}
         ];
+        this.lastCX = -999;
+        this.lastCZ = -999;
     }
 
     getChunkId(cx, cz) { return `${cx},${cz}`; }
@@ -221,7 +223,10 @@ export class ChunkManager {
     updatePlayerPosition(px, pz) {
         const cx = Math.floor(px / this.chunkSize);
         const cz = Math.floor(pz / this.chunkSize);
-        const viewDistance = 4; 
+        if (cx === this.lastCX && cz === this.lastCZ) return;
+        this.lastCX = cx; this.lastCZ = cz;
+
+        const viewDistance = 2; 
         for (let x = cx - viewDistance; x <= cx + viewDistance; x++) {
             for (let z = cz - viewDistance; z <= cz + viewDistance; z++) {
                 const id = this.getChunkId(x, z);
