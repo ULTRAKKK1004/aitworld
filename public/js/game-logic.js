@@ -91,7 +91,8 @@ function playBlockHitSound(hitHP, maxHP) {
 }
 
 // --- CONFIGURATION ---
-const PADDLE_WIDTH = 100;
+const BASE_PADDLE_WIDTH = 150;
+const PADDLE_WIDTH = BASE_PADDLE_WIDTH * (typeof USER_BRICK_PADDLE_MULTIPLIER !== 'undefined' ? USER_BRICK_PADDLE_MULTIPLIER : 1.0);
 const PADDLE_HEIGHT = 15;
 const PADDLE_Y_MARGIN = 80;
 const PADDLE_Y = canvas.height - PADDLE_Y_MARGIN;
@@ -129,6 +130,12 @@ let gameState = {
     prevPaddleX: 0,
     penaltyDebounce: false,
     worm: null,
+    pacmans: [],
+    lastBrickHPUpdateTime: 0,
+    gravityActive: false,
+    suctionActive: false,
+    gravityTimer: 0,
+    suctionTimer: 0,
     effects: {
         doubleSpeed: false,
         invincibleBlocks: false,
@@ -203,7 +210,9 @@ class Item {
 }
 class Ball {
     constructor(x, y) {
-        this.x = x; this.y = y; this.radius = 5;
+        this.x = x; this.y = y;
+        this.damage = (typeof USER_BRICK_BALL_DAMAGE !== 'undefined') ? USER_BRICK_BALL_DAMAGE : 1;
+        this.radius = 5 + (this.damage - 1) * 0.5;
         this.baseSpeed = 5 + (gameState.stage * 0.5);
         this.active = true; this.color = '#FFF';
         this.dx = (Math.random() * 6) - 3; this.dy = -(4 + Math.random() * 2);
@@ -238,7 +247,8 @@ class Ball {
         hitBlocks.forEach(block => {
             if (!block.active) return;
             block.hp = 0; block.active = false;
-            gameState.score += 100 * gameState.stage;
+            let scoreVal = 100 * gameState.stage * (typeof USER_BRICK_SCORE_MULTIPLIER !== 'undefined' ? USER_BRICK_SCORE_MULTIPLIER : 1.0);
+            gameState.score += scoreVal;
             createExplosion(block.x + block.width/2, block.y + block.height/2, '#fff');
             checkNeighboringBlocks(block.x, block.y);
         });
@@ -321,9 +331,11 @@ class Block {
 
 class Worm {
     constructor(stage) {
-        this.length = 3 + (stage - 21);
+        this.maxLength = Math.round(stage / 2);
+        this.length = Math.min(3 + (stage - 6), this.maxLength);
+        if (this.length < 1) this.length = 1;
         this.segments = [];
-        this.baseSpeed = 1.5 * Math.pow(1.2, (stage - 21)); // Increased speed per stage
+        this.baseSpeed = 1.5 * Math.pow(1.1, (stage - 6)); // Increased speed per stage
         this.radius = 12;
         this.centerX = canvas.width / 2;
         this.centerY = 500; // Between blocks and paddle
@@ -367,8 +379,12 @@ class Worm {
             let distHead = Math.sqrt((ball.x - head.x)**2 + (ball.y - head.y)**2);
             if (distHead < this.radius + ball.radius) {
                 ball.active = false; // Eaten
-                this.length++;
-                addActiveEffect("지렁이가 공을 먹었습니다! (길이 증가)");
+                if (this.length < this.maxLength) {
+                    this.length++;
+                    addActiveEffect("지렁이가 공을 먹었습니다! (길이 증가)");
+                } else {
+                    addActiveEffect("지렁이가 공을 먹었습니다! (최대 길이 도달)");
+                }
                 return;
             }
             
@@ -379,7 +395,8 @@ class Worm {
                 ball.dy = -ball.dy;
                 if (this.length > 1) {
                     this.length--;
-                    gameState.score += 500;
+                    let scoreVal = 500 * (typeof USER_BRICK_SCORE_MULTIPLIER !== 'undefined' ? USER_BRICK_SCORE_MULTIPLIER : 1.0);
+                    gameState.score += scoreVal;
                     addActiveEffect("지렁이 꼬리를 맞췄습니다! (길이 감소)");
                 }
                 return;
@@ -432,6 +449,71 @@ class Worm {
     }
 }
 
+class Pacman {
+    constructor(stage) {
+        this.radius = 20;
+        this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+        this.y = 150 + Math.random() * 300;
+        this.speedX = (Math.random() - 0.5) * (2 + stage * 0.1);
+        this.speedY = (Math.random() - 0.5) * (2 + stage * 0.1);
+        this.hp = stage - 10; // Pacman HP increases with stage
+        this.maxHp = this.hp;
+        this.active = true;
+        this.mouthOpen = 0;
+        this.mouthDir = 1;
+        this.angle = 0;
+    }
+    update() {
+        if (!this.active) return;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) this.speedX = -this.speedX;
+        if (this.y - this.radius < 50 || this.y + this.radius > 550) this.speedY = -this.speedY;
+
+        this.angle = Math.atan2(this.speedY, this.speedX);
+        this.mouthOpen += 0.1 * this.mouthDir;
+        if (this.mouthOpen > 0.5 || this.mouthOpen < 0) this.mouthDir *= -1;
+
+        // Pacman collision with balls
+        gameState.balls.forEach(ball => {
+            if (!ball.active) return;
+            let dist = Math.sqrt((ball.x - this.x) ** 2 + (ball.y - this.y) ** 2);
+            if (dist < this.radius + ball.radius) {
+                // Determine if hit back head (opposite of direction moving)
+                let hitAngle = Math.atan2(ball.y - this.y, ball.x - this.x);
+                let diff = Math.abs(hitAngle - (this.angle + Math.PI));
+                // If within a small arc behind Pacman (back head hit)
+                if (diff < 0.5 || Math.abs(diff - Math.PI * 2) < 0.5) {
+                    this.active = false;
+                    gameState.score += 1000 * (typeof USER_BRICK_SCORE_MULTIPLIER !== 'undefined' ? USER_BRICK_SCORE_MULTIPLIER : 1.0);
+                    addActiveEffect("팩맨의 뒷통수를 쳤습니다! (처치)");
+                    createExplosion(this.x, this.y, '#ff0');
+                } else {
+                    // Normal hit - eat ball
+                    ball.active = false;
+                    addActiveEffect("팩맨이 공을 먹었습니다!");
+                    createExplosion(ball.x, ball.y, '#ff0');
+                }
+            }
+        });
+    }
+    draw() {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, this.radius, this.mouthOpen, Math.PI * 2 - this.mouthOpen);
+        ctx.lineTo(0, 0);
+        ctx.fillStyle = '#ff0';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ff0';
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
 // --- CORE FUNCTIONS ---
 function initStage(stageNum) {
     gameState.stage = stageNum; gameState.balls = []; gameState.blocks = []; gameState.particles = [];
@@ -442,8 +524,22 @@ function initStage(stageNum) {
     gameState.respawning = false;
     gameState.penaltyMultiplier = 1.0;
     gameState.dirChanges = [];
-    gameState.worm = (stageNum >= 21) ? new Worm(stageNum) : null;
+    gameState.worm = (stageNum >= 6) ? new Worm(stageNum) : null;
+    gameState.pacmans = [];
+    if (stageNum >= 11) {
+        let count = 1 + Math.floor((stageNum - 11) / 5);
+        for (let i = 0; i < count; i++) gameState.pacmans.push(new Pacman(stageNum));
+    }
+    gameState.lastBrickHPUpdateTime = Date.now();
+    gameState.gravityActive = false;
+    gameState.suctionActive = false;
     resetEffects();
+    
+    // Apply initial item effect if not basic (only at the start of the game)
+    if (stageNum === gameState.selectedStage && typeof USER_BRICK_ITEM !== 'undefined' && USER_BRICK_ITEM !== 'basic') {
+        applyItemEffect(USER_BRICK_ITEM);
+    }
+
     gameState.balls.push(new Ball(canvas.width / 2, canvas.height - 120));
     let baseHp = 3 + ((gameState.stage - 1) * 2);
     for (let r = 0; r < BLOCK_ROWS; r++) {
@@ -535,7 +631,7 @@ function getStagePaddleWidth(stage) {
     let width = PADDLE_WIDTH;
     if (stage > 10) {
         width -= (stage - 10) * 5;
-        if (width < 30) width = 30;
+        if (width < 20) width = 20;
     }
     return width;
 }
@@ -558,10 +654,12 @@ function checkCollisions() {
 
                 if (!block.unbreakable) {
                     playBlockHitSound(block.hp, block.baseHp);
-                    let damage = gameState.effects.doubleDamage ? 2 : 1;
+                    let damage = (gameState.effects.doubleDamage ? 2 : 1) * ball.damage;
                     block.hp -= damage; createExplosion(ball.x, ball.y, block.color);
                     if (block.hp <= 0) {
-                        block.active = false; gameState.score += 100 * gameState.stage;
+                        block.active = false; 
+                        let scoreVal = 100 * gameState.stage * (typeof USER_BRICK_SCORE_MULTIPLIER !== 'undefined' ? USER_BRICK_SCORE_MULTIPLIER : 1.0);
+                        gameState.score += scoreVal;
                         createExplosion(block.x + block.width/2, block.y + block.height/2, '#fff');
                         checkNeighboringBlocks(block.x, block.y);
                     } else { block.color = getNeonColor(block.hp); }
@@ -602,7 +700,8 @@ function checkNeighboringBlocks(blockX, blockY) {
             target.hp--;
             if (target.hp <= 0) {
                 target.active = false; 
-                gameState.score += 50 * gameState.stage;
+                let scoreVal = 50 * gameState.stage * (typeof USER_BRICK_SCORE_MULTIPLIER !== 'undefined' ? USER_BRICK_SCORE_MULTIPLIER : 1.0);
+                gameState.score += scoreVal;
                 createExplosion(target.x + target.width/2, target.y + target.height/2, '#fff');
                 // Recursive call for chain reaction
                 checkNeighboringBlocks(target.x, target.y);
@@ -643,13 +742,63 @@ function update() {
 
     if (gameState.currentItem && Date.now() > gameState.itemTimer) resetEffects();
     if (gameState.worm) gameState.worm.update();
+    gameState.pacmans.forEach(p => p.update());
     if (Date.now() - gameState.lastItemTime > 10000) { gameState.items.push(new Item()); gameState.lastItemTime = Date.now(); }
     for (let i = gameState.items.length - 1; i >= 0; i--) {
         let item = gameState.items[i]; item.update();
         if (checkItemCollision(item)) { applyItemEffect(item.type); createExplosion(item.x, item.y, item.color); gameState.items.splice(i, 1); }
         else if (item.y > canvas.height + 50) gameState.items.splice(i, 1);
     }
-    gameState.balls.forEach(ball => { ball.updateSpeed(); ball.update(); });
+    // --- STAGE 21+ EVENTS (Gravity/Suction) ---
+    if (gameState.stage >= 21) {
+        if (!gameState.gravityActive && !gameState.suctionActive && Math.random() < 0.001) {
+            if (Math.random() < 0.5) {
+                gameState.gravityActive = true;
+                gameState.gravityTimer = Date.now() + 5000;
+                addActiveEffect("중력 가속 이벤트 발생!");
+            } else {
+                gameState.suctionActive = true;
+                gameState.suctionTimer = Date.now() + 5000;
+                addActiveEffect("바닥으로 빨려들어가는 이벤트!");
+            }
+        }
+        if (gameState.gravityActive && Date.now() > gameState.gravityTimer) gameState.gravityActive = false;
+        if (gameState.suctionActive && Date.now() > gameState.suctionTimer) gameState.suctionActive = false;
+    }
+
+    // --- STAGE 30+ BRICK HP UPDATES ---
+    if (gameState.stage >= 30) {
+        let interval = Math.max(10, 30 - (gameState.stage - 30));
+        // According to user: "Starts with 30s at Stage 30, decreases by 1s each stage, stays at 10s from Stage 59"
+        // Wait, if it's 1s per stage, it hits 10s at Stage 50. 
+        // If it should hit 10s at Stage 59:
+        if (gameState.stage < 59) {
+            interval = 30 - Math.floor((gameState.stage - 30) * 20 / 29);
+        } else {
+            interval = 10;
+        }
+
+        if (Date.now() - gameState.lastBrickHPUpdateTime > interval * 1000) {
+            gameState.lastBrickHPUpdateTime = Date.now();
+            let count = 0;
+            let activeBlocks = gameState.blocks.filter(b => b.active && !b.unbreakable);
+            for (let i = 0; i < 5 && activeBlocks.length > 0; i++) {
+                let idx = Math.floor(Math.random() * activeBlocks.length);
+                let block = activeBlocks.splice(idx, 1)[0];
+                block.hp += 3;
+                block.color = getNeonColor(block.hp);
+                createExplosion(block.x + block.width/2, block.y + block.height/2, block.color);
+            }
+            if (activeBlocks.length > 0) addActiveEffect("일부 브릭의 HP가 증가했습니다!");
+        }
+    }
+
+    gameState.balls.forEach(ball => { 
+        if (gameState.gravityActive) ball.dy += 0.2;
+        if (gameState.suctionActive) ball.dy += 0.5;
+        ball.updateSpeed(); 
+        ball.update(); 
+    });
     gameState.balls = gameState.balls.filter(b => b.active);
     checkCollisions();
     gameState.particles.forEach(p => p.update());
@@ -700,8 +849,21 @@ function draw() {
         }
     });
     if (gameState.worm) gameState.worm.draw();
+    gameState.pacmans.forEach(p => p.draw());
     gameState.items.forEach(item => item.draw());
     gameState.balls.forEach(b => b.draw());
+
+    // Gravity/Suction visual indicators
+    if (gameState.gravityActive || gameState.suctionActive) {
+        ctx.save();
+        ctx.globalAlpha = 0.2;
+        let grad = ctx.createLinearGradient(0, canvas.height - 100, 0, canvas.height);
+        grad.addColorStop(0, 'transparent');
+        grad.addColorStop(1, gameState.suctionActive ? '#f00' : '#0ff');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+        ctx.restore();
+    }
     gameState.particles.forEach(p => p.draw());
     gameState.lasers.forEach(l => l.draw());
     
@@ -761,7 +923,8 @@ function fireLaser() {
             createExplosion(block.x + block.width / 2, block.y + block.height / 2, block.color);
             if (block.hp <= 0) {
                 block.active = false;
-                gameState.score += 100 * gameState.stage;
+                let scoreVal = 100 * gameState.stage * (typeof USER_BRICK_SCORE_MULTIPLIER !== 'undefined' ? USER_BRICK_SCORE_MULTIPLIER : 1.0);
+            gameState.score += scoreVal;
                 createExplosion(block.x + block.width / 2, block.y + block.height / 2, '#fff');
                 checkNeighboringBlocks(block.x, block.y);
             } else {
@@ -849,6 +1012,7 @@ function setupStageButtons() {
     // Temporary: Allow selection up to 22 to test the worm feature.
     for (let i = 1; i <= 22; i++) {
         let btn = document.createElement('div'); btn.className = 'stage-btn'; btn.innerText = i;
+
         if (i === 1) btn.classList.add('current');
         btn.onclick = () => { document.querySelectorAll('.stage-btn').forEach(b => b.classList.remove('current')); btn.classList.add('current'); gameState.selectedStage = i; };
         stageGrid.appendChild(btn);
@@ -899,6 +1063,6 @@ function initBrickAudio() {
     }
 }
 
-startBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.attacks = 3; gameState.respawnsLeft = 10; gameState.respawning = false; gameState.startTime = Date.now(); initStage(gameState.selectedStage); gameState.running = true; gameLoop(); incrementAttempts(); };
-restartBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.attacks = 3; gameState.respawnsLeft = 10; gameState.respawning = false; gameState.startTime = Date.now(); initStage(gameState.stage); gameState.running = true; gameLoop(); incrementAttempts(); };
+startBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.attacks = 3; gameState.respawnsLeft = (typeof USER_BRICK_RESPAWNS !== 'undefined' ? USER_BRICK_RESPAWNS : 10); gameState.respawning = false; gameState.startTime = Date.now(); initStage(gameState.selectedStage); gameState.running = true; gameLoop(); incrementAttempts(); };
+restartBtn.onclick = () => { initBrickAudio(); gameOverScreen.style.display = "none"; gameState.score = 0; gameState.attacks = 3; gameState.respawnsLeft = (typeof USER_BRICK_RESPAWNS !== 'undefined' ? USER_BRICK_RESPAWNS : 10); gameState.respawning = false; gameState.startTime = Date.now(); initStage(gameState.stage); gameState.running = true; gameLoop(); incrementAttempts(); };
 menuBtn.onclick = () => { gameOverScreen.style.display = "flex"; gameOverContentDiv.classList.add('hidden'); stageSelectionDiv.classList.remove('hidden'); gameTitle.innerText = "NEON BREAKOUT"; };

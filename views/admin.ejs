@@ -93,11 +93,15 @@
                             </td>
                             <td>
                                 <%= u.brick_attempts %><br>
-                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.brick_best_score || 0 %></span>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.brick_best_score || 0 %></span><br>
+                                <span style="font-size: 0.7rem; color: #0ff;">Pad: x<%= u.brick_paddle_multiplier || 1.0 %> | Score: x<%= u.brick_score_multiplier || 1.0 %></span><br>
+                                <span style="font-size: 0.7rem; color: #ff0;">Item: <%= u.brick_item || 'basic' %> | Dmg: <%= u.brick_ball_damage || 1 %> | Resp: <%= u.brick_respawns || 10 %></span>
                             </td>
                             <td>
                                 Lv.<%= u.airplane_level || 1 %><br>
                                 Sh.<%= u.airplane_shield || 0 %><br>
+                                <span style="font-size: 0.7rem; color: #0f0;">Score: x<%= u.airplane_score_multiplier || 1.0 %> | Missile: x<%= u.airplane_missile_multiplier || 1.0 %></span><br>
+                                <span style="font-size: 0.7rem; color: #ff0;">Item: <%= u.airplane_item || 'basic' %></span><br>
                                 <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.airplane_best_score || 0 %> (R:<%= u.airplane_attempts %>)</span>
                             </td>
                             <td>

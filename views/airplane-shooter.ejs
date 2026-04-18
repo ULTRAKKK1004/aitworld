@@ -426,7 +426,11 @@
     <script>
         const currentUser = {
             username: "<%= user.username %>",
-            attempts: <%= user.airplane_attempts %>
+            attempts: <%= user.airplane_attempts %>,
+            airplaneLevel: <%= user.airplane_level || 1 %>,
+            airplaneScoreMultiplier: <%= user.airplane_score_multiplier || 1.0 %>,
+            airplaneItem: '<%= user.airplane_item || 'basic' %>',
+            airplaneMissileMultiplier: <%= user.airplane_missile_multiplier || 1.0 %>
         };
     </script>
     <script src="/js/airplane-logic.js"></script>

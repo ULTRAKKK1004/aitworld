@@ -157,6 +157,12 @@
     <script src="/js/game-logic.js"></script>
     <script src="/js/scoreboard.js"></script>
     <script>
+        const USER_BRICK_PADDLE_MULTIPLIER = <%= user.brick_paddle_multiplier || 1.0 %>;
+        const USER_BRICK_SCORE_MULTIPLIER = <%= user.brick_score_multiplier || 1.0 %>;
+        const USER_BRICK_ITEM = '<%= user.brick_item || 'basic' %>';
+        const USER_BRICK_BALL_DAMAGE = <%= user.brick_ball_damage || 1 %>;
+        const USER_BRICK_RESPAWNS = <%= user.brick_respawns || 10 %>;
+        
         // Track attempts for this game
         fetch('/api/increment-attempts', {
             method: 'POST',

@@ -192,18 +192,7 @@ class Player {
         }
 
         this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
-        
-        // 1-minute crash prevention at the bottom
-        const oneMinute = 60000;
-        const isProtected = (Date.now() - startTime < oneMinute);
-        if (isProtected) {
-            this.y = Math.max(0, Math.min(canvas.height - this.height - 20, this.y));
-        } else {
-            this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
-            if (this.y >= canvas.height - this.height) {
-                takeDamage(5); // Small damage for touching bottom after 1 min
-            }
-        }
+        this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
 
         // Plane Evolution Check (Cumulative targets: 10, 30, 60, 100)
         const targets = [0, 10, 30, 60, 100];
@@ -259,7 +248,8 @@ class Player {
         enemies.forEach(e => {
             e.hp = 0;
             createExplosion(e.x + e.width/2, e.y + e.height/2);
-            score += 100 * 20;
+            const mult = (typeof currentUser !== 'undefined' ? currentUser.airplaneScoreMultiplier : 1.0);
+            score += Math.floor(100 * 0.67 * mult);
         });
         enemyBullets = [];
         updateHUD();
@@ -325,26 +315,6 @@ class Player {
             ctx.fillStyle = '#0ff';
             ctx.fillRect(-1, -5, 2, 10);
             ctx.shadowBlur = 0;
-        }
-
-        // Safety Gear Visual (Bottom Protection Item)
-        const isProtected = (Date.now() - startTime < 60000);
-        if (isProtected) {
-            ctx.strokeStyle = '#0ff';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([2, 2]);
-            ctx.beginPath();
-            ctx.arc(0, 15, 25, Math.PI * 0.2, Math.PI * 0.8);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // Tiny blinking light
-            if (frameCount % 30 < 15) {
-                ctx.fillStyle = '#0ff';
-                ctx.beginPath();
-                ctx.arc(0, 20, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
         }
 
         ctx.restore();
@@ -467,7 +437,8 @@ class Enemy {
         player.bullets.forEach((b, i) => {
             if (b.x < this.x + this.width && b.x + b.width > this.x &&
                 b.y < this.y + this.height && b.y + b.height > this.y) {
-                this.hp--;
+                const dmg = (typeof currentUser !== 'undefined' ? currentUser.airplaneMissileMultiplier : 1.0);
+                this.hp -= dmg;
                 player.bullets.splice(i, 1);
                 if (this.hp <= 0) this.die();
             }
@@ -493,7 +464,8 @@ class Enemy {
                 });
             }
         }
-        score += 50 * stage * 20;
+        const mult = (typeof currentUser !== 'undefined' ? currentUser.airplaneScoreMultiplier : 1.0);
+        score += Math.floor(50 * stage * 0.67 * mult);
         if (Math.random() < 0.18) spawnItem(this.x, this.y);
         updateHUD();
     }
@@ -848,14 +820,14 @@ function endGame() {
     const resultTitle = document.getElementById('result-title');
     const resultMsg = document.getElementById('result-msg');
     
-    if (score >= stage * 5000 || score >= 10000) {
-        if (resultTitle) resultTitle.innerText = 'MISSION COMPLETE!';
-        if (resultMsg) resultMsg.innerText = victoryMessages[Math.floor(Math.random() * victoryMessages.length)];
-        playSFX('stage_up');
-    } else {
-        if (resultTitle) resultTitle.innerText = 'MISSION FAILED';
-        if (resultMsg) resultMsg.innerText = defeatMessages[Math.floor(Math.random() * defeatMessages.length)];
-    }
+    // Always show GAME OVER as it's an endless high-score game
+    if (resultTitle) resultTitle.innerText = 'GAME OVER';
+    
+    // Use all messages (victory/defeat) as general encouragement
+    const allMessages = [...victoryMessages, ...defeatMessages];
+    if (resultMsg) resultMsg.innerText = allMessages[Math.floor(Math.random() * allMessages.length)];
+    
+    playSFX('damage'); // Play a neutral/defeat sound instead of victory sound
     
     loadAirplaneRank('end-rank-info');
 }
@@ -974,8 +946,8 @@ function loop() {
     const spawnInterval = Math.max(5, 40 - (stage * 3) - (planeLevel * 4));
     if (frameCount % spawnInterval === 0) spawnEnemy();
 
-    // Adjusted for 20x score
-    if (score > stage * 5000 * 20 && stage < 100) {
+    // Adjusted for 1/30 of original score scaling
+    if (score > stage * 5000 * 0.67 && stage < 100) {
         stage++;
         playSFX('stage_up');
         updateHUD();
@@ -984,37 +956,8 @@ function loop() {
     // Auto-save every 10 seconds
     if (frameCount % 600 === 0) saveGameState();
 
-    // Safety Net drawing (Bottom Protection)
-    const oneMinute = 60000;
-    const elapsed = Date.now() - startTime;
-    const isProtected = (elapsed < oneMinute);
-    if (isProtected) {
-        const timeLeft = Math.ceil((oneMinute - elapsed) / 1000);
-        
-        // Brighter, more visible safety net
-        ctx.save();
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#0ff';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
-        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
-        
-        ctx.strokeStyle = '#0ff';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([15, 10]);
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 40);
-        ctx.lineTo(canvas.width, canvas.height - 40);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        ctx.fillStyle = '#0ff';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(`SAFETY NET ACTIVE: ${timeLeft}s`, canvas.width / 2, canvas.height - 15);
-        ctx.restore();
-    }
-
     for (let i = enemies.length - 1; i >= 0; i--) {
+
         const e = enemies[i];
         e.update(player);
         e.draw();
@@ -1209,14 +1152,22 @@ async function startGame() {
     
     // Reset to base defaults before loading
     lives = 3;
-    planeLevel = 1;
+    planeLevel = (typeof currentUser !== 'undefined' && currentUser.airplaneLevel) ? currentUser.airplaneLevel : 1;
     evolutionItems = 0;
     shieldLayers = 0;
     weaponLevel = 1;
     magicCount = 0;
-    hp = 100;
+    hp = planeLevel * 100;
 
-    // Load saved progression
+    // Apply 1-time item if exists
+    if (typeof currentUser !== 'undefined' && currentUser.airplaneItem !== 'basic') {
+        const item = currentUser.airplaneItem;
+        if (item === 'shield') shieldLayers = 3;
+        if (item === 'weapon') weaponLevel = 3;
+        if (item === 'magic') magicCount = 3;
+    }
+
+    // Load saved progression (Optional: can overwrite some values if needed)
     await loadGameState();
 
     gameActive = true;

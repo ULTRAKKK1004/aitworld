@@ -29,6 +29,14 @@ db.exec(`
     airplane_save TEXT,
     airplane_level INTEGER DEFAULT 1,
     airplane_shield INTEGER DEFAULT 0,
+    airplane_score_multiplier REAL DEFAULT 1.0,
+    airplane_item TEXT DEFAULT 'basic',
+    airplane_missile_multiplier REAL DEFAULT 1.0,
+    brick_paddle_multiplier REAL DEFAULT 1.0,
+    brick_score_multiplier REAL DEFAULT 1.0,
+    brick_item TEXT DEFAULT 'basic',
+    brick_ball_damage INTEGER DEFAULT 1,
+    brick_respawns INTEGER DEFAULT 10,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
@@ -88,12 +96,29 @@ addColumn('users', 'paper_rush_platform', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'airplane_save', 'TEXT');
 addColumn('users', 'airplane_level', 'INTEGER NOT NULL DEFAULT 1');
 addColumn('users', 'airplane_shield', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'brick_paddle_multiplier', 'REAL DEFAULT 1.0');
+addColumn('users', 'brick_score_multiplier', 'REAL DEFAULT 1.0');
+addColumn('users', 'brick_item', "TEXT DEFAULT 'basic'");
+addColumn('users', 'brick_ball_damage', 'INTEGER DEFAULT 1');
+addColumn('users', 'airplane_shield', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'airplane_score_multiplier', 'REAL DEFAULT 1.0');
+addColumn('users', 'airplane_item', "TEXT DEFAULT 'basic'");
+addColumn('users', 'airplane_missile_multiplier', 'REAL DEFAULT 1.0');
 
 // Data migration
 db.exec(`
   UPDATE users SET 
     airplane_best_score = CAST(IFNULL(airplane_best_score, 0) AS INTEGER),
+    airplane_score_multiplier = CAST(IFNULL(airplane_score_multiplier, 1.0) AS REAL),
+    airplane_item = IFNULL(airplane_item, 'basic'),
+    airplane_missile_multiplier = CAST(IFNULL(airplane_missile_multiplier, 1.0) AS REAL),
     brick_best_score = CAST(IFNULL(brick_best_score, 0) AS INTEGER),
+
+    brick_paddle_multiplier = CAST(IFNULL(brick_paddle_multiplier, 1.0) AS REAL),
+    brick_score_multiplier = CAST(IFNULL(brick_score_multiplier, 1.0) AS REAL),
+    brick_item = IFNULL(brick_item, 'basic'),
+    brick_ball_damage = CAST(IFNULL(brick_ball_damage, 1) AS INTEGER),
+    brick_respawns = CAST(IFNULL(brick_respawns, 10) AS INTEGER),
     hero_best_score = CAST(IFNULL(hero_best_score, 0) AS INTEGER),
     mc_world_best_score = CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
     paper_rush_best_score = CAST(IFNULL(paper_rush_best_score, 0) AS INTEGER),
