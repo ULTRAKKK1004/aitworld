@@ -327,6 +327,26 @@ class Player {
             ctx.shadowBlur = 0;
         }
 
+        // Safety Gear Visual (Bottom Protection Item)
+        const isProtected = (Date.now() - startTime < 60000);
+        if (isProtected) {
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.arc(0, 15, 25, Math.PI * 0.2, Math.PI * 0.8);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Tiny blinking light
+            if (frameCount % 30 < 15) {
+                ctx.fillStyle = '#0ff';
+                ctx.beginPath();
+                ctx.arc(0, 20, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
         ctx.restore();
 
         if (shieldLayers > 0) {
@@ -964,21 +984,34 @@ function loop() {
     // Auto-save every 10 seconds
     if (frameCount % 600 === 0) saveGameState();
 
-    // Protection bar drawing
+    // Safety Net drawing (Bottom Protection)
     const oneMinute = 60000;
-    const isProtected = (Date.now() - startTime < oneMinute);
+    const elapsed = Date.now() - startTime;
+    const isProtected = (elapsed < oneMinute);
     if (isProtected) {
-        const timeLeft = 1 - (Date.now() - startTime) / oneMinute;
-        ctx.fillStyle = `rgba(0, 255, 255, ${0.2 * timeLeft})`;
-        ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+        const timeLeft = Math.ceil((oneMinute - elapsed) / 1000);
+        
+        // Brighter, more visible safety net
+        ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#0ff';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
+        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+        
         ctx.strokeStyle = '#0ff';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([10, 5]);
+        ctx.lineWidth = 3;
+        ctx.setLineDash([15, 10]);
         ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 15);
-        ctx.lineTo(canvas.width, canvas.height - 15);
+        ctx.moveTo(0, canvas.height - 40);
+        ctx.lineTo(canvas.width, canvas.height - 40);
         ctx.stroke();
         ctx.setLineDash([]);
+        
+        ctx.fillStyle = '#0ff';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`SAFETY NET ACTIVE: ${timeLeft}s`, canvas.width / 2, canvas.height - 15);
+        ctx.restore();
     }
 
     for (let i = enemies.length - 1; i >= 0; i--) {
