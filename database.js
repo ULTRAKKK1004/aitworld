@@ -81,6 +81,10 @@ addColumn('users', 'mc_world_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'magicrush_attempts', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'paper_rush_best_score', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'paper_rush_attempts', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'paper_rush_level', 'INTEGER NOT NULL DEFAULT 1');
+addColumn('users', 'paper_rush_shield', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('users', 'paper_rush_multiplier', 'INTEGER NOT NULL DEFAULT 1');
+addColumn('users', 'paper_rush_platform', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('users', 'airplane_save', 'TEXT');
 addColumn('users', 'airplane_level', 'INTEGER NOT NULL DEFAULT 1');
 addColumn('users', 'airplane_shield', 'INTEGER NOT NULL DEFAULT 0');
@@ -93,6 +97,10 @@ db.exec(`
     hero_best_score = CAST(IFNULL(hero_best_score, 0) AS INTEGER),
     mc_world_best_score = CAST(IFNULL(mc_world_best_score, 0) AS INTEGER),
     paper_rush_best_score = CAST(IFNULL(paper_rush_best_score, 0) AS INTEGER),
+    paper_rush_level = CAST(IFNULL(paper_rush_level, 1) AS INTEGER),
+    paper_rush_shield = CAST(IFNULL(paper_rush_shield, 0) AS INTEGER),
+    paper_rush_multiplier = CAST(IFNULL(paper_rush_multiplier, 1) AS INTEGER),
+    paper_rush_platform = CAST(IFNULL(paper_rush_platform, 0) AS INTEGER),
     best_score = CAST(IFNULL(best_score, 0) AS INTEGER),
     total_score = CAST(IFNULL(total_score, 0) AS INTEGER),
     brick_attempts = CAST(IFNULL(brick_attempts, 0) AS INTEGER),

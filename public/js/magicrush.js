@@ -22,11 +22,12 @@ let baseSpeed = 5;
 let combo = 1;
 let comboTimer = 0;
 
-// Platform for first 5 seconds
+// Platform for first 5 seconds (Base)
 let platformActive = false;
 let platformTimer = 0;
 const PLATFORM_DURATION = 300; // 5 seconds at 60fps
 let platformY = 0;
+let shieldCount = 0;
 
 // Physics & Wind
 let gravity = 0.35; // Reduced to 70% of 0.5
@@ -51,6 +52,7 @@ const player = {
 
 // Entities
 let obstacles = [];
+let items = [];
 let particles = [];
 let missiles = [];
 let buildings = [];
@@ -83,9 +85,10 @@ resize();
 
 function initGame() {
     score = 0;
-    stage = 1;
-    baseSpeed = 5;
-    combo = 1;
+    stage = GAME_USER.level || 1;
+    baseSpeed = 5 + (stage - 1);
+    combo = GAME_USER.multiplier || 1;
+    shieldCount = GAME_USER.shield || 0;
     comboTimer = 0;
     frameCount = 0;
     windForce = 0;
@@ -101,9 +104,11 @@ function initGame() {
     player.angle = 0;
     
     obstacles = [];
+    items = [];
     particles = [];
     missiles = [];
     buildings = [];
+    stars = [];
     
     // Init environment
     for(let i=0; i<50; i++) {
@@ -340,11 +345,23 @@ function handleSpawns() {
     
     if (frameCount % spawnRate === 0) {
         let type = Math.random();
-        if (type < 0.3) spawnSpike();
-        else if (type < 0.6) spawnMonster();
-        else if (type < 0.8) spawnTrap();
+        if (type < 0.1) spawnPlatformItem(); // 10% chance
+        else if (type < 0.4) spawnSpike();
+        else if (type < 0.65) spawnMonster();
+        else if (type < 0.85) spawnTrap();
         else spawnSunflower();
     }
+}
+
+function spawnPlatformItem() {
+    items.push({
+        type: 'platform',
+        x: canvas.width,
+        y: Math.random() * (canvas.height - 300) + 100,
+        width: 30,
+        height: 30,
+        color: C_CYAN
+    });
 }
 
 function spawnSpike() {
@@ -417,6 +434,12 @@ function fireMissile(x, y, targetX, targetY) {
 }
 
 function updateEntities() {
+    // Items
+    for (let i = items.length - 1; i >= 0; i--) {
+        items[i].x -= baseSpeed;
+        if (items[i].x + items[i].width < 0) items.splice(i, 1);
+    }
+
     // Obstacles
     for (let i = obstacles.length - 1; i >= 0; i--) {
         let obs = obstacles[i];
@@ -474,15 +497,33 @@ function checkCollisions() {
         return x2 < x1+w1 && x2+w2 > x1 && y2 < y1+h1 && y2+h2 > y1;
     };
     
-    for (let obs of obstacles) {
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        let obs = obstacles[i];
         if (rectIntersect(px, py, pw, ph, obs.x, obs.y, obs.width, obs.height)) {
+            if (shieldCount > 0) {
+                shieldCount--;
+                obstacles.splice(i, 1);
+                playSFX('stage_up'); // Shield break sound
+                createParticles(player.x, player.y, 20, C_CYAN);
+                updateHUD();
+                return;
+            }
             gameOver();
             return;
         }
     }
     
-    for (let m of missiles) {
+    for (let i = missiles.length - 1; i >= 0; i--) {
+        let m = missiles[i];
         if (rectIntersect(px, py, pw, ph, m.x, m.y, m.width, m.height)) {
+            if (shieldCount > 0) {
+                shieldCount--;
+                missiles.splice(i, 1);
+                playSFX('stage_up');
+                createParticles(player.x, player.y, 20, C_CYAN);
+                updateHUD();
+                return;
+            }
             gameOver();
             return;
         }
@@ -698,7 +739,7 @@ function drawInitialBackground() {
 
 function updateHUD() {
     scoreDisplay.innerText = Math.floor(score);
-    stageDisplay.innerText = stage;
+    stageDisplay.innerText = stage + (shieldCount > 0 ? ` (S:${shieldCount})` : '');
 }
 
 function showCombo() {
@@ -739,7 +780,21 @@ function gameOver() {
     gameOverScreen.style.display = 'flex';
     
     submitScore(Math.floor(score));
+    saveGameState();
     fetchLeaderboard('end');
+}
+
+function saveGameState() {
+    fetch('/api/paper-rush/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            level: stage,
+            shield: shieldCount,
+            multiplier: combo,
+            platform: Math.max(0, Math.floor(platformTimer / 60))
+        })
+    }).catch(e => console.error('Save state error:', e));
 }
 
 function submitScore(finalScore) {

@@ -68,10 +68,14 @@
 
     <script>
         window.GAME_USER = {
-            id: <%= user.id %>,
+            id: parseInt("<%= user.id %>"),
             username: "<%= user.username %>",
-            attempts: <%= user.paper_rush_attempts || 0 %>,
-            bestScore: <%= user.paper_rush_best_score || 0 %>
+            attempts: parseInt("<%= user.paper_rush_attempts || 0 %>"),
+            bestScore: parseInt("<%= user.paper_rush_best_score || 0 %>"),
+            level: parseInt("<%= user.paper_rush_level || 1 %>"),
+            shield: parseInt("<%= user.paper_rush_shield || 0 %>"),
+            multiplier: parseInt("<%= user.paper_rush_multiplier || 1 %>"),
+            platform: parseInt("<%= user.paper_rush_platform || 0 %>")
         };
     </script>
     <script src="/js/magicrush.js"></script>

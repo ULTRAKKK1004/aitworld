@@ -174,7 +174,13 @@ app.get('/games/mc-world', isAuth, isPending, checkEventMode, (req, res) => {
 });
 
 app.get('/games/magicrush', isAuth, isPending, checkEventMode, (req, res) => {
-  res.render('magicrush', { user: req.user });
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    res.render('magicrush', { user: user });
+  } catch (err) {
+    console.error('Error fetching user for Magic Rush:', err);
+    res.render('magicrush', { user: req.user });
+  }
 });
 
 // Scoreboard Route
@@ -316,6 +322,18 @@ app.post('/api/airplane-shooter/save', isAuth, isPending, (req, res) => {
   }
 });
 
+app.post('/api/paper-rush/save', isAuth, isPending, (req, res) => {
+  try {
+    const { level, shield, multiplier } = req.body;
+    const user_id = req.user.id;
+    db.prepare('UPDATE users SET paper_rush_level = ?, paper_rush_shield = ?, paper_rush_multiplier = ? WHERE id = ?').run(level, shield, multiplier, user_id);
+    res.json({ success: true });
+  } catch(e) {
+    console.error('[Paper Rush Save] Error:', e);
+    res.status(500).json({ success: false, error: 'Failed to save data' });
+  }
+});
+
 app.get('/api/airplane-shooter/load', isAuth, isPending, (req, res) => {
   const user_id = req.user.id;
   try {
@@ -440,7 +458,7 @@ app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
 app.post('/admin/reset-data', isAdmin, (req, res) => {
   try {
     const { user_id } = req.body;
-    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, paper_rush_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, paper_rush_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL WHERE id = ?").run(user_id);
+    db.prepare("UPDATE users SET best_score = 0, total_score = 0, wins = 0, losses = 0, brick_attempts = 0, airplane_attempts = 0, hero_attempts = 0, mc_world_attempts = 0, paper_rush_attempts = 0, airplane_best_score = 0, mc_world_best_score = 0, brick_best_score = 0, hero_best_score = 0, paper_rush_best_score = 0, mc_world_save = NULL, mc_world_level = 1, mc_world_info = NULL, paper_rush_level = 1, paper_rush_shield = 0, paper_rush_multiplier = 1, paper_rush_platform = 0, airplane_level = 1, airplane_shield = 0 WHERE id = ?").run(user_id);
     db.prepare('DELETE FROM scores WHERE user_id = ?').run(user_id);
     res.redirect('/admin');
   } catch (e) {
@@ -681,4 +699,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3500;
 server.listen(PORT, () => {
   console.log(`[MC-World 2.0] Server running on http://localhost:${PORT}`);
+});
+host:${PORT}`);
 });

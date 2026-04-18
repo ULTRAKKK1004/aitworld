@@ -72,9 +72,9 @@
                             <th>닉네임</th>
                             <th>레벨</th>
                             <th>Brick(R)</th>
-                            <th>Airplane(R)</th>
+                            <th>Airplane(L/S)</th>
                             <th>Hero(R)</th>
-                            <th>Paper-Rush(R)</th>
+                            <th>Paper-Rush(L/S/M/P)</th>
                             <th>MC-World(L/S/I)</th>
                             <th>최고기록</th>
                             <th>총합점수</th>
@@ -96,16 +96,19 @@
                                 <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.brick_best_score || 0 %></span>
                             </td>
                             <td>
-                                <%= u.airplane_attempts %><br>
-                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.airplane_best_score || 0 %></span>
+                                Lv.<%= u.airplane_level || 1 %><br>
+                                Sh.<%= u.airplane_shield || 0 %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.airplane_best_score || 0 %> (R:<%= u.airplane_attempts %>)</span>
                             </td>
                             <td>
                                 <%= u.hero_attempts %><br>
                                 <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.hero_best_score || 0 %></span>
                             </td>
                             <td>
-                                <%= u.paper_rush_attempts %><br>
-                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.paper_rush_best_score || 0 %></span>
+                                Lv.<%= u.paper_rush_level || 1 %><br>
+                                Sh.<%= u.paper_rush_shield || 0 %><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Mul: x<%= u.paper_rush_multiplier || 1 %> | Plat: <%= u.paper_rush_platform || 0 %>s</span><br>
+                                <span style="font-size: 0.7rem; color: #aaa;">Best: <%= u.paper_rush_best_score || 0 %> (R:<%= u.paper_rush_attempts %>)</span>
                             </td>
                             <td>
                                 Lv.<%= u.mc_world_level || 1 %><br>
