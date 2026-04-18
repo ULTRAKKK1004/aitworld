@@ -146,8 +146,8 @@ class GameScene extends Phaser.Scene {
         this.physics.world.setBoundsCollision(true, true, true, false);
 
         this.physics.add.collider(this.player, this.platforms);
-        this.physics.add.collider(this.player, this.bricks, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 28)) b.hit(); });
-        this.physics.add.collider(this.player, this.itemBoxes, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 28)) b.hit(); });
+        this.physics.add.collider(this.player, this.bricks, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 32)) b.hit(); });
+        this.physics.add.collider(this.player, this.itemBoxes, (p, b) => { if (p.body.touching.up || (p.body.velocity.y < 0 && Math.abs(p.x - b.x) < 32)) b.hit(); });
         this.physics.add.collider(this.enemies, this.platforms);
         this.physics.add.collider(this.items, this.platforms);
         this.physics.add.collider(this.projectiles, this.platforms, (p) => p.destroy());
@@ -322,6 +322,16 @@ class GameScene extends Phaser.Scene {
     }
 
     addScore(pts) { GameState.score += pts * (this.player ? this.player.scoreMultiplier : 1); this.updateHUD(); }
+    
+    createParticles(x, y, color) {
+        for (let i = 0; i < 8; i++) {
+            let p = this.add.rectangle(x, y, 8, 8, color).setDepth(50);
+            this.physics.add.existing(p);
+            p.body.setVelocity(Phaser.Math.Between(-200, 200), Phaser.Math.Between(-400, -100));
+            this.tweens.add({ targets: p, alpha: 0, scale: 0, duration: 600, onComplete: () => p.destroy() });
+        }
+    }
+
     setupUI() { 
         this.hudText = this.add.text(10, 10, '', { fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(100); 
         this.timerText = this.add.text(790, 10, '', { fontSize: '24px', fill: '#ff0', stroke: '#000', strokeThickness: 4 }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
