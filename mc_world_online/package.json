@@ -1,0 +1,15 @@
+{
+  "name": "mc_world_online",
+  "version": "1.0.0",
+  "description": "MC World Online Version",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "better-sqlite3": "^12.8.0",
+    "ejs": "^5.0.1"
+  }
+}

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MC World - Tor-AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: #000; font-family: 'Malgun Gothic', sans-serif;
+            touch-action: none; -webkit-user-select: none; user-select: none;
+        }
+        #game-wrapper {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            overflow: hidden; touch-action: none;
+        }
+        #game-container {
+            width: 100%; height: 100%; display: block;
+        }
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+        }
+
+        /* 가로 모드 최적화: 좌측 상단 미션 박스 */
+        #mission-box {
+            position: absolute; top: env(safe-area-inset-top, 20px); left: env(safe-area-inset-left, 20px);
+            background: rgba(0,0,0,0.6); color: white; padding: 12px;
+            border-radius: 12px; backdrop-filter: blur(5px); pointer-events: none;
+            width: 240px;
+        }
+        
+        /* 가로 모드 최적화: 하단 중앙 핫바 (1줄 배치) */
+        #hotbar {
+            position: absolute; bottom: calc(env(safe-area-inset-bottom, 10px) + 10px); 
+            left: 50%; transform: translateX(-50%);
+            display: flex; gap: 6px;
+            background: rgba(0,0,0,0.7); padding: 8px;
+            border-radius: 12px; pointer-events: auto;
+            z-index: 20;
+        }
+        .hotbar-item {
+            width: 42px; height: 42px; border: 2px solid rgba(255,255,255,0.2);
+            background-size: 70%; background-repeat: no-repeat; background-position: center;
+            border-radius: 8px; background-color: rgba(255,255,255,0.1); position: relative;
+        }
+        .hotbar-item.active {
+            border-color: #2ecc71; background-color: rgba(46, 204, 113, 0.3);
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+        }
+        .hotbar-item span {
+            position: absolute; top: 1px; right: 3px; font-size: 9px; color: white;
+        }
+
+        /* 가로 모드 최적화: 우측 상단 미니맵 & 메뉴 */
+        #minimap-container {
+            position: absolute; top: calc(env(safe-area-inset-top, 20px) + 45px); right: env(safe-area-inset-right, 20px);
+            width: 100px; height: 100px; border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.5);
+            pointer-events: none; z-index: 20;
+        }
+
+        #game-menu-btns {
+            position: absolute; top: env(safe-area-inset-top, 20px); right: env(safe-area-inset-right, 20px);
+            display: flex; gap: 8px; z-index: 30; pointer-events: auto;
+        }
+        .menu-btn {
+            background: rgba(0,0,0,0.6); color: white; padding: 6px 12px; border-radius: 6px;
+            font-size: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.3);
+            font-weight: bold; backdrop-filter: blur(5px);
+        }
+        #save-btn { background: rgba(46, 204, 113, 0.7); }
+        #exit-btn { background: rgba(231, 76, 60, 0.7); }
+
+        /* 가로 모드 최적화: 조이스틱 & 액션 버튼 (좌우 분산) */
+        #mobile-controls {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: none; z-index: 100; /* 최상단 레이어 */
+        }
+        
+        /* 가로 모드일 때 (기기 크기 상관 없이) 조작부 표시 */
+        @media screen and (orientation: landscape) { 
+            #mobile-controls { display: block; } 
+        }
+        
+        #joystick-area {
+            position: absolute; bottom: 40px; 
+            left: 50px; width: 140px; height: 120px; /* 터치 영역 확대 */
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto;
+        }
+        #joystick-base {
+            width: 100px; height: 100px;
+            background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%; position: relative;
+        }
+        #joystick-knob {
+            position: absolute; top: 30px; left: 30px; width: 40px; height: 40px;
+            background: rgba(255,255,255,0.6); border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        #action-buttons {
+            position: absolute; bottom: 40px; 
+            right: 50px; display: flex; flex-direction: row; gap: 25px;
+            align-items: flex-end; pointer-events: none;
+        }
+        .action-btn {
+            width: 85px; height: 85px; background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; pointer-events: auto; user-select: none; font-size: 16px;
+            backdrop-filter: blur(5px);
+        }
+        #mode-btn {
+            width: 100px; height: 50px; border-radius: 12px; background: #e74c3c;
+            font-size: 14px; position: absolute; bottom: 105px; right: 0;
+        }
+        #mode-btn.build-mode { background: #2ecc71; }
+        
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 16px; height: 16px; pointer-events: none;
+        }
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: white; opacity: 0.8;
+        }
+        #crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+        #crosshair::after { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+        
+        /* Orientation Warning Overlay (Paper Rush Style) */
+        #rotate-warning {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: #000; color: #fff; z-index: 10000;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        #rotate-warning i { font-size: 5rem; margin-bottom: 20px; animation: tilt 2s infinite; }
+        @keyframes tilt { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+
+        /* 세로 모드일 때만 경고창 표시 */
+        @media screen and (orientation: portrait) {
+            #rotate-warning { display: flex !important; }
+            #game-wrapper { display: none !important; }
+        }
+
+        #intro-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); color: white; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100; text-align: center;
+        }
+        #error-log {
+            position: fixed; bottom: 10px; left: 10px; color: red; font-size: 10px;
+            background: rgba(0,0,0,0.8); z-index: 1000; pointer-events: none;
+            max-width: 90%; word-break: break-all;
+        }
+    </style>
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            var log = document.getElementById('error-log');
+            if (log) {
+                var lines = log.innerHTML.split('<br>');
+                if (lines.length > 3) lines.shift();
+                lines.push(msg + ' (' + lineNo + ':' + columnNo + ')');
+                log.innerHTML = lines.join('<br>');
+            }
+            return false;
+        };
+    </script>
+</head>
+<body>
+    <div id="rotate-warning">
+        <i class="fas fa-mobile-screen fa-rotate-90"></i>
+        <p>가로 모드로 회전해주세요!</p>
+        <p style="font-size: 14px; color: #888; margin-top: 10px;">MC World는 가로 화면에 최적화되어 있습니다.</p>
+    </div>
+
+    <div id="error-log"></div>
+    <div id="game-wrapper">
+        <div id="game-container"></div>
+        
+        <div id="ui-layer">
+            <div id="damage-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: rgba(255,0,0,0); transition: background 0.2s; z-index: 5;"></div>
+            
+            <div id="game-menu-btns">
+                <div id="save-btn" class="menu-btn">SAVE</div>
+                <div id="exit-btn" class="menu-btn">EXIT</div>
+            </div>
+
+            <div id="minimap-container"></div>
+            
+            <div id="mission-box">
+                <p style="margin:0; font-weight: bold; font-size: 11px;">STATUS & MISSION</p>
+                <p id="village-name" style="margin: 3px 0; color: #3498db; font-weight: bold; font-size: 14px;">Unknown Wilderness</p>
+                <p id="mission-text" style="font-size: 10px; margin: 3px 0; color: #bdc3c7;">몬스터를 잡아 레벨을 올리세요!</p>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                    <span style="color: #f1c40f; font-size: 12px; font-weight: bold;">Lv.<span id="player-level">1</span></span>
+                    <div style="flex: 1; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
+                        <div id="hp-bar" style="width: 100%; height: 100%; background: #e74c3c;"></div>
+                    </div>
+                </div>
+                <div style="height: 6px; background: #222; border-radius: 3px; margin-top: 4px; overflow: hidden;">
+                    <div id="mp-bar" style="width: 100%; height: 100%; background: #3498db;"></div>
+                </div>
+                <div style="height: 4px; background: #111; border-radius: 2px; margin-top: 4px; overflow: hidden;">
+                    <div id="exp-bar" style="width: 0%; height: 100%; background: #f1c40f;"></div>
+                </div>
+                <p style="margin: 5px 0 0 0; color: #2ecc71; font-size: 11px;">SCORE: <span id="score-val">0</span></p>
+                <div id="inventory-btn" style="margin-top: 8px; padding: 6px; background: #3498db; text-align: center; border-radius: 5px; cursor: pointer; pointer-events: auto; font-size: 11px; font-weight: bold;">INVENTORY (UPGRADE)</div>
+            </div>
+
+            <div id="inventory-overlay" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 320px; background: rgba(0,0,0,0.95); border: 2px solid #3498db; border-radius: 12px; padding: 20px; color: white; pointer-events: auto; z-index: 50; box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);">
+                <h2 style="margin-top: 0; text-align: center; color: #3498db; font-size: 18px;">EQUIPMENT UPGRADE</h2>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 10px;">
+                    <div style="font-size: 11px;">Sticks: <span id="inv-sticks" style="color: #f1c40f;">0</span></div>
+                    <div style="font-size: 11px;">Wood: <span id="inv-wood" style="color: #e67e22;">0</span></div>
+                    <div style="font-size: 11px;">Fruit: <span id="inv-fruit" style="color: #e74c3c;">0</span></div>
+                    <div style="font-size: 11px;">Herbs: <span id="inv-herbs" style="color: #2ecc71;">0</span></div>
+                    <div style="font-size: 11px;">Potions: <span id="inv-health-potion" style="color: #ff00ff;">0</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="use-item-btn" data-item="health_potion" style="flex: 1; padding: 8px; background: #8e44ad; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: bold;">HP POTION</button>
+                        <button class="use-item-btn" data-item="dmg_booster" style="flex: 1; padding: 8px; background: #d35400; color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: bold;">ATK BOOST</button>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div class="inv-item" id="inv-sword" style="border: 1px solid #555; padding: 10px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05);">
+                        <div style="font-weight: bold; font-size: 13px;">Sword Tier: <span id="sword-level">0 (Locked)</span></div>
+                        <div id="sword-req" style="font-size: 10px; color: #aaa; margin-top: 4px;">Unlock: Lv.3 + 10 Sticks</div>
+                    </div>
+                    <div class="inv-item" id="inv-bow" style="border: 1px solid #555; padding: 10px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05);">
+                        <div style="font-weight: bold; font-size: 13px;">Bow Tier: <span id="bow-level">0 (Locked)</span></div>
+                        <div id="bow-req" style="font-size: 10px; color: #aaa; margin-top: 4px;">Unlock: Lv.5 + 20 Sticks</div>
+                    </div>
+                </div>
+                <button id="close-inv-btn" style="width: 100%; margin-top: 15px; padding: 10px; background: #555; border: none; color: white; border-radius: 5px; cursor: pointer; font-weight: bold;">CLOSE</button>
+            </div>
+
+            <div id="crosshair"></div>
+
+            <div id="hotbar">
+                <div class="hotbar-item active" data-block="10" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/stick.png');"><span>1</span></div>
+                <div class="hotbar-item" data-block="1" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/grass_block_side.png');"><span>2</span></div>
+                <div class="hotbar-item" data-block="2" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/dirt.png');"><span>3</span></div>
+                <div class="hotbar-item" data-block="3" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/stone.png');"><span>4</span></div>
+                <div class="hotbar-item" data-block="4" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_log.png');"><span>5</span></div>
+                <div class="hotbar-item" data-block="5" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/oak_leaves.png');"><span>6</span></div>
+                <div class="hotbar-item" data-block="6" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/poppy.png');"><span>7</span></div>
+                <div class="hotbar-item" data-block="7" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/blocks/cactus_side.png');"><span>8</span></div>
+                <div class="hotbar-item" data-block="9" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/bow_pulling_2.png');"><span>9</span></div>
+                <div class="hotbar-item" data-block="11" style="background-image: url('https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.16.4/items/iron_sword.png');"><span>0</span></div>
+            </div>
+
+            <div id="mobile-controls">
+                <div id="joystick-area"><div id="joystick-knob"></div></div>
+                <div id="action-buttons">
+                    <div id="mode-btn" class="action-btn">REMOVE</div>
+                    <div class="action-btn" id="attack-btn" style="background: rgba(231, 76, 60, 0.4);">HIT</div>
+                    <div class="action-btn" id="jump-btn">JUMP</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="intro-overlay">
+            <div id="reset-data-btn">RESET DATA</div>
+            <h1 style="font-size: 32px; margin-bottom: 10px;">MC WORLD 2.0</h1>
+            <p style="font-size: 16px; opacity: 0.8;">가로 모드로 회전하여 시작</p>
+        </div>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.156.1/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.156.1/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="/js/mc-world/main.js?v=<%= Date.now() %>"></script>
+</body>
+</html>
