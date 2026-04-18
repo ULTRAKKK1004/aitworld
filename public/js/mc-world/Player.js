@@ -19,6 +19,8 @@ export class PlayerData {
         this.lastVillage = { x: 16, z: 16 };
         this.position = new THREE.Vector3(16, 60, 16);
         this.score = 0;
+        this.scoreMultiplier = 1.0;
+        this.purchasedItems = [];
         this.deathCount = 0;
         this.info = "";
         this.idleTime = 0;
@@ -477,8 +479,26 @@ export class PlayerData {
                 // Final override if server has specific level/info
                 if (data.level) this.level = data.level;
                 if (data.info) this.info = data.info;
+                if (data.multiplier) this.scoreMultiplier = data.multiplier;
+                if (data.items) {
+                    this.purchasedItems = data.items;
+                    let itemsApplied = [];
+                    // Auto-apply specific items if needed
+                    data.items.forEach(item => {
+                        if (item.item_key === 'mc_tnt_pack') {
+                            this.inventory.tnt = (this.inventory.tnt || 0) + (item.quantity * 5);
+                            itemsApplied.push(`TNT x${item.quantity * 5}`);
+                        } else if (item.item_key === 'mc_seeds') {
+                            this.inventory.herbs = (this.inventory.herbs || 0) + (item.quantity * 10);
+                            itemsApplied.push(`Seeds x${item.quantity * 10}`);
+                        }
+                    });
+                    if (itemsApplied.length > 0) {
+                        setTimeout(() => this.showNotification("Shop Items Applied: " + itemsApplied.join(", ")), 1500);
+                    }
+                }
                 
-                console.log("Load complete. Level:", this.level, "Score:", this.score);
+                console.log("Load complete. Level:", this.level, "Score:", this.score, "Multiplier:", this.scoreMultiplier);
             }
         } catch(e) {
             console.error("Load failed:", e);

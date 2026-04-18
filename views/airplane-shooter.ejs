@@ -383,6 +383,12 @@
                 <div>SHIELD: <span id="shield-status">OFF</span></div>
                 <div id="magic-indicator" style="color: #ff0; display: none;">x0</div>
             </div>
+            
+            <div id="shop-items-panel" class="stats-panel" style="border-color: #f1c40f; color: #f1c40f; font-size: 14px; min-width: 120px;">
+                <div style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #f1c40f;">SHOP ITEMS</div>
+                <div id="airplane-potions" style="cursor: pointer;" onclick="useShopItem('airplane_hp_potion')">HP Potion: <span id="potion-count">0</span> (Key: 1)</div>
+                <div id="airplane-shields" style="cursor: pointer;" onclick="useShopItem('airplane_shield')">Shield: <span id="shield-count">0</span> (Key: 2)</div>
+            </div>
         </div>
 
         <div id="game-area">
@@ -432,6 +438,72 @@
             airplaneItem: '<%= user.airplane_item || 'basic' %>',
             airplaneMissileMultiplier: <%= user.airplane_missile_multiplier || 1.0 %>
         };
+
+        let shopItems = {
+            airplane_hp_potion: 0,
+            airplane_shield: 0
+        };
+
+        async function loadShopItems() {
+            try {
+                const res = await fetch('/api/airplane-shooter/load');
+                const data = await res.json();
+                if (data.success && data.items) {
+                    data.items.forEach(item => {
+                        if (shopItems.hasOwnProperty(item.item_key)) {
+                            shopItems[item.item_key] = item.quantity;
+                        }
+                    });
+                    updateShopUI();
+                }
+            } catch (e) {
+                console.error("Failed to load shop items", e);
+            }
+        }
+
+        function updateShopUI() {
+            document.getElementById('potion-count').innerText = shopItems.airplane_hp_potion;
+            document.getElementById('shield-count').innerText = shopItems.airplane_shield;
+        }
+
+        async function useShopItem(itemKey) {
+            if (shopItems[itemKey] <= 0) return;
+
+            try {
+                const res = await fetch('/api/shop/consume', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemKey })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    shopItems[itemKey]--;
+                    updateShopUI();
+                    applyItemEffect(itemKey);
+                }
+            } catch (e) {
+                console.error("Failed to consume item", e);
+            }
+        }
+
+        function applyItemEffect(itemKey) {
+            if (typeof player === 'undefined') return;
+            
+            if (itemKey === 'airplane_hp_potion') {
+                player.hp = Math.min(player.hp + 50, 100);
+                if (typeof showNotification === 'function') showNotification("HP Potion Used! +50 HP");
+            } else if (itemKey === 'airplane_shield') {
+                player.shield = (player.shield || 0) + 100;
+                if (typeof showNotification === 'function') showNotification("Shield Battery Used! +100 Shield");
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '1') useShopItem('airplane_hp_potion');
+            if (e.key === '2') useShopItem('airplane_shield');
+        });
+
+        loadShopItems();
     </script>
     <script src="/js/airplane-logic.js"></script>
 </body>

@@ -269,7 +269,15 @@ app.get('/scoreboard', isAuth, isPending, (req, res) => {
 
 // Admin Routes
 app.get('/admin', isAdmin, (req, res) => {
-  const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
+  const users = db.prepare(`
+    SELECT u.*, 
+    (SELECT GROUP_CONCAT(si.name || "(x" || up.quantity || ")", ", ") 
+     FROM user_purchases up 
+     JOIN shop_items si ON up.item_id = si.id 
+     WHERE up.user_id = u.id) as purchases
+    FROM users u 
+    ORDER BY u.created_at DESC
+  `).all();
   const recentScores = db.prepare('SELECT s.*, u.username FROM scores s JOIN users u ON s.user_id = u.id ORDER BY s.created_at DESC LIMIT 50').all();
   const eventActivation = db.prepare('SELECT value FROM settings WHERE key = ?').get('event_activation');
   res.render('admin', { user: req.user, users, recentScores, eventActivation: eventActivation?.value === 'true' });
@@ -354,12 +362,20 @@ app.get('/api/airplane-shooter/load', isAuth, isPending, (req, res) => {
   const user_id = req.user.id;
   try {
     const row = db.prepare('SELECT airplane_save, airplane_level, airplane_shield FROM users WHERE id = ?').get(user_id);
+    const items = db.prepare(`
+      SELECT si.item_key, up.quantity 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ? AND si.game_type = 'airplane-shooter'
+    `).all(user_id);
+
     if (row) {
       res.json({
         success: true,
         saveData: (row.airplane_save && row.airplane_save.trim() !== "") ? JSON.parse(row.airplane_save) : null,
         level: row.airplane_level || 1,
-        shield: row.airplane_shield || 0
+        shield: row.airplane_shield || 0,
+        items: items
       });
     } else {
       res.json({ success: true, saveData: null, level: 1, shield: 0 });
@@ -460,16 +476,25 @@ app.post('/api/mc-world/reset', isAuth, isPending, (req, res) => {
 app.get('/api/mc-world/load', isAuth, isPending, (req, res) => {
   const user_id = req.user.id;
   try {
-    const row = db.prepare('SELECT mc_world_save, mc_world_level, mc_world_info FROM users WHERE id = ?').get(user_id);
+    const row = db.prepare('SELECT mc_world_save, mc_world_level, mc_world_info, mc_world_score_multiplier FROM users WHERE id = ?').get(user_id);
+    const items = db.prepare(`
+      SELECT si.item_key, up.quantity 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ? AND si.game_type = 'mc-world'
+    `).all(user_id);
+
     if (row) {
       res.json({ 
         success: true, 
         saveData: (row.mc_world_save && row.mc_world_save.trim() !== "") ? JSON.parse(row.mc_world_save) : null,
         level: row.mc_world_level,
-        info: row.mc_world_info
+        info: row.mc_world_info,
+        multiplier: row.mc_world_score_multiplier || 1.0,
+        items: items
       });
     } else {
-      res.json({ success: true, saveData: null, level: 1, info: null });
+      res.json({ success: true, saveData: null, level: 1, info: null, multiplier: 1.0, items: [] });
     }
   } catch(e) {
     res.status(500).json({ success: false, error: 'Failed to load data' });
@@ -875,6 +900,33 @@ app.post('/api/shop/gacha', isAuth, isPending, (req, res) => {
 
   } catch (err) {
     console.error('Gacha error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+app.post('/api/shop/consume', isAuth, isPending, (req, res) => {
+  const { itemKey } = req.body;
+  const userId = req.user.id;
+  
+  try {
+    const item = db.prepare('SELECT id FROM shop_items WHERE item_key = ?').get(itemKey);
+    if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
+    
+    const purchase = db.prepare('SELECT id, quantity FROM user_purchases WHERE user_id = ? AND item_id = ?').get(userId, item.id);
+    
+    if (!purchase || purchase.quantity <= 0) {
+      return res.status(400).json({ success: false, error: 'No items left' });
+    }
+    
+    if (purchase.quantity > 1) {
+      db.prepare('UPDATE user_purchases SET quantity = quantity - 1 WHERE id = ?').run(purchase.id);
+    } else {
+      db.prepare('DELETE FROM user_purchases WHERE id = ?').run(purchase.id);
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Consume error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

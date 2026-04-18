@@ -78,6 +78,8 @@
                             <th>MC-World(L/S/I)</th>
                             <th>최고기록</th>
                             <th>총합점수</th>
+                            <th>사용금액</th>
+                            <th>보유 아이템</th>
                             <th>전적(W/L)</th>
                             <th>액션</th>
                         </tr>
@@ -124,6 +126,16 @@
                             </td>
                             <td><strong><%= u.best_score %></strong></td>
                             <td><strong><%= u.total_score %></strong></td>
+                            <td><span style="color: #e74c3c;"><%= u.total_spent || 0 %></span></td>
+                            <td>
+                                <div style="font-size: 0.7rem; max-width: 150px; color: #2ecc71;">
+                                    <% if (u.purchases) { %>
+                                        <%= u.purchases %>
+                                    <% } else { %>
+                                        -
+                                    <% } %>
+                                </div>
+                            </td>
                             <td><%= u.wins %>W / <%= u.losses %>L</td>
                             <td>
                                 <form action="/admin/update-role" method="POST" class="action-form">
