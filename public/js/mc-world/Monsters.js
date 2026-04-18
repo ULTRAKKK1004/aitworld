@@ -38,6 +38,7 @@ class Monster {
         this.group.position.set(px + Math.cos(angle)*dist, 50, pz + Math.sin(angle)*dist);
         this.spawnPoint = this.group.position.clone();
         this.group.userData = { monster: this };
+        this.isRanged = this.level >= 10 && Math.random() < 0.3;
         this.scene.add(this.group);
     }
 
@@ -109,11 +110,10 @@ class Monster {
         if(!this.group || this.hp <= 0 || !player || !this.spawnPoint) return;
         if(this.cooldown > 0) this.cooldown -= delta;
         
-        // Dynamic Attack Range: 50% of player's bow range
-        // Player bow range is 50 + (player.level * 0.5) + bonusAtkRange
+        // Dynamic Attack Range: 1/3 of (50% of player's bow range) = ~16.6% of bow range
         let playerBowRange = 50 + (player.level * 0.5) + (player.bonusAtkRange || 0);
-        this.attackRange = player.level >= 10 ? playerBowRange * 0.5 : 4.0;
-        this.stoppingDistance = player.level >= 10 ? this.attackRange * 0.8 : 2.8;
+        this.attackRange = (this.isRanged || this instanceof BeholderBoss) ? (playerBowRange * 0.5 / 3.0) : 4.0;
+        this.stoppingDistance = (this.isRanged || this instanceof BeholderBoss) ? this.attackRange * 0.8 : 2.8;
 
         const dx = player.position.x - this.group.position.x;
         const dz = player.position.z - this.group.position.z;
@@ -171,7 +171,7 @@ class Monster {
             else {
                 this.group.lookAt(player.position.x, this.group.position.y, player.position.z);
                 if (this.cooldown <= 0) {
-                    if (player.level >= 10) {
+                    if (this.isRanged || this instanceof BeholderBoss) {
                         // Ranged attack (Beam)
                         this.shootBeam(player);
                         this.cooldown = 2.0;
