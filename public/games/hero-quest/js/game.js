@@ -56,22 +56,31 @@ class MenuScene extends Phaser.Scene {
             // Start scene immediately to avoid wait
             this.scene.start('GameScene');
 
-            // Fetch user stats in background (best effort)
+            // Fetch user stats and items
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1000);
-                const res = await fetch('/api/hero-stats', { signal: controller.signal });
+                const timeoutId = setTimeout(() => controller.abort(), 1500);
+                const res = await fetch('/api/hero/load', { signal: controller.signal });
                 clearTimeout(timeoutId);
-                const stats = await res.json();
-                if (stats) {
+                const data = await res.json();
+                if (data.success) {
+                    const stats = data.stats;
                     GameState.playerMaxHP = stats.hero_hp || 5;
                     GameState.playerHP = GameState.playerMaxHP;
                     GameState.manaRegen = stats.hero_mana_regen || 0.05;
                     GameState.playerSpeed = stats.hero_speed || 500;
                     GameState.maxJumps = stats.hero_max_jumps || 2;
                     GameState.hasShield = stats.hero_shield || 0;
+
+                    // Initialize shop items
+                    GameState.items = {};
+                    if (data.items) {
+                        data.items.forEach(item => {
+                            GameState.items[item.item_key] = item.quantity;
+                        });
+                    }
                 }
-            } catch (e) { console.warn("Background stats load failed:", e); }
+            } catch (e) { console.warn("Background data load failed:", e); }
 
             GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
             GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
@@ -309,6 +318,19 @@ class GameScene extends Phaser.Scene {
     updateHUD() { if (this.player) this.hudText.setText(`HP:${this.player.health} | MP:${Math.floor(this.player.mp)} | LIVES:${GameState.playerLives} | STAGE:${GameState.currentStage} | SCORE:${GameState.score}`); }
     showMessage(text) { let m = this.add.text(this.cameras.main.centerX, 150, text, { fontSize: '32px', fill: '#ff0', stroke: '#000', strokeThickness: 5 }).setOrigin(0.5).setScrollFactor(0).setDepth(101); this.tweens.add({ targets: m, y: 100, alpha: 0, duration: 1500, onComplete: () => m.destroy() }); }
 
+    async useShopItemSilent(itemKey) {
+        if (!GameState.items || GameState.items[itemKey] <= 0) return false;
+        GameState.items[itemKey]--;
+        try {
+            await fetch('/api/shop/consume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itemKey })
+            });
+            return true;
+        } catch (e) { console.error("Item consumption sync failed:", e); return false; }
+    }
+
     setupMobileControls() {
         if (!this.sys.game.device.input.touch && !this.sys.game.device.input.mspointer) return;
         const cw = this.cameras.main.width; const ch = this.cameras.main.height;
@@ -328,6 +350,19 @@ class GameScene extends Phaser.Scene {
     update() {
         if (!this.player || !this.player.active || this.isDying || this.isTransitioning) return;
         if (this.player.y > 480) { this.die(); return; }
+
+        // Auto-use Mana Potion if low
+        if (this.player.mp < 2 && GameState.items && GameState.items.hero_mana_potion > 0) {
+            this.useShopItemSilent('hero_mana_potion').then(success => {
+                if (success) {
+                    this.player.mp = this.player.maxMaxMP;
+                    this.showMessage("MANA POTION USED!");
+                    AudioSystem.playPowerup();
+                    this.updateHUD();
+                }
+            });
+        }
+
         let moveX = 0; let L = this.cursors.left.isDown || this.btnLeft; let R = this.cursors.right.isDown || this.btnRight;
         if (this.player.isReversed) { let t = L; L = R; R = t; }
         if (L) { moveX = -this.player.speed * 33; this.player.setFlipX(true); } else if (R) { moveX = this.player.speed * 33; this.player.setFlipX(false); }
@@ -360,8 +395,24 @@ class GameScene extends Phaser.Scene {
         GameState.isReversed = this.player.isReversed;
         GameState.scoreMultiplier = this.player.scoreMultiplier;
         this.addScore(this.timeLimit * 10); AudioSystem.playWin(); try { BGM.stop(); } catch(e) {} this.cameras.main.fade(1000, 0, 0, 0, false, (cam, pct) => { if (pct === 1) { GameState.currentStage++; this.scene.start('GameScene'); } }); }
-    die() {
-        if (this.isDying) return; this.isDying = true; GameState.playerLives--; GameState.playerHP = 5; 
+    async die() {
+        if (this.isDying) return; this.isDying = true; 
+
+        // Try using Resurrection Stone if available
+        const usedStone = await this.useShopItemSilent('hero_revive');
+        if (usedStone) {
+            this.showMessage("RESURRECTION STONE USED!");
+            AudioSystem.playPowerup();
+            this.player.health = this.player.maxHealth;
+            this.player.setTint(0x00ffff);
+            this.time.delayedCall(1000, () => {
+                this.player.clearTint();
+                this.isDying = false;
+            });
+            return;
+        }
+
+        GameState.playerLives--; GameState.playerHP = 5; 
         GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
         try { this.physics.world.pause(); if (this.player.body) this.physics.world.disable(this.player); BGM.stop(); AudioSystem.playDeath(); this.player.setTint(0xff0000); } catch(e) {}
         this.tweens.add({ targets: this.player, y: this.player.y - 120, duration: 450, ease: 'Cubic.easeOut', onComplete: () => { this.tweens.add({ targets: this.player, y: 650, duration: 700, ease: 'Cubic.easeIn', onComplete: () => { if (GameState.playerLives > 0) this.scene.restart(); else this.scene.start('GameOverScene'); } }); } });

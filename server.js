@@ -306,6 +306,28 @@ app.post('/admin/update-role', isAdmin, (req, res) => {
   }
 });
 
+app.get('/api/hero/load', isAuth, isPending, (req, res) => {
+  const user_id = req.user.id;
+  try {
+    const stats = db.prepare('SELECT hero_hp, hero_mana_regen, hero_speed, hero_max_jumps, hero_shield FROM users WHERE id = ?').get(user_id);
+    const items = db.prepare(`
+      SELECT si.item_key, up.quantity
+      FROM user_purchases up
+      JOIN shop_items si ON up.item_id = si.id
+      WHERE up.user_id = ? AND si.game_type = 'hero'
+    `).all(user_id);
+
+    res.json({
+      success: true,
+      stats: stats,
+      items: items
+    });
+  } catch (err) {
+    console.error('Error loading hero data:', err);
+    res.status(500).json({ success: false, error: 'Failed to load hero data' });
+  }
+});
+
 app.get('/api/hero-stats', isAuth, isPending, (req, res) => {
   try {
     const user = db.prepare('SELECT hero_hp, hero_mana_regen, hero_speed, hero_max_jumps, hero_shield FROM users WHERE id = ?').get(req.user.id);
