@@ -36,24 +36,32 @@ class MenuScene extends Phaser.Scene {
         const resumeAudio = () => { 
             let ctx = getAudioContext(); 
             if (ctx && ctx.state === 'suspended') {
-                ctx.resume().then(() => console.log("Audio Context Resumed"));
+                ctx.resume().catch(e => console.error("Audio Resume Error:", e));
             }
         };
         
         this.cameras.main.setBackgroundColor('#87CEEB');
+        this.add.rectangle(0, 0, 800, 480, 0x87CEEB).setOrigin(0, 0).setDepth(0).setInteractive().on('pointerdown', () => resumeAudio());
+
         this.add.rectangle(0, 300, 800, 200, 0x228B22).setOrigin(0, 0).setDepth(1);
         this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setDepth(2);
         
         const startBtn = this.add.text(this.cameras.main.centerX, 280, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
             .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1000);
+
+        const startGame = async () => {
+            console.log("Starting Game...");
+            resumeAudio();
             
-        startBtn.on('pointerdown', async () => {
-            console.log("Start Button Clicked");
-            resumeAudio(); 
-            
-            // Fetch user stats from DB before starting
+            // Start scene immediately to avoid wait
+            this.scene.start('GameScene');
+
+            // Fetch user stats in background (best effort)
             try {
-                const res = await fetch('/api/hero-stats');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1000);
+                const res = await fetch('/api/hero-stats', { signal: controller.signal });
+                clearTimeout(timeoutId);
                 const stats = await res.json();
                 if (stats) {
                     GameState.playerMaxHP = stats.hero_hp || 5;
@@ -63,13 +71,14 @@ class MenuScene extends Phaser.Scene {
                     GameState.maxJumps = stats.hero_max_jumps || 2;
                     GameState.hasShield = stats.hero_shield || 0;
                 }
-            } catch (e) { console.error("Failed to load hero stats:", e); }
+            } catch (e) { console.warn("Background stats load failed:", e); }
 
             GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
             GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
             fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
-            this.scene.start('GameScene');
-        });
+        };
+
+        startBtn.on('pointerdown', startGame);
         
         this.tweens.add({ targets: startBtn, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, loop: -1 });
 
