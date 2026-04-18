@@ -36,6 +36,7 @@ let weaponLevel = 1;
 let shieldLayers = 0;
 let magicCount = 0;
 let frameCount = 0;
+let startTime = 0;
 
 // Entities
 let player;
@@ -189,7 +190,18 @@ class Player {
         }
 
         this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
-        this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+        
+        // 1-minute crash prevention at the bottom
+        const oneMinute = 60000;
+        const isProtected = (Date.now() - startTime < oneMinute);
+        if (isProtected) {
+            this.y = Math.max(0, Math.min(canvas.height - this.height - 20, this.y));
+        } else {
+            this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+            if (this.y >= canvas.height - this.height) {
+                takeDamage(5); // Small damage for touching bottom after 1 min
+            }
+        }
 
         const now = Date.now();
         if ((keys['Space'] || keys['Enter'] || touchState.shooting) && now - this.lastShot > this.shotDelay) {
@@ -235,7 +247,7 @@ class Player {
         enemies.forEach(e => {
             e.hp = 0;
             createExplosion(e.x + e.width/2, e.y + e.height/2);
-            score += 100;
+            score += 100 * 20;
         });
         enemyBullets = [];
         updateHUD();
@@ -398,7 +410,7 @@ class Enemy {
                 });
             }
         }
-        score += 50 * stage;
+        score += 50 * stage * 20;
         if (Math.random() < 0.18) spawnItem(this.x, this.y);
         updateHUD();
     }
@@ -829,10 +841,28 @@ function loop() {
 
     if (frameCount % Math.max(8, 40 - stage * 2) === 0) spawnEnemy();
 
-    if (score > stage * 5000 && stage < 100) {
+    // Adjusted for 20x score
+    if (score > stage * 5000 * 20 && stage < 100) {
         stage++;
         playSFX('stage_up');
         updateHUD();
+    }
+
+    // Protection bar drawing
+    const oneMinute = 60000;
+    const isProtected = (Date.now() - startTime < oneMinute);
+    if (isProtected) {
+        const timeLeft = 1 - (Date.now() - startTime) / oneMinute;
+        ctx.fillStyle = `rgba(0, 255, 255, ${0.2 * timeLeft})`;
+        ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([10, 5]);
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height - 15);
+        ctx.lineTo(canvas.width, canvas.height - 15);
+        ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     for (let i = enemies.length - 1; i >= 0; i--) {
@@ -1028,6 +1058,7 @@ function startGame() {
     });
     if (startScreen) startScreen.style.display = 'none';
     gameActive = true;
+    startTime = Date.now();
     player = new Player();
     enemies = []; enemyBullets = []; items = []; explosions = [];
     score = 0; stage = 3; lives = 3; hp = 100; weaponLevel = 1;
