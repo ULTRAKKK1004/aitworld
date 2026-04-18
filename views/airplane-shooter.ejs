@@ -426,11 +426,6 @@
                 </div>
             </div>
             
-            <div id="item-controls">
-                <div id="btn-item-potion-touch" class="touch-zone btn-round btn-item" onclick="useShopItem('airplane_hp_potion')">P</div>
-                <div id="btn-item-shield-touch" class="touch-zone btn-round btn-item" onclick="useShopItem('airplane_shield')">S</div>
-            </div>
-
             <div class="action-buttons">
                 <div id="btn-magic-touch" class="touch-zone btn-round btn-magic">M</div>
                 <div id="btn-shoot-touch" class="touch-zone btn-round">FIRE</div>
@@ -491,72 +486,55 @@
         }
 
         function updateShopUI() {
-            document.getElementById('potion-count').innerText = shopItems.airplane_hp_potion;
-            document.getElementById('shield-count').innerText = shopItems.airplane_shield;
-            
-            // Toggle mobile buttons
-            const potionBtn = document.getElementById('btn-item-potion-touch');
-            const shieldBtn = document.getElementById('btn-item-shield-touch');
-            if (potionBtn) potionBtn.style.display = shopItems.airplane_hp_potion > 0 ? 'flex' : 'none';
-            if (shieldBtn) shieldBtn.style.display = shopItems.airplane_shield > 0 ? 'flex' : 'none';
+            const pot = document.getElementById('potion-count');
+            const shd = document.getElementById('shield-count');
+            if(pot) pot.innerText = shopItems.airplane_hp_potion;
+            if(shd) shd.innerText = shopItems.airplane_shield;
         }
 
-        async function useShopItem(itemKey) {
+        async function useShopItemSilent(itemKey) {
             if (shopItems[itemKey] <= 0) return;
+            shopItems[itemKey]--;
+            updateShopUI();
 
             try {
-                const res = await fetch('/api/shop/consume', {
+                await fetch('/api/shop/consume', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ itemKey })
                 });
-                const data = await res.json();
-                if (data.success) {
-                    shopItems[itemKey]--;
-                    updateShopUI();
-                    applyItemEffect(itemKey);
-                }
             } catch (e) {
-                console.error("Failed to consume item", e);
+                console.error("Failed to sync item consumption", e);
             }
         }
 
-        function applyItemEffect(itemKey) {
-            // Airplane logic uses global variables for HP and Shield
-            if (itemKey === 'airplane_hp_potion') {
-                const maxHP = planeLevel * 100;
-                hp = Math.min(hp + 50, maxHP);
-                if (typeof updateHUD === 'function') updateHUD();
-                customNotify("HP Potion Used! +50 HP");
-            } else if (itemKey === 'airplane_shield') {
-                shieldLayers = (shieldLayers || 0) + 1;
-                if (typeof updateHUD === 'function') updateHUD();
-                customNotify("Shield Battery Used! +1 Layer");
-            }
-        }
-
-        function customNotify(msg) {
+        function customNotify(msg, color = '#f1c40f') {
             const notif = document.createElement('div');
             notif.innerText = msg;
             notif.style.position = 'fixed';
-            notif.style.bottom = '250px';
+            notif.style.top = '40%';
             notif.style.left = '50%';
-            notif.style.transform = 'translateX(-50%)';
-            notif.style.background = 'rgba(241, 196, 15, 0.9)';
-            notif.style.color = '#000';
-            notif.style.padding = '10px 20px';
-            notif.style.borderRadius = '20px';
+            notif.style.transform = 'translate(-50%, -50%)';
+            notif.style.background = 'rgba(0, 0, 0, 0.8)';
+            notif.style.color = color;
+            notif.style.border = `2px solid ${color}`;
+            notif.style.padding = '20px 40px';
+            notif.style.borderRadius = '10px';
             notif.style.fontWeight = 'bold';
+            notif.style.fontSize = '24px';
             notif.style.zIndex = '1000';
-            notif.style.boxShadow = '0 0 15px rgba(241, 196, 15, 0.5)';
+            notif.style.boxShadow = `0 0 20px ${color}`;
+            notif.style.whiteSpace = 'nowrap';
+            notif.style.pointerEvents = 'none';
             document.body.appendChild(notif);
-            setTimeout(() => notif.remove(), 2000);
+            
+            setTimeout(() => {
+                notif.style.transition = 'all 0.5s';
+                notif.style.opacity = '0';
+                notif.style.transform = 'translate(-50%, -80%)';
+                setTimeout(() => notif.remove(), 500);
+            }, 2000);
         }
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === '1') useShopItem('airplane_hp_potion');
-            if (e.key === '2') useShopItem('airplane_shield');
-        });
 
         loadShopItems();
     </script>

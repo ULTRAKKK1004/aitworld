@@ -587,6 +587,49 @@ class Enemy {
             }
         }
         ctx.restore();
+
+        // Enhanced Premium Shield Visuals
+        if (shieldLayers > 0) {
+            ctx.save();
+            ctx.translate(this.x + 20, this.y + 15);
+            
+            // Outer Pulsating Ring
+            const pulse = Math.sin(frameCount * 0.1) * 5;
+            ctx.beginPath();
+            ctx.arc(0, 0, 35 + pulse, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Rotating Hexagonal Pattern (Cyber look)
+            ctx.rotate(frameCount * 0.02);
+            ctx.beginPath();
+            for(let i=0; i<6; i++) {
+                const angle = (i * Math.PI * 2) / 6;
+                const rx = Math.cos(angle) * 30;
+                const ry = Math.sin(angle) * 30;
+                if(i===0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.8)';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#0ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Energy Field Fill
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.1)';
+            ctx.fill();
+
+            // Extra floating energy bits
+            for(let i=0; i<3; i++) {
+                ctx.rotate(Math.PI * 2 / 3);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(28, -2, 4, 4);
+            }
+
+            ctx.restore();
+        }
     }
 }
 
@@ -678,7 +721,33 @@ function takeDamage(amount) {
         playSFX('shield_break');
         return;
     }
+
+    // Auto-consume Shield Battery if available from shopItems
+    if (typeof shopItems !== 'undefined' && shopItems.airplane_shield > 0) {
+        if (typeof useShopItemSilent === 'function') {
+            useShopItemSilent('airplane_shield');
+            shieldLayers += 1;
+            if (typeof customNotify === 'function') customNotify("PREMIUM SHIELD ACTIVATED!", "#0ff");
+            playSFX('shield_up');
+            updateHUD();
+            return; // Shield absorbed this hit
+        }
+    }
+
     hp -= amount;
+    
+    // Auto-consume HP Potion if death is imminent
+    const maxHP = planeLevel * 100;
+    if (hp <= 20 && typeof shopItems !== 'undefined' && shopItems.airplane_hp_potion > 0) {
+        if (typeof useShopItemSilent === 'function') {
+            useShopItemSilent('airplane_hp_potion');
+            hp = maxHP;
+            if (typeof customNotify === 'function') customNotify("유료 HP 아이템 사용 (FULL RECOVERY)", "#f1c40f");
+            playSFX('stage_up');
+            updateHUD();
+        }
+    }
+
     playSFX('damage');
     if (hp <= 0) {
         lives--;
