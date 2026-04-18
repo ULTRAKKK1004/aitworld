@@ -14,19 +14,18 @@ var LevelGenerator = {
     generate(stage) {
         if (stage % 10 === 0) return this.generateBossLevel(stage);
         
-        const theme = LevelThemes[(Math.floor((stage-1)/5)) % LevelThemes.length];
-        const width = 100 + stage * 10;
+        const width = 400 + stage * 50; // Significant increase in width
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
 
-        // Basic boundaries
-        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-1][x] = '#'; }
+        // Basic boundaries (Top and Sides only)
+        for(let x=0; x<width; x++) { layout[0][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
-        // Ground with gaps
+        // Ground with gaps (One block lower to allow more jump space)
         for(let x=1; x<width-1; x++) {
             if (x > 10 && x < width-10 && Math.random() < 0.15) {
-                // Gap
+                // Gap - goes all the way down
             } else {
                 layout[height-2][x] = '#';
                 layout[height-3][x] = '#';
@@ -34,13 +33,19 @@ var LevelGenerator = {
         }
 
         // Platforms & Obstacles
-        for(let x=5; x<width-5; x+=5) {
-            let ry = Math.floor(Math.random() * 5) + 6;
+        for(let x=5; x<width-15; x+=6) {
+            let ry = Math.floor(Math.random() * 5) + 5;
             let rw = Math.floor(Math.random() * 4) + 3;
+            let hasItem = Math.random() < 0.3;
+            let itemX = x + Math.floor(rw/2);
+
             for(let i=0; i<rw; i++) {
-                if (x+i < width-5) {
-                    layout[ry][x+i] = '-';
-                    if (Math.random() < 0.2) layout[ry-1][x+i] = (Math.random() < 0.5 ? '?' : 'B');
+                if (x+i < width-10) {
+                    if (hasItem && x+i === itemX) {
+                        layout[ry][x+i] = (Math.random() < 0.5 ? '?' : 'B');
+                    } else {
+                        layout[ry][x+i] = '-';
+                    }
                 }
             }
         }
@@ -85,11 +90,11 @@ var LevelGenerator = {
         const bossIndex = (stage / 10) % 5;
         const bosses = ['4', '5', '6', '7', '8'];
         const bossChar = bosses[Math.floor(bossIndex)];
-        const width = 100;
+        const width = 150; // Slightly wider boss room
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
         
-        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-1][x] = '#'; layout[height-2][x] = '#'; layout[height-3][x] = '#'; }
+        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-2][x] = '#'; layout[height-3][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
         layout[height-4][10] = '@';
@@ -108,10 +113,10 @@ var LevelGenerator = {
     },
 
     generateBonus(type, stage) {
-        const width = 80;
+        const width = 120; // Longer bonus
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
-        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-1][x] = '#'; layout[height-2][x] = '#'; }
+        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-2][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
         if (type === 'sky') {
