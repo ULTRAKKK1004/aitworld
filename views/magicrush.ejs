@@ -7,8 +7,29 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/magicrush.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Force Portrait Warning on Mobile */
+        #rotate-warning {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: #000; color: #fff; z-index: 10000;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        #rotate-warning i { font-size: 5rem; margin-bottom: 20px; animation: tilt 2s infinite; }
+        @keyframes tilt { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+
+        @media screen and (orientation: landscape) {
+            #rotate-warning { display: flex !important; }
+            #game-container { display: none !important; }
+        }
+    </style>
 </head>
 <body>
+    <div id="rotate-warning">
+        <i class="fas fa-mobile-screen"></i>
+        <p>세로 모드로 회전해주세요!</p>
+    </div>
+
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         
@@ -45,12 +66,13 @@
             <a href="/dashboard" class="back-btn">Back to Dashboard</a>
         </div>
 
-        <!-- Full screen tap area -->
         <div id="tap-area"></div>
     </div>
 
     <script>
-        let currentUser = {
+        // Global object expected by magicrush.js
+        window.GAME_USER = {
+            id: <%= user.id %>,
             username: "<%= user.username %>",
             attempts: parseInt("<%= user.paper_rush_attempts || 0 %>"),
             bestScore: parseInt("<%= user.paper_rush_best_score || 0 %>"),
@@ -70,7 +92,7 @@
                 const res = await fetch('/api/paper-rush/load');
                 const data = await res.json();
                 if (data.success) {
-                    if (data.multiplier) currentUser.multiplier = data.multiplier;
+                    if (data.multiplier) window.GAME_USER.multiplier = data.multiplier;
                     if (data.items) {
                         data.items.forEach(item => {
                             if (shopItems.hasOwnProperty(item.item_key)) {
@@ -96,12 +118,11 @@
                 customNotify("영구 아이템 활성화 (GOLDEN GLIDER)", "#f1c40f");
             }
             
-            // Show multiplier tag if active
-            if (currentUser.multiplier > 1) {
+            if (window.GAME_USER.multiplier > 1) {
                 const tag = document.getElementById('multiplier-tag');
                 if (tag) {
                     tag.style.display = 'block';
-                    tag.innerText = 'x' + currentUser.multiplier;
+                    tag.innerText = 'x' + window.GAME_USER.multiplier;
                 }
             }
         }
@@ -133,6 +154,7 @@
             notif.style.fontWeight = 'bold';
             notif.style.zIndex = '1000';
             notif.style.boxShadow = `0 0 15px ${color}`;
+            notif.style.pointerEvents = 'none';
             document.body.appendChild(notif);
             setTimeout(() => {
                 notif.style.transition = 'opacity 0.5s';
