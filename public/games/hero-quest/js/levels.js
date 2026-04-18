@@ -44,6 +44,10 @@ var LevelGenerator = {
                 if (x+i < width-10) {
                     if (hasItem && x+i === itemX) {
                         layout[ry][x+i] = (Math.random() < 0.5 ? '?' : 'B');
+                        // Ensure space below is clear or breakable
+                        if (layout[ry+1] && layout[ry+1][x+i] !== ' ') {
+                            layout[ry+1][x+i] = (Math.random() < 0.3 ? 'B' : ' ');
+                        }
                     } else {
                         layout[ry][x+i] = '-';
                     }
@@ -114,6 +118,7 @@ var LevelGenerator = {
     },
 
     generateBonus(type, stage) {
+        const theme = LevelThemes[Math.floor((stage - 1) / 5) % LevelThemes.length];
         const width = 120; // Longer bonus
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));

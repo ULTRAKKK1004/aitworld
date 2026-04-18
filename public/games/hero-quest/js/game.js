@@ -321,8 +321,17 @@ class GameScene extends Phaser.Scene {
     }
 
     addScore(pts) { GameState.score += pts * (this.player ? this.player.scoreMultiplier : 1); this.updateHUD(); }
-    setupUI() { this.hudText = this.add.text(10, 10, '', { fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(100); this.updateHUD(); }
-    updateHUD() { if (this.player) this.hudText.setText(`HP:${this.player.health} | MP:${Math.floor(this.player.mp)} | LIVES:${GameState.playerLives} | STAGE:${GameState.currentStage} | SCORE:${GameState.score}`); }
+    setupUI() { 
+        this.hudText = this.add.text(10, 10, '', { fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(100); 
+        this.timerText = this.add.text(790, 10, '', { fontSize: '24px', fill: '#ff0', stroke: '#000', strokeThickness: 4 }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+        this.updateHUD(); 
+    }
+    updateHUD() { 
+        if (this.player) {
+            this.hudText.setText(`HP:${this.player.health} | MP:${Math.floor(this.player.mp)} | LIVES:${GameState.playerLives} | STAGE:${GameState.currentStage} | SCORE:${GameState.score}`); 
+            this.timerText.setText(`TIME: ${Math.max(0, this.timeLimit)}`);
+        }
+    }
     showMessage(text) { let m = this.add.text(this.cameras.main.centerX, 150, text, { fontSize: '32px', fill: '#ff0', stroke: '#000', strokeThickness: 5 }).setOrigin(0.5).setScrollFactor(0).setDepth(101); this.tweens.add({ targets: m, y: 100, alpha: 0, duration: 1500, onComplete: () => m.destroy() }); }
 
     async useShopItemSilent(itemKey) {
@@ -401,7 +410,14 @@ class GameScene extends Phaser.Scene {
         GameState.isMega = this.player.isMega;
         GameState.isReversed = this.player.isReversed;
         GameState.scoreMultiplier = this.player.scoreMultiplier;
-        this.addScore(this.timeLimit * 10); AudioSystem.playWin(); try { BGM.stop(); } catch(e) {} this.cameras.main.fade(1000, 0, 0, 0, false, (cam, pct) => { if (pct === 1) { GameState.currentStage++; this.scene.start('GameScene'); } }); }
+        this.addScore(this.timeLimit * 10); AudioSystem.playWin(); try { BGM.stop(); } catch(e) {} 
+        this.cameras.main.fade(1000, 0, 0, 0, false, (cam, pct) => { 
+            if (pct === 1) { 
+                GameState.currentStage++; 
+                this.scene.start('GameScene', { bonus: null }); 
+            } 
+        }); 
+    }
     async die() {
         if (this.isDying) return; this.isDying = true; 
 

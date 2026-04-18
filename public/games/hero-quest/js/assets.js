@@ -16,38 +16,46 @@ var AssetGenerator = {
                 ctx.fillStyle = '#FFE4C4'; ctx.beginPath(); ctx.arc(20, 15, 8, 0, 7); ctx.fill();
                 ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.moveTo(15, 8); ctx.lineTo(20, 2); ctx.lineTo(25, 8); ctx.fill();
             });
-            // Regular Enemies
-            const drawE = (k, c, eyeColor = '#fff') => this.draw(scene, k, 40, 40, (ctx) => {
-                ctx.fillStyle = c; 
-                // Draw a more complex body than just a circle
-                ctx.beginPath();
-                ctx.moveTo(20, 10);
-                ctx.bezierCurveTo(35, 10, 35, 35, 20, 35);
-                ctx.bezierCurveTo(5, 35, 5, 10, 20, 10);
-                ctx.fill();
-                // Eyes
-                ctx.fillStyle = eyeColor;
-                ctx.beginPath(); ctx.arc(15, 18, 4, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(25, 18, 4, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#000';
-                ctx.beginPath(); ctx.arc(15, 18, 2, 0, Math.PI*2); ctx.fill();
-                ctx.beginPath(); ctx.arc(25, 18, 2, 0, Math.PI*2); ctx.fill();
+            // Regular Enemies (Re-designed for diversity)
+            // Pikachu-like (Electric Mouse)
+            this.draw(scene, 'enemy1', 40, 40, (ctx) => {
+                ctx.fillStyle = '#FFD700'; ctx.fillRect(10, 15, 20, 20); // Body
+                ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(5, 0); ctx.lineTo(15, 15); ctx.fill(); // Left Ear
+                ctx.beginPath(); ctx.moveTo(30, 15); ctx.lineTo(35, 0); ctx.lineTo(25, 15); ctx.fill(); // Right Ear
+                ctx.fillStyle = '#000'; ctx.fillRect(5, 0, 3, 5); ctx.fillRect(32, 0, 3, 5); // Ear tips
+                ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.arc(12, 25, 3, 0, 7); ctx.arc(28, 25, 3, 0, 7); ctx.fill(); // Cheeks
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(15, 20, 2, 0, 7); ctx.arc(25, 20, 2, 0, 7); ctx.fill(); // Eyes
             });
-            drawE('enemy1', '#8B4513'); drawE('enemy2', '#00AA00'); drawE('enemy3', '#FF0000');
+            // Charmander-like (Fire Lizard)
+            this.draw(scene, 'enemy2', 40, 40, (ctx) => {
+                ctx.fillStyle = '#FF8C00'; ctx.beginPath(); ctx.moveTo(10, 35); ctx.quadraticCurveTo(20, 10, 30, 35); ctx.fill(); // Body
+                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(20, 30, 8, 10, 0, 0, 7); ctx.fill(); // Belly
+                ctx.fillStyle = '#FF4500'; ctx.beginPath(); ctx.moveTo(30, 25); ctx.lineTo(40, 15); ctx.lineTo(35, 30); ctx.fill(); // Tail
+                ctx.fillStyle = '#FFFF00'; ctx.beginPath(); ctx.arc(40, 15, 4, 0, 7); ctx.fill(); // Tail flame
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(16, 20, 2, 0, 7); ctx.arc(24, 20, 2, 0, 7); ctx.fill(); // Eyes
+            });
+            // Squirtle-like (Turtle)
+            this.draw(scene, 'enemy3', 40, 40, (ctx) => {
+                ctx.fillStyle = '#8B4513'; ctx.beginPath(); ctx.ellipse(20, 25, 15, 12, 0, 0, 7); ctx.fill(); // Shell
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke(); 
+                ctx.fillStyle = '#87CEEB'; ctx.beginPath(); ctx.arc(20, 15, 10, 0, 7); ctx.fill(); // Head
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(17, 13, 2, 0, 7); ctx.arc(23, 13, 2, 0, 7); ctx.fill(); // Eyes
+            });
             
             // New Diverse Enemies
-            // Slime-like
+            // Slime-like (Ditto-ish)
             this.draw(scene, 'slime', 40, 40, (ctx) => {
-                ctx.fillStyle = '#00FF7F'; ctx.beginPath();
-                ctx.moveTo(5, 35); ctx.quadraticCurveTo(20, 5, 35, 35); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(15, 25, 3, 0, 7); ctx.arc(25, 25, 3, 0, 7); ctx.fill();
+                ctx.fillStyle = '#DDA0DD'; ctx.beginPath();
+                ctx.moveTo(5, 35); ctx.quadraticCurveTo(5, 15, 20, 15); ctx.quadraticCurveTo(35, 15, 35, 35); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.fillRect(14, 22, 2, 2); ctx.fillRect(24, 22, 2, 2); // Small eyes
+                ctx.beginPath(); ctx.moveTo(16, 28); ctx.lineTo(24, 28); ctx.stroke(); // Simple mouth
             });
-            // Bat-like (Flying)
+            // Bat-like (Zubat-ish)
             this.draw(scene, 'bat', 40, 40, (ctx) => {
                 ctx.fillStyle = '#4B0082'; ctx.beginPath();
-                ctx.moveTo(20, 15); ctx.lineTo(5, 10); ctx.lineTo(10, 25); ctx.lineTo(20, 20);
-                ctx.lineTo(30, 25); ctx.lineTo(35, 10); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.arc(17, 18, 2, 0, 7); ctx.arc(23, 18, 2, 0, 7); ctx.fill();
+                ctx.moveTo(20, 15); ctx.lineTo(5, 5); ctx.lineTo(10, 25); ctx.lineTo(20, 20);
+                ctx.lineTo(30, 25); ctx.lineTo(35, 5); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(17, 18, 2, 0, 7); ctx.arc(23, 18, 2, 0, 7); ctx.fill();
             });
             // Bird-like (Flying)
             this.draw(scene, 'bird', 40, 40, (ctx) => {
