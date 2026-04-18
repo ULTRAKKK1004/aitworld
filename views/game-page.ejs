@@ -228,6 +228,12 @@
         function customNotify(msg, color = '#0ff') {
             const container = document.getElementById('active-effects');
             if (!container) return;
+            
+            // Limit to 3 messages
+            while (container.children.length >= 3) {
+                container.removeChild(container.firstChild);
+            }
+
             const el = document.createElement('div');
             el.className = 'effect-text';
             el.style.borderColor = color;
@@ -235,7 +241,7 @@
             el.style.textShadow = `0 0 10px ${color}`;
             el.innerText = msg;
             container.appendChild(el);
-            setTimeout(() => el.remove(), 5000);
+            setTimeout(() => { if(el.parentNode === container) el.remove(); }, 5000);
         }
         
         // Track attempts for this game
