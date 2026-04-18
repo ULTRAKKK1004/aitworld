@@ -14,6 +14,7 @@ var LevelGenerator = {
     generate(stage) {
         if (stage % 10 === 0) return this.generateBossLevel(stage);
         
+        const theme = LevelThemes[Math.floor((stage - 1) / 5) % LevelThemes.length];
         const width = 400 + stage * 50; // Significant increase in width
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
