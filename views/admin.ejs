@@ -146,6 +146,7 @@
                                         <option value="ADMIN" <%= u.role === 'ADMIN' ? 'selected' : '' %>>관리자</option>
                                     </select>
                                 </form>
+                                <a href="/admin/inventory/<%= u.id %>" class="btn-small btn-update" style="text-decoration: none; display: inline-block;">아이템 관리</a>
                                 <form action="/admin/reset-data" method="POST" class="action-form" onsubmit="return confirm('정말 이 회원의 게임 데이터를 초기화하시겠습니까?')">
                                     <input type="hidden" name="user_id" value="<%= u.id %>">
                                     <button type="submit" class="btn-small btn-reset">데이터 초기화</button>

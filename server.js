@@ -931,6 +931,75 @@ app.post('/api/shop/consume', isAuth, isPending, (req, res) => {
   }
 });
 
+// --- Inventory Route ---
+app.get('/inventory', isAuth, isPending, (req, res) => {
+  try {
+    const inventory = db.prepare(`
+      SELECT si.*, up.quantity 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ? AND up.quantity > 0
+    `).all(req.user.id);
+    
+    // Also get active multipliers
+    const user = db.prepare('SELECT airplane_score_multiplier, mc_world_score_multiplier, paper_rush_multiplier, brick_score_multiplier, hero_score_multiplier FROM users WHERE id = ?').get(req.user.id);
+    
+    res.render('inventory', { 
+      user: req.user, 
+      inventory: inventory,
+      multipliers: user
+    });
+  } catch (err) {
+    console.error('Error loading inventory:', err);
+    res.status(500).send('Failed to load inventory');
+  }
+});
+
+// Admin Inventory Management
+app.get('/admin/inventory/:id', isAdmin, (req, res) => {
+  const targetUserId = req.params.id;
+  try {
+    const targetUser = db.prepare('SELECT id, username, email FROM users WHERE id = ?').get(targetUserId);
+    const allItems = db.prepare('SELECT * FROM shop_items').all();
+    const userItems = db.prepare(`
+      SELECT si.id as item_id, si.name, up.quantity 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ?
+    `).all(targetUserId);
+
+    res.render('admin-inventory', { 
+      user: req.user, 
+      targetUser, 
+      allItems, 
+      userItems 
+    });
+  } catch (err) {
+    res.status(500).send('Admin error');
+  }
+});
+
+app.post('/admin/inventory/update', isAdmin, (req, res) => {
+  const { user_id, item_id, quantity } = req.body;
+  const qty = parseInt(quantity);
+  
+  try {
+    if (qty <= 0) {
+      db.prepare('DELETE FROM user_purchases WHERE user_id = ? AND item_id = ?').run(user_id, item_id);
+    } else {
+      const existing = db.prepare('SELECT id FROM user_purchases WHERE user_id = ? AND item_id = ?').get(user_id, item_id);
+      if (existing) {
+        db.prepare('UPDATE user_purchases SET quantity = ? WHERE id = ?').run(qty, existing.id);
+      } else {
+        db.prepare('INSERT INTO user_purchases (user_id, item_id, quantity) VALUES (?, ?, ?)').run(user_id, item_id, qty);
+      }
+    }
+    res.redirect(`/admin/inventory/${user_id}`);
+  } catch (err) {
+    res.status(500).send('Update error');
+  }
+});
+
 const PORT = process.env.PORT || 3500;
 server.listen(PORT, () => {
   console.log(`[MC-World 2.0] Server running on http://localhost:${PORT}`);

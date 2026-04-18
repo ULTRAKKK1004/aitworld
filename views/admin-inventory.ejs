@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage User Inventory - TOR-AI Admin</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .admin-inv-container { max-width: 900px; margin: 40px auto; padding: 20px; background: var(--card-bg); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
+        .edit-form { display: flex; gap: 10px; align-items: center; }
+        input[type="number"] { width: 80px; padding: 5px; background: #222; color: #fff; border: 1px solid #444; }
+        .btn-update { background: var(--primary); color: #000; border: none; padding: 5px 15px; cursor: pointer; font-weight: bold; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="admin-inv-container">
+        <h1 style="color: var(--primary);">Inventory Management</h1>
+        <p>User: <strong><%= targetUser.username %></strong> (<%= targetUser.email %>)</p>
+        <a href="/admin" style="color: #aaa; text-decoration: none;">← Back to Admin Dashboard</a>
+
+        <h2 style="margin-top: 40px; color: #fff;">Update Quantities</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Item Name</th>
+                    <th>Current Quantity</th>
+                    <th>Update To</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% allItems.forEach(item => { %>
+                    <% let current = userItems.find(ui => ui.item_id === item.id); %>
+                    <tr>
+                        <td><%= item.name %> (<%= item.game_type %>)</td>
+                        <td><%= current ? current.quantity : 0 %></td>
+                        <td>
+                            <form action="/admin/inventory/update" method="POST" class="edit-form">
+                                <input type="hidden" name="user_id" value="<%= targetUser.id %>">
+                                <input type="hidden" name="item_id" value="<%= item.id %>">
+                                <input type="number" name="quantity" value="<%= current ? current.quantity : 0 %>" min="0">
+                                <button type="submit" class="btn-update">Set</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
