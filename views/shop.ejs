@@ -38,6 +38,7 @@
         .category-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
         .tab-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 8px 15px; border-radius: 30px; cursor: pointer; font-size: 0.9rem; }
         .tab-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -67,6 +68,21 @@
             <button class="tab-btn" onclick="filterItems('hero')">Hero</button>
             <button class="tab-btn" onclick="filterItems('mc-world')">MC World</button>
             <button class="tab-btn" onclick="filterItems('paper_rush')">Paper Rush</button>
+        </div>
+
+        <div class="gacha-section" style="margin-bottom: 50px; background: linear-gradient(135deg, rgba(241, 196, 15, 0.1), rgba(155, 89, 182, 0.1)); padding: 30px; border-radius: 20px; border: 2px dashed #f1c40f; text-align: center;">
+            <h2 style="color: #f1c40f; margin-top: 0;"><i class="fas fa-random"></i> LUCKY GACHA</h2>
+            <p>10번의 게임 플레이마다 1번의 뽑기 기회가 주어집니다!</p>
+            <div style="font-size: 1.2rem; margin: 20px 0; font-weight: bold;">
+                현재 가능한 뽑기: <span id="gacha-count" style="color: #f1c40f; font-size: 2rem;"><%= remainingDraws %></span> 회
+            </div>
+            <button id="gacha-btn" class="buy-btn" style="background: #f1c40f; padding: 15px 40px; font-size: 1.1rem;" onclick="drawGacha()" <%= remainingDraws <= 0 ? 'disabled' : '' %>>
+                뽑기 시작 (무료)
+            </button>
+            
+            <div id="gacha-result" style="margin-top: 20px; padding: 15px; border-radius: 10px; display: none; background: rgba(255,255,255,0.05); animation: fadeIn 0.5s;">
+                <h3 id="result-text" style="margin:0; color: #fff;"></h3>
+            </div>
         </div>
 
         <div class="item-grid">
@@ -114,6 +130,46 @@
     </div>
 
     <script>
+        async function drawGacha() {
+            const btn = document.getElementById('gacha-btn');
+            const resultBox = document.getElementById('gacha-result');
+            const resultText = document.getElementById('result-text');
+            
+            btn.disabled = true;
+            resultText.innerText = "상자를 여는 중...";
+            resultBox.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/shop/gacha', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    const res = data.result;
+                    let msg = "";
+                    if (res.type === 'multiplier') {
+                        msg = `축하합니다! ${res.game.toUpperCase()} 점수 ${res.value}배 배율권을 획득했습니다! (1회성)`;
+                    } else {
+                        msg = `축하합니다! '${res.name}' 아이템을 획득했습니다!`;
+                    }
+                    
+                    resultText.innerText = msg;
+                    resultText.style.color = '#f1c40f';
+                    document.getElementById('gacha-count').innerText = data.remaining;
+                    if (data.remaining <= 0) btn.disabled = true;
+                    else btn.disabled = false;
+                    
+                    setTimeout(() => { if(confirm(msg + "\n\n인벤토리를 확인하시겠습니까?")) location.reload(); }, 1500);
+                } else {
+                    alert('뽑기 실패: ' + data.error);
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                alert('통신 오류가 발생했습니다.');
+                btn.disabled = false;
+            }
+        }
+
         async function buyItem(itemId, itemName, price) {
             const currentBalance = parseInt(document.getElementById('current-balance').innerText);
             if (currentBalance < price) {

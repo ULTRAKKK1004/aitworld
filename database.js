@@ -40,6 +40,9 @@ db.exec(`
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     total_spent INTEGER DEFAULT 0,
+    gacha_draws_used INTEGER DEFAULT 0,
+    hero_score_multiplier REAL DEFAULT 1.0,
+    mc_world_score_multiplier REAL DEFAULT 1.0,
     created_at DATETIME DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
   );
 
@@ -130,6 +133,9 @@ addColumn('users', 'hero_speed', 'INTEGER DEFAULT 500');
 addColumn('users', 'hero_max_jumps', 'INTEGER DEFAULT 2');
 addColumn('users', 'hero_shield', 'INTEGER DEFAULT 0');
 addColumn('users', 'total_spent', 'INTEGER DEFAULT 0');
+addColumn('users', 'gacha_draws_used', 'INTEGER DEFAULT 0');
+addColumn('users', 'hero_score_multiplier', 'REAL DEFAULT 1.0');
+addColumn('users', 'mc_world_score_multiplier', 'REAL DEFAULT 1.0');
 
 // Initial Shop Items
 const items = [

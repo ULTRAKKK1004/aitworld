@@ -569,7 +569,22 @@ app.post('/api/submit-score', isAuth, isPending, (req, res) => {
       // Manually update the passport session user object
       req.login(updatedUser, (err) => {
         if (err) console.error('[Session Refresh Error]', err);
-        console.log(`[Score Submit Success] User:${user_id} session refreshed.`);
+        
+        // Step 5: Reset multiplier for this game (one-time use)
+        const multiplierColumnMap = {
+          'airplane-shooter': 'airplane_score_multiplier',
+          'brick': 'brick_score_multiplier',
+          'hero': 'hero_score_multiplier',
+          'mc-world': 'mc_world_score_multiplier',
+          'magicrush': 'paper_rush_multiplier',
+          'paper_rush': 'paper_rush_multiplier'
+        };
+        const multCol = multiplierColumnMap[gameType];
+        if (multCol) {
+          db.prepare(`UPDATE users SET ${multCol} = 1.0 WHERE id = ?`).run(user_id);
+        }
+
+        console.log(`[Score Submit Success] User:${user_id} session refreshed and multipliers reset.`);
         res.json({ success: true, updatedScores: {
           best_score: updatedUser.best_score,
           total_score: updatedUser.total_score,
@@ -726,7 +741,18 @@ app.get('/games/mc-world-online', (req, res) => {
 app.get('/shop', isAuth, isPending, (req, res) => {
   try {
     const items = db.prepare('SELECT * FROM shop_items').all();
-    const user = db.prepare('SELECT total_score, total_spent FROM users WHERE id = ?').get(req.user.id);
+    const user = db.prepare(`
+      SELECT total_score, total_spent, gacha_draws_used, 
+             airplane_attempts, brick_attempts, hero_attempts, mc_world_attempts, paper_rush_attempts 
+      FROM users WHERE id = ?
+    `).get(req.user.id);
+
+    const totalAttempts = (user.airplane_attempts || 0) + (user.brick_attempts || 0) + 
+                         (user.hero_attempts || 0) + (user.mc_world_attempts || 0) + 
+                         (user.paper_rush_attempts || 0);
+    const allowedDraws = Math.floor(totalAttempts / 10);
+    const remainingDraws = allowedDraws - (user.gacha_draws_used || 0);
+
     const purchases = db.prepare(`
       SELECT si.name, si.item_key, up.quantity, up.purchased_at 
       FROM user_purchases up 
@@ -738,6 +764,7 @@ app.get('/shop', isAuth, isPending, (req, res) => {
     res.render('shop', { 
       user: req.user, 
       userData: user,
+      remainingDraws: remainingDraws,
       items: items,
       purchases: purchases
     });
@@ -791,6 +818,63 @@ app.post('/api/shop/buy', isAuth, isPending, (req, res) => {
     
   } catch (err) {
     console.error('Purchase error:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+app.post('/api/shop/gacha', isAuth, isPending, (req, res) => {
+  const userId = req.user.id;
+  try {
+    const user = db.prepare(`
+      SELECT 
+        airplane_attempts, brick_attempts, hero_attempts, mc_world_attempts, paper_rush_attempts, 
+        gacha_draws_used 
+      FROM users WHERE id = ?
+    `).get(userId);
+
+    const totalAttempts = (user.airplane_attempts || 0) + (user.brick_attempts || 0) + 
+                         (user.hero_attempts || 0) + (user.mc_world_attempts || 0) + 
+                         (user.paper_rush_attempts || 0);
+    
+    const allowedDraws = Math.floor(totalAttempts / 10);
+    const remainingDraws = allowedDraws - (user.gacha_draws_used || 0);
+
+    if (remainingDraws <= 0) {
+      return res.status(400).json({ success: false, error: 'No gacha draws available. Play more games!' });
+    }
+
+    // Gacha Pool
+    const random = Math.random();
+    let result = {};
+
+    if (random < 0.6) { // 60% chance for Multiplier
+      const games = ['airplane_score_multiplier', 'brick_score_multiplier', 'hero_score_multiplier', 'mc_world_score_multiplier', 'paper_rush_multiplier'];
+      const multipliers = [1.5, 2.0, 2.5, 3.0, 4.0, 5.0];
+      const game = games[Math.floor(Math.random() * games.length)];
+      const val = multipliers[Math.floor(Math.random() * multipliers.length)];
+      
+      db.prepare(`UPDATE users SET ${game} = ? WHERE id = ?`).run(val, userId);
+      result = { type: 'multiplier', game: game.replace('_score_multiplier', '').replace('_multiplier', ''), value: val };
+    } else { // 40% chance for Item
+      const items = db.prepare('SELECT * FROM shop_items WHERE category = "consumable"').all();
+      const item = items[Math.floor(Math.random() * items.length)];
+      
+      const existing = db.prepare('SELECT id FROM user_purchases WHERE user_id = ? AND item_id = ?').get(userId, item.id);
+      if (existing) {
+        db.prepare('UPDATE user_purchases SET quantity = quantity + 1 WHERE id = ?').run(existing.id);
+      } else {
+        db.prepare('INSERT INTO user_purchases (user_id, item_id, quantity) VALUES (?, ?, 1)').run(userId, item.id);
+      }
+      result = { type: 'item', name: item.name };
+    }
+
+    // Increment draws used
+    db.prepare('UPDATE users SET gacha_draws_used = gacha_draws_used + 1 WHERE id = ?').run(userId);
+
+    res.json({ success: true, result, remaining: remainingDraws - 1 });
+
+  } catch (err) {
+    console.error('Gacha error:', err);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
