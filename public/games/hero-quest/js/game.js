@@ -32,41 +32,54 @@ class BootScene extends Phaser.Scene {
 class MenuScene extends Phaser.Scene {
     constructor() { super('MenuScene'); }
     create() {
-        const resumeAudio = () => { let ctx = getAudioContext(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
-        this.input.once('pointerdown', resumeAudio);
+        console.log("MenuScene Created");
+        const resumeAudio = () => { 
+            let ctx = getAudioContext(); 
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().then(() => console.log("Audio Context Resumed"));
+            }
+        };
+        
         this.cameras.main.setBackgroundColor('#87CEEB');
         this.add.rectangle(0, 300, 800, 200, 0x228B22).setOrigin(0, 0).setDepth(1);
         this.add.text(this.cameras.main.centerX, 100, "SUPER HERO QUEST DX", { fontSize: '56px', fill: '#FFD700', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setDepth(2);
         
         const startBtn = this.add.text(this.cameras.main.centerX, 280, "[ START GAME ]", { fontSize: '36px', fill: '#0f0', stroke: '#000', strokeThickness: 4 })
-            .setOrigin(0.5).setInteractive().setDepth(10).on('pointerdown', async () => {
-                resumeAudio(); 
-                
-                // Fetch user stats from DB before starting
-                try {
-                    const res = await fetch('/api/hero-stats');
-                    const stats = await res.json();
-                    if (stats) {
-                        GameState.playerMaxHP = stats.hero_hp || 5;
-                        GameState.playerHP = GameState.playerMaxHP;
-                        GameState.manaRegen = stats.hero_mana_regen || 0.05;
-                        GameState.playerSpeed = stats.hero_speed || 500;
-                        GameState.maxJumps = stats.hero_max_jumps || 2;
-                        GameState.hasShield = stats.hero_shield || 0;
-                    }
-                } catch (e) { console.error("Failed to load hero stats:", e); }
+            .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1000);
+            
+        startBtn.on('pointerdown', async () => {
+            console.log("Start Button Clicked");
+            resumeAudio(); 
+            
+            // Fetch user stats from DB before starting
+            try {
+                const res = await fetch('/api/hero-stats');
+                const stats = await res.json();
+                if (stats) {
+                    GameState.playerMaxHP = stats.hero_hp || 5;
+                    GameState.playerHP = GameState.playerMaxHP;
+                    GameState.manaRegen = stats.hero_mana_regen || 0.05;
+                    GameState.playerSpeed = stats.hero_speed || 500;
+                    GameState.maxJumps = stats.hero_max_jumps || 2;
+                    GameState.hasShield = stats.hero_shield || 0;
+                }
+            } catch (e) { console.error("Failed to load hero stats:", e); }
 
-                GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
-                GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
-                fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
-                this.scene.start('GameScene');
-            });
+            GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
+            GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
+            fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
+            this.scene.start('GameScene');
+        });
+        
         this.tweens.add({ targets: startBtn, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, loop: -1 });
 
         const backBtn = this.add.text(this.cameras.main.centerX, 380, "[ BACK TO DASHBOARD ]", { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 3 })
-            .setOrigin(0.5).setInteractive().setDepth(10).on('pointerdown', () => {
-                window.location.href = '/dashboard';
-            });
+            .setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(1000);
+            
+        backBtn.on('pointerdown', () => {
+            console.log("Back Button Clicked");
+            window.location.href = '/dashboard';
+        });
     }
 }
 
