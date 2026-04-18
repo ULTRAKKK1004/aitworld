@@ -3,59 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>PAPER RUSH - Tor-AI</title>
+    <title>Paper Rush 1987 - Tor-AI</title>
+    <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/magicrush.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div id="rotate-warning">
-        <i class="fas fa-mobile-screen fa-rotate-90"></i>
-        <p>가로 모드로 회전해주세요!</p>
-    </div>
-
     <div id="game-container">
-        <canvas id="game-canvas"></canvas>
-
-        <div class="hud">
-            <div class="stats-panel">
-                <div class="stat-box">
-                    <span class="label">STAGE</span>
-                    <span class="value" id="stage-display">1</span>
-                </div>
-                <div class="stat-box">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div class="hud">
+                <div class="stat-group">
                     <span class="label">SCORE</span>
-                    <span class="value" id="score-display" style="color: #0ff;">0</span>
+                    <span class="value" id="current-score">0</span>
                 </div>
-                <div class="stat-box best">
+                <div class="stat-group">
                     <span class="label">BEST</span>
                     <span class="value" id="best-score"><%= user.paper_rush_best_score || 0 %></span>
                 </div>
+                <div id="multiplier-tag" style="display:none; background:#f1c40f; color:#000; padding:2px 8px; border-radius:10px; font-weight:bold; font-size:12px;">x1.0</div>
             </div>
-            <div class="wind-indicator" id="wind-indicator">
-                <span class="label">WIND</span>
-                <i class="fas fa-arrow-right" id="wind-arrow"></i>
-                <span class="wind-power" id="wind-power">0</span>
-            </div>
-            <div class="combo-display" id="combo-display" style="display: none;">
-                COMBO x<span id="combo-value">1</span>
-            </div>
+            
+            <div class="guide-text">TAP TO START & FLY</div>
         </div>
 
-        <div id="start-screen" class="overlay-screen">
-            <h1 class="glitch" data-text="PAPER RUSH">PAPER RUSH</h1>
-            <p>바람을 타고 사이버펑크 도시를 돌파하세요!</p>
-            <p class="desc">화면을 탭(또는 스페이스바)하여 상승. 바람의 방향과 위험 요소를 주의하세요.</p>
-            <button id="start-btn">START FLIGHT</button>
-            <div id="start-rank-info">Loading Leaderboard...</div>
-            <a href="/dashboard" class="back-btn">Back to Dashboard</a>
-        </div>
-
-        <div id="game-over-screen" class="overlay-screen" style="display: none;">
-            <h1 style="color: #ff0055;">CRASHED!</h1>
-            <div class="final-stats">
-                <p>STAGE: <span id="final-stage"></span></p>
-                <p>SCORE: <span id="final-score"></span></p>
-                <p style="font-size: 1rem; color: #ffcc00;" id="taunt-msg"></p>
+        <div id="game-over-screen" class="hidden">
+            <h1>FLIGHT ENDED</h1>
+            <div class="score-display">
+                <div class="final-stat">
+                    <span>SCORE</span>
+                    <span id="final-score">0</span>
+                </div>
+                <div class="final-stat highlight">
+                    <span>BEST</span>
+                    <span id="final-best">0</span>
+                </div>
             </div>
             <button id="restart-btn">RETRY FLIGHT</button>
             <div id="end-rank-info">Loading Leaderboard...</div>
@@ -67,8 +50,7 @@
     </div>
 
     <script>
-        window.GAME_USER = {
-            id: parseInt("<%= user.id %>"),
+        let currentUser = {
             username: "<%= user.username %>",
             attempts: parseInt("<%= user.paper_rush_attempts || 0 %>"),
             bestScore: parseInt("<%= user.paper_rush_best_score || 0 %>"),
@@ -77,6 +59,89 @@
             multiplier: parseInt("<%= user.paper_rush_multiplier || 1 %>"),
             platform: parseInt("<%= user.paper_rush_platform || 0 %>")
         };
+
+        let shopItems = {
+            paper_wind_boost: 0,
+            paper_golden_glider: 0
+        };
+
+        async function loadShopItems() {
+            try {
+                const res = await fetch('/api/paper-rush/load');
+                const data = await res.json();
+                if (data.success) {
+                    if (data.multiplier) currentUser.multiplier = data.multiplier;
+                    if (data.items) {
+                        data.items.forEach(item => {
+                            if (shopItems.hasOwnProperty(item.item_key)) {
+                                shopItems[item.item_key] = item.quantity;
+                            }
+                        });
+                        applyPaperShopItems();
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load shop items", e);
+            }
+        }
+
+        function applyPaperShopItems() {
+            if (shopItems.paper_wind_boost > 0) {
+                useShopItemSilent('paper_wind_boost');
+                if (typeof setWindBoost === 'function') setWindBoost(true);
+                customNotify("유료 아이템 사용 (WIND BOOST)", "#0ff");
+            }
+            if (shopItems.paper_golden_glider > 0) {
+                if (typeof setGoldenGlider === 'function') setGoldenGlider(true);
+                customNotify("영구 아이템 활성화 (GOLDEN GLIDER)", "#f1c40f");
+            }
+            
+            // Show multiplier tag if active
+            if (currentUser.multiplier > 1) {
+                const tag = document.getElementById('multiplier-tag');
+                if (tag) {
+                    tag.style.display = 'block';
+                    tag.innerText = 'x' + currentUser.multiplier;
+                }
+            }
+        }
+
+        async function useShopItemSilent(itemKey) {
+            try {
+                await fetch('/api/shop/consume', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemKey })
+                });
+            } catch (e) {
+                console.error("Failed to sync item consumption", e);
+            }
+        }
+
+        function customNotify(msg, color = '#f1c40f') {
+            const notif = document.createElement('div');
+            notif.innerText = msg;
+            notif.style.position = 'fixed';
+            notif.style.top = '20%';
+            notif.style.left = '50%';
+            notif.style.transform = 'translate(-50%, -50%)';
+            notif.style.background = 'rgba(0, 0, 0, 0.8)';
+            notif.style.color = color;
+            notif.style.border = `2px solid ${color}`;
+            notif.style.padding = '15px 30px';
+            notif.style.borderRadius = '10px';
+            notif.style.fontWeight = 'bold';
+            notif.style.zIndex = '1000';
+            notif.style.boxShadow = `0 0 15px ${color}`;
+            document.body.appendChild(notif);
+            setTimeout(() => {
+                notif.style.transition = 'opacity 0.5s';
+                notif.style.opacity = '0';
+                setTimeout(() => notif.remove(), 500);
+            }, 3000);
+        }
+
+        loadShopItems();
     </script>
     <script src="/js/magicrush.js"></script>
 </body>

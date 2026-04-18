@@ -689,10 +689,17 @@ function drawPlayer() {
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
     
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = C_CYAN;
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = C_CYAN;
+    if (hasGoldenGlider) {
+        ctx.shadowBlur = 35;
+        ctx.shadowColor = '#f1c40f';
+        ctx.fillStyle = '#f1c40f';
+        ctx.strokeStyle = '#fff';
+    } else {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = C_CYAN;
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = C_CYAN;
+    }
     ctx.lineWidth = 2;
     
     // Draw paper airplane shape
@@ -705,6 +712,12 @@ function drawPlayer() {
     
     ctx.fill();
     ctx.stroke();
+
+    // Extra sparkle for Golden Glider
+    if (hasGoldenGlider && Math.random() > 0.5) {
+        spawnParticle(player.x - 20, player.y, '#f1c40f');
+    }
+
     ctx.restore();
 }
 
@@ -736,6 +749,20 @@ function drawInitialBackground() {
     for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
     for(let i=0; i<canvas.height; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
 }
+
+let hasWindBoost = false;
+let hasGoldenGlider = false;
+
+window.setWindBoost = function(active) {
+    hasWindBoost = active;
+    if (active && player) {
+        player.lift = -0.36; // 20% stronger lift than default -0.3
+    }
+};
+
+window.setGoldenGlider = function(active) {
+    hasGoldenGlider = active;
+};
 
 function updateHUD() {
     scoreDisplay.innerText = Math.floor(score);

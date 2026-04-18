@@ -419,6 +419,37 @@ app.get('/api/brick/load', isAuth, isPending, (req, res) => {
   }
 });
 
+app.get('/api/paper-rush/load', isAuth, isPending, (req, res) => {
+  const user_id = req.user ? req.user.id : null;
+  if (!user_id) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+  try {
+    const row = db.prepare('SELECT paper_rush_level, paper_rush_shield, paper_rush_multiplier, paper_rush_platform FROM users WHERE id = ?').get(user_id);
+    const items = db.prepare(`
+      SELECT si.item_key, up.quantity 
+      FROM user_purchases up 
+      JOIN shop_items si ON up.item_id = si.id 
+      WHERE up.user_id = ? AND si.game_type = 'paper_rush'
+    `).all(user_id);
+
+    if (row) {
+      res.json({
+        success: true,
+        multiplier: row.paper_rush_multiplier || 1,
+        shield: row.paper_rush_shield || 0,
+        level: row.paper_rush_level || 1,
+        platform: row.paper_rush_platform || 0,
+        items: items
+      });
+    } else {
+      res.json({ success: true, multiplier: 1, items: [] });
+    }
+  } catch(e) {
+    console.error('[Paper Rush Load] Error:', e);
+    res.status(500).json({ success: false, error: 'Failed to load paper rush data' });
+  }
+});
+
 app.post('/api/mc-world/save', isAuth, isPending, (req, res) => {
   try {
     const { saveData, level, info, score } = req.body;
