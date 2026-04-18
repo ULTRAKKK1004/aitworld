@@ -33,6 +33,8 @@ let stage = 1;
 let lives = 3;
 let hp = 100;
 let weaponLevel = 1; 
+let planeLevel = 1;
+let evolutionItems = 0;
 let shieldLayers = 0;
 let magicCount = 0;
 let frameCount = 0;
@@ -203,6 +205,16 @@ class Player {
             }
         }
 
+        // Plane Evolution Check (Cumulative targets: 10, 30, 60, 100)
+        const targets = [0, 10, 30, 60, 100];
+        if (planeLevel < 5 && evolutionItems >= targets[planeLevel]) {
+            planeLevel++;
+            hp = planeLevel * 100; // Refill HP on level up
+            this.showLevelUpEffect();
+            playSFX('stage_up');
+            updateHUD();
+        }
+
         const now = Date.now();
         if ((keys['Space'] || keys['Enter'] || touchState.shooting) && now - this.lastShot > this.shotDelay) {
             this.shoot();
@@ -253,21 +265,69 @@ class Player {
         updateHUD();
     }
 
+    showLevelUpEffect() {
+        showSkullEffect(); // Re-use the skull flash for level up
+    }
+
     draw() {
+        const maxHP = planeLevel * 100;
         // Player HP Bar above plane
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(this.x, this.y - 15, 40, 6);
-        ctx.fillStyle = hp < 30 ? '#ff0000' : '#00ff00';
-        ctx.fillRect(this.x, this.y - 15, 40 * (hp / 100), 6);
+        ctx.fillStyle = hp < (maxHP * 0.3) ? '#ff0000' : '#00ff00';
+        ctx.fillRect(this.x, this.y - 15, 40 * (hp / maxHP), 6);
 
-        // Player Plane (Retro detail)
-        ctx.fillStyle = Colors.player;
-        ctx.fillRect(this.x + 16, this.y, 8, 30); // Body
-        ctx.fillRect(this.x, this.y + 12, 40, 6);  // Main Wings
-        ctx.fillStyle = '#2980b9';
-        ctx.fillRect(this.x + 8, this.y + 25, 24, 4); // Tail Wings
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(this.x + 18, this.y + 6, 4, 6); // Cockpit
+        // Player Plane (Visual evolution)
+        ctx.save();
+        ctx.translate(this.x + 20, this.y + 15);
+
+        if (planeLevel === 1) {
+            // Paper Plane Style
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(0, -15); ctx.lineTo(15, 10); ctx.lineTo(0, 5); ctx.lineTo(-15, 10); ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#ccc'; ctx.stroke();
+        } else if (planeLevel === 2) {
+            // Reinforced Paper Plane
+            ctx.fillStyle = '#eee';
+            ctx.beginPath();
+            ctx.moveTo(0, -15); ctx.lineTo(18, 12); ctx.lineTo(0, 3); ctx.lineTo(-18, 12); ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = Colors.player;
+            ctx.fillRect(-2, -10, 4, 20); // Center spine
+        } else if (planeLevel === 3) {
+            // Propeller Fighter
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(-6, -15, 12, 30); // Body
+            ctx.fillRect(-20, -2, 40, 6);   // Main wing
+            ctx.fillStyle = '#e67e22'; // Propeller
+            ctx.rotate(frameCount * 0.5);
+            ctx.fillRect(-12, -2, 24, 2);
+        } else if (planeLevel === 4) {
+            // Modern Jet
+            ctx.fillStyle = '#7f8c8d';
+            ctx.beginPath(); // Delta wing
+            ctx.moveTo(0, -18); ctx.lineTo(20, 15); ctx.lineTo(0, 8); ctx.lineTo(-20, 15); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(-4, -10, 8, 25); // Cockpit & Body
+            // Afterburners
+            ctx.fillStyle = '#f39c12';
+            ctx.fillRect(-8, 15, 4, 5); ctx.fillRect(4, 15, 4, 5);
+        } else if (planeLevel === 5) {
+            // Sci-Fi Stealth
+            ctx.fillStyle = '#222';
+            ctx.beginPath();
+            ctx.moveTo(0, -20); ctx.lineTo(22, 18); ctx.lineTo(8, 10); ctx.lineTo(0, 18); ctx.lineTo(-8, 10); ctx.lineTo(-22, 18); ctx.closePath();
+            ctx.fill();
+            // Glow FX
+            ctx.shadowBlur = 10; ctx.shadowColor = '#0ff';
+            ctx.fillStyle = '#0ff';
+            ctx.fillRect(-1, -5, 2, 10);
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
 
         if (shieldLayers > 0) {
             for (let i = 0; i < shieldLayers; i++) {
@@ -368,7 +428,9 @@ class Enemy {
             const dy = this.y + this.height/2 - (player.y + player.height/2);
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist < 320) {
-                const pull = (1 - dist / 320) * 4.5;
+                // Wind Resistance: 20% per level (0% at L1, 80% at L5)
+                const resistance = 0.2 * (planeLevel - 1);
+                const pull = (1 - dist / 320) * 4.5 * (1 - resistance);
                 player.x += (dx / dist) * pull;
                 player.y += (dy / dist) * pull;
             }
@@ -540,7 +602,8 @@ class Item {
         this.x = x; this.y = y;
         this.width = 24; this.height = 24;
         this.vy = 2;
-        const types = ['L', 'H', 'W', 'S', 'M'];
+        // Higher chance for 'P' evolution items
+        const types = ['L', 'H', 'W', 'S', 'M', 'P', 'P', 'P'];
         this.type = types[Math.floor(Math.random() * types.length)];
     }
 
@@ -557,15 +620,16 @@ class Item {
     collect() {
         playSFX('item');
         if (this.type === 'L') lives++;
-        else if (this.type === 'H') hp = Math.min(100, hp + 40);
+        else if (this.type === 'H') hp = Math.min(planeLevel * 100, hp + 60);
         else if (this.type === 'W') { weaponLevel++; weaponEl.innerText = weaponLevel >= 3 ? 'SPREAD' : 'DOUBLE'; }
         else if (this.type === 'S') { shieldLayers++; shieldEl.innerText = 'x' + shieldLayers; }
         else if (this.type === 'M') { magicCount++; magicEl.style.display = 'block'; magicEl.innerText = 'x' + magicCount; updateMagicButton(); }
+        else if (this.type === 'P') { evolutionItems++; }
         updateHUD();
     }
 
     draw() {
-        ctx.fillStyle = Colors.item;
+        ctx.fillStyle = this.type === 'P' ? '#0ff' : Colors.item;
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.fillStyle = '#000';
         ctx.font = 'bold 16px Arial';
@@ -625,7 +689,7 @@ function takeDamage(amount) {
     playSFX('damage');
     if (hp <= 0) {
         lives--;
-        hp = 100;
+        hp = planeLevel * 100;
         if (lives <= 0) endGame();
     }
     updateHUD();
@@ -633,13 +697,14 @@ function takeDamage(amount) {
 
 function updateHUD() {
     if (scoreEl) scoreEl.innerText = score.toString().padStart(6, '0');
-    if (stageEl) stageEl.innerText = `${stage}/100`;
+    if (stageEl) stageEl.innerText = `LV.${planeLevel} | Stage ${stage}`;
     if (livesEl) livesEl.innerText = lives;
     if (shieldEl) shieldEl.innerText = shieldLayers > 0 ? 'x' + shieldLayers : 'OFF';
-    if (magicEl) magicEl.innerText = magicCount > 0 ? 'x' + magicCount : '';
+    if (magicEl) magicEl.innerText = (magicCount > 0 ? 'x' + magicCount : '') + ` | P:${evolutionItems}`;
     if (hpFillEl) {
-        hpFillEl.style.width = `${hp}%`;
-        hpFillEl.style.backgroundColor = hp < 30 ? '#ff0000' : (hp < 60 ? '#ffff00' : '#00ff00');
+        const maxHP = planeLevel * 100;
+        hpFillEl.style.width = `${(hp/maxHP)*100}%`;
+        hpFillEl.style.backgroundColor = hp < (maxHP * 0.3) ? '#ff0000' : (hp < (maxHP * 0.6) ? '#ffff00' : '#00ff00');
     }
 }
 
@@ -839,7 +904,9 @@ function loop() {
     player.update();
     player.draw();
 
-    if (frameCount % Math.max(8, 40 - stage * 2) === 0) spawnEnemy();
+    // Aggressive difficulty scaling: stage and planeLevel both increase spawn frequency
+    const spawnInterval = Math.max(5, 40 - (stage * 3) - (planeLevel * 4));
+    if (frameCount % spawnInterval === 0) spawnEnemy();
 
     // Adjusted for 20x score
     if (score > stage * 5000 * 20 && stage < 100) {
@@ -1061,7 +1128,11 @@ function startGame() {
     startTime = Date.now();
     player = new Player();
     enemies = []; enemyBullets = []; items = []; explosions = [];
-    score = 0; stage = 3; lives = 3; hp = 100; weaponLevel = 1;
+    score = 0; stage = 3; lives = 3; 
+    planeLevel = 1;
+    evolutionItems = 0;
+    hp = 100; 
+    weaponLevel = 1;
     shieldLayers = 0;
     magicCount = 0;
     initBackground();
