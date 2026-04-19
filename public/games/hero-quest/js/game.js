@@ -105,6 +105,9 @@ class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
     init(data) {
         this.bonusLevelData = data ? data.bonus : null;
+        // Ensure audio context is resumed
+        let ctx = getAudioContext();
+        if (ctx && ctx.state === 'suspended') ctx.resume();
     }
     create() {
         this.isDying = false; this.isTransitioning = false;
@@ -238,11 +241,75 @@ class GameScene extends Phaser.Scene {
 
     createParallaxBackground() {
         const width = this.levelData.layout[0].length * 32;
-        for(let i=0; i<width; i+=400) {
-            let cloud = this.add.graphics({x: i, y: Phaser.Math.Between(50, 150)});
-            cloud.fillStyle(0xffffff, 0.5); cloud.fillCircle(0, 0, 30); cloud.fillCircle(20, -10, 40); cloud.setScrollFactor(0.2);
-            let mountain = this.add.graphics({x: i + 200, y: 480});
-            mountain.fillStyle(0x228B22, 0.4); mountain.fillTriangle(-150, 0, 0, -200, 150, 0); mountain.setScrollFactor(0.5);
+        let theme = "Grasslands"; // Default
+        
+        if (this.levelData.name) {
+            if (this.levelData.name.includes(" - ")) {
+                theme = this.levelData.name.split(' - ')[0];
+            } else {
+                theme = this.levelData.name;
+            }
+        }
+        
+        // Map bonus names to internal theme keys
+        if (theme === "Sky Heaven") theme = "Sky Palace";
+        if (theme === "Hidden Treasury" || theme.startsWith("BOSS BATTLE")) theme = "Deep Caves";
+
+        for(let i=0; i<width; i+=300) {
+            // Far background (Slowest)
+            if (theme === "Grasslands" || theme === "Ancient Forest" || theme === "Sky Palace") {
+                let cloud = this.add.graphics({x: i + Math.random() * 100, y: Phaser.Math.Between(50, 150)});
+                cloud.fillStyle(0xffffff, 0.4); 
+                cloud.fillCircle(0, 0, 30); cloud.fillCircle(20, -10, 40); cloud.fillCircle(40, 0, 30);
+                cloud.setScrollFactor(0.1);
+            } else if (theme === "Scorched Desert") {
+                let sun = this.add.graphics({x: i + 150, y: 80});
+                sun.fillStyle(0xFFD700, 0.2); sun.fillCircle(0, 0, 60);
+                sun.fillStyle(0xFF8C00, 0.4); sun.fillCircle(0, 0, 40);
+                sun.setScrollFactor(0.05);
+            } else if (theme === "Volcanic Pit" || theme === "Deep Caves") {
+                let smoke = this.add.graphics({x: i + Math.random() * 100, y: Phaser.Math.Between(50, 200)});
+                smoke.fillStyle(theme === "Deep Caves" ? 0x000000 : 0x333333, 0.3); 
+                smoke.fillCircle(0, 0, 40); smoke.fillCircle(20, 20, 30);
+                smoke.setScrollFactor(0.15);
+            }
+
+            // Mid background
+            let midG = this.add.graphics({x: i + 150, y: 480});
+            
+            if (theme === "Grasslands") {
+                midG.fillStyle(0x228B22, 0.4); midG.fillTriangle(-150, 0, 0, -200, 150, 0);
+            } else if (theme === "Scorched Desert") {
+                midG.fillStyle(0xD2B48C, 0.5); 
+                midG.beginPath(); midG.moveTo(-200, 0); midG.quadraticCurveTo(0, -100, 200, 0); midG.closePath(); midG.fill();
+            } else if (theme === "Frozen Tundra") {
+                midG.fillStyle(0xFFFFFF, 0.6); midG.fillTriangle(-100, 0, 0, -250, 100, 0);
+                midG.fillStyle(0xE0FFFF, 0.4); midG.fillTriangle(-150, 0, 0, -180, 150, 0);
+            } else if (theme === "Volcanic Pit") {
+                midG.fillStyle(0x4B0000, 0.6); midG.fillTriangle(-120, 0, 0, -150, 120, 0);
+                midG.fillStyle(0xFF4500, 0.3); midG.fillTriangle(-60, 0, 0, -80, 60, 0); 
+            } else if (theme === "Ancient Forest") {
+                midG.fillStyle(0x004400, 0.5); 
+                for(let j=0; j<3; j++) {
+                    midG.fillRect(-20 + j*10, -150, 15, 150);
+                    midG.fillCircle(j*10, -150, 40);
+                }
+            } else if (theme === "Sky Palace") {
+                midG.fillStyle(0xFFFFFF, 0.7);
+                midG.fillEllipse(0, -100, 100, 40);
+                midG.fillStyle(0xADD8E6, 0.5);
+                midG.fillEllipse(50, -120, 80, 30);
+            } else if (theme === "Deep Caves") {
+                midG.fillStyle(0x1a1a1a, 0.8);
+                // Stalagmite
+                midG.fillTriangle(-60, 0, 0, -120, 60, 0);
+                // Stalactite (relative to top)
+                let stalG = this.add.graphics({x: i + 250, y: 0});
+                stalG.fillStyle(0x111111, 0.8);
+                stalG.fillTriangle(-40, 0, 0, 100, 40, 0);
+                stalG.setScrollFactor(0.4);
+            }
+            midG.setScrollFactor(0.4);
         }
     }
 
@@ -293,8 +360,11 @@ class GameScene extends Phaser.Scene {
         this.showMessage("ENTERING BONUS STAGE!");
         AudioSystem.playPowerup();
         const bonusData = LevelGenerator.generateBonus(entrance.targetStage, GameState.currentStage);
-        this.cameras.main.fade(800, 255, 255, 255, false, (cam, pct) => {
-            if (pct === 1) this.scene.restart({ bonus: bonusData });
+        
+        // Use a proper onComplete callback for fade
+        this.cameras.main.fade(800, 255, 255, 255, false);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.restart({ bonus: bonusData });
         });
     }
 
@@ -454,6 +524,10 @@ class GameScene extends Phaser.Scene {
             AudioSystem.playPowerup();
             this.player.health = this.player.maxHealth;
             this.player.setTint(0x00ffff);
+            
+            // Move player to nearest safe ground
+            this.respawnOnSafeGround();
+
             this.time.delayedCall(1000, () => {
                 this.player.clearTint();
                 this.isDying = false;
@@ -466,6 +540,60 @@ class GameScene extends Phaser.Scene {
         try { this.physics.world.pause(); if (this.player.body) this.physics.world.disable(this.player); BGM.stop(); AudioSystem.playDeath(); this.player.setTint(0xff0000); } catch(e) {}
         this.tweens.add({ targets: this.player, y: this.player.y - 120, duration: 450, ease: 'Cubic.easeOut', onComplete: () => { this.tweens.add({ targets: this.player, y: 650, duration: 700, ease: 'Cubic.easeIn', onComplete: () => { if (GameState.playerLives > 0) this.scene.restart(); else this.scene.start('GameOverScene'); } }); } });
     }
+
+    respawnOnSafeGround() {
+        if (!this.player) return;
+        
+        const ts = 32;
+        const px = Math.max(0, Math.min(Math.floor(this.player.x / ts), this.levelData.layout[0].length - 1));
+        const layout = this.levelData.layout;
+        const height = layout.length;
+        const width = layout[0].length;
+
+        // Search for ground in current column from top to bottom
+        let found = false;
+        const findGroundInColumn = (x) => {
+            // Prefer finding ground at a reasonable height (not too close to top or bottom)
+            for (let y = 1; y < height - 1; y++) {
+                if (layout[y][x] === '#' || layout[y][x] === '-') {
+                    // Check if space above is clear
+                    if (y > 0 && layout[y-1][x] === ' ') {
+                        this.player.setPosition(x * ts + 16, (y - 1) * ts - 16);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+        if (findGroundInColumn(px)) {
+            found = true;
+        } else {
+            // Search nearby columns
+            for (let d = 1; d < 20; d++) {
+                for (let dir of [-1, 1]) {
+                    let nx = px + d * dir;
+                    if (nx >= 0 && nx < width) {
+                        if (findGroundInColumn(nx)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (found) break;
+            }
+        }
+
+        // Final fallback: start of level
+        if (!found) {
+            this.player.setPosition(100, 200);
+        }
+        
+        this.player.setVelocity(0, 0);
+        this.player.setAcceleration(0, 0);
+    }
+
+
     winGame() { BGM.stop(); AudioSystem.playWin(); this.scene.start('VictoryScene'); }
 }
 
@@ -548,4 +676,5 @@ const config = {
     scene: [BootScene, MenuScene, GameScene, GameOverScene, VictoryScene] 
 };
 const game = new Phaser.Game(config);
+window.game = game;
 game.events.on('ready', () => zzfxX = game.sound.context);

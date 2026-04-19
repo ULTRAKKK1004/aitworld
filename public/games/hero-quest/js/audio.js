@@ -4,10 +4,26 @@ var zzfxV = 0.5;
 var zzfxR = 44100;
 
 const getAudioContext = () => {
-    if (window.game && window.game.sound && window.game.sound.context) zzfxX = window.game.sound.context;
-    if (!zzfxX) { try { zzfxX = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+    try {
+        if (window.game && window.game.sound && window.game.sound.context) {
+            zzfxX = window.game.sound.context;
+        }
+        if (!zzfxX || zzfxX.state === 'closed') {
+            zzfxX = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    } catch(e){ console.error("AudioContext initialization error:", e); }
     return zzfxX;
 };
+
+// Force resume on any interaction
+window.addEventListener('mousedown', () => { 
+    let ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+}, { once: false });
+window.addEventListener('touchstart', () => { 
+    let ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+}, { once: false });
 
 var zzfx = (p=1, k=.05, b=220, e=0, r=0, t=.1, q=0, D=1, u=0, y=0, v=0, z=0, l=0, E=0, A=0, f_in=0, c=0, w=1, m=0, B=0) => {
     let ctx = getAudioContext();
@@ -22,10 +38,13 @@ var zzfx = (p=1, k=.05, b=220, e=0, r=0, t=.1, q=0, D=1, u=0, y=0, v=0, z=0, l=0
         j += v2 += v3; if (z2) j += M.sin(z3 += z2) * u2;
         x[i] = a * f * p2 * zzfxV * p * 0.5;
     }
-    let b2 = ctx.createBuffer(1, h, R); b2.getChannelData(0).set(x);
-    let s2 = ctx.createBufferSource(); s2.buffer = b2; s2.connect(ctx.destination);
-    s2.start(ctx.currentTime); return s2;
+    try {
+        let b2 = ctx.createBuffer(1, h, R); b2.getChannelData(0).set(x);
+        let s2 = ctx.createBufferSource(); s2.buffer = b2; s2.connect(ctx.destination);
+        s2.start(ctx.currentTime); return s2;
+    } catch(e) { console.error("zzfx play error:", e); return null; }
 };
+
 
 var AudioSystem = {
     playJump: () => { zzfx(1.2, 0.05, 400, 0.05, 0, 0.1, 0, 0.2); },

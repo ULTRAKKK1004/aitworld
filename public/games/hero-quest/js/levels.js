@@ -52,9 +52,12 @@ var LevelGenerator = {
             for(let i=0; i<rw; i++) {
                 if (x+i < width-10) {
                     if (hasItem && x+i === itemX) {
-                        layout[ry][x+i] = (Math.random() < 0.5 ? '?' : 'B');
-                        // Ensure space below is clear or breakable
-                        if (layout[ry+1] && layout[ry+1][x+i] !== ' ') {
+                        const boxType = (Math.random() < 0.5 ? '?' : 'B');
+                        layout[ry][x+i] = boxType;
+                        // Ensure space below is clear if it's an item box
+                        if (boxType === '?' && layout[ry+1]) {
+                            layout[ry+1][x+i] = ' ';
+                        } else if (layout[ry+1] && layout[ry+1][x+i] !== ' ') {
                             layout[ry+1][x+i] = (Math.random() < 0.3 ? 'B' : ' ');
                         }
                     } else {
@@ -127,7 +130,8 @@ var LevelGenerator = {
     },
 
     generateBonus(type, stage) {
-        const theme = LevelThemes[Math.floor((stage - 1) / 5) % LevelThemes.length];
+        const s = Math.max(1, stage || 1);
+        const theme = LevelThemes[Math.floor((s - 1) / 5) % LevelThemes.length];
         const width = 120; // Longer bonus
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
@@ -137,16 +141,22 @@ var LevelGenerator = {
         if (type === 'sky') {
             // Sky bonus: many items, high platforms
             for(let x=5; x<width-5; x+=4) {
-                let ry = Math.floor(Math.random() * 6) + 3;
+                let ry = Math.floor(Math.random() * 5) + 3;
                 layout[ry][x] = '?';
-                layout[ry+1][x] = '-';
+                // Remove the platform directly below the item box
+                layout[ry+2][x] = '-'; 
             }
         } else {
             // Underground bonus: many bricks, chests
-            for(let x=5; x<width-5; x+=3) {
-                for(let y=4; y<height-3; y+=3) {
-                    if (Math.random() < 0.6) layout[y][x] = 'B';
-                    if (Math.random() < 0.2) layout[y][x] = 'C';
+            for(let x=5; x<width-5; x+=4) {
+                for(let y=4; y<height-3; y+=4) {
+                    if (Math.random() < 0.6) {
+                        layout[y][x] = 'B';
+                    } else if (Math.random() < 0.4) {
+                        layout[y][x] = 'C';
+                        // Ensure space below chest is clear
+                        if (layout[y+1]) layout[y+1][x] = ' ';
+                    }
                 }
             }
         }
@@ -160,7 +170,7 @@ var LevelGenerator = {
             name: type === 'sky' ? "Sky Heaven" : "Hidden Treasury",
             bgColor: type === 'sky' ? "#87CEEB" : "#111111",
             groundTile: type === 'sky' ? "platform" : "ground_dirt",
-            musicTheme: "grass",
+            musicTheme: type === 'sky' ? "grass" : "dark",
             layout: layout.map(row => row.join(''))
         };
     }
