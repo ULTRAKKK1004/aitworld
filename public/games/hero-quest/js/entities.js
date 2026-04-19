@@ -5,6 +5,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         this.setCollideWorldBounds(true); this.body.onWorldBounds = true;
         this.setDragX(16000); this.setMaxVelocity(600, 1200);
         this.health = GameState.playerHP; this.maxHealth = GameState.playerMaxHP; this.mp = 10; this.maxMaxMP = 10;
+        this.setOrigin(0.5, 1);
         this.isInvulnerable = false; this.isRainbow = false; 
         this.isMega = GameState.isMega;
         this.isReversed = GameState.isReversed; 
@@ -89,6 +90,7 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.hp = Math.floor(1 + (stage / 5)); // Health increases every 5 stages
         
         this.damage = damage; this.scoreValue = score;
+        this.setOrigin(0.5, 1);
         this.setCollideWorldBounds(true); this.body.onWorldBounds = true;
     }
     preUpdate(time, delta) {
@@ -177,7 +179,6 @@ class Boss extends Enemy {
         super(scene, x, y, key, 3, hp * 250);
         this.hp = hp; this.maxHp = hp; this.bossName = name;
         this.setScale(1); 
-        this.setOrigin(0.5, 0.8);
         this.scene.physics.add.existing(this);
         this.body.setImmovable(true);
         this.body.setAllowGravity(true);

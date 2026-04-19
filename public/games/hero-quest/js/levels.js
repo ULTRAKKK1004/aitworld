@@ -38,15 +38,14 @@ var LevelGenerator = {
                 continue;
             }
 
-            layout[height-2][x] = '#';
-            layout[height-3][x] = '#';
+            layout[height-1][x] = '#';
         }
 
         // Platforms & Obstacles
         for(let x=5; x<width-15; x+=6) {
             let ry = Math.floor(Math.random() * 5) + 5;
             let rw = Math.floor(Math.random() * 4) + 3;
-            let hasItem = Math.random() < 0.2; // Less items as stage progresses?
+            let hasItem = Math.random() < 0.2; 
             let itemX = x + Math.floor(rw/2);
 
             for(let i=0; i<rw; i++) {
@@ -63,12 +62,12 @@ var LevelGenerator = {
         // Bonus Entrances
         if (Math.random() < 0.3) {
             let bx = Math.floor(Math.random() * (width - 20)) + 10;
-            layout[height-4][bx] = 'O'; 
+            layout[height-2][bx] = 'O'; 
         }
 
         // Entities
-        layout[height-4][5] = '@'; 
-        layout[height-4][width-5] = 'E'; 
+        layout[height-2][5] = '@'; 
+        layout[height-2][width-5] = 'E'; 
 
         const enemyTypes = ['1', '2', '3', 'M', 'F', 'W', 'U', 'S', 'b', 'v', 'g', 'H', 'w']; 
         const availableEnemies = enemyTypes.slice(0, Math.min(enemyTypes.length, 3 + Math.floor(stage/2))); 
@@ -76,7 +75,7 @@ var LevelGenerator = {
         for(let x=15; x<width-15; x+=10) {
             if (Math.random() < 0.35 + (stage * 0.03)) { 
                 let et = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
-                let ey = (et === 'W' || et === 'U' || et === 'b' || et === 'H') ? 1 : height-4; // H is on ceiling
+                let ey = (et === 'W' || et === 'U' || et === 'b' || et === 'H') ? 1 : height-2; 
                 if (layout[ey][x] === ' ') layout[ey][x] = et;
             }
         }
@@ -99,13 +98,13 @@ var LevelGenerator = {
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
         
-        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-2][x] = '#'; layout[height-3][x] = '#'; }
+        for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-1][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
-        layout[height-4][10] = '@';
-        layout[height-4][width-20] = bossChar;
-        layout[height-4][width-5] = 'E';
-        layout[height-4][width-6] = 'D'; 
+        layout[height-2][10] = '@';
+        layout[height-2][width-20] = bossChar;
+        layout[height-2][width-5] = 'E';
+        layout[height-2][width-6] = 'D'; 
 
         return {
             stage: stage,

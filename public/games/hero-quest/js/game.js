@@ -215,13 +215,8 @@ class GameScene extends Phaser.Scene {
             this.timeLimit--; 
             this.updateHUD(); 
             if (this.timeLimit <= 0) {
-                if (this.levelData.isBonus) {
-                    this.showMessage("BONUS TIME OVER!");
-                    this.reachExit(); // Auto-exit bonus
-                } else {
-                    this.showMessage("TIME UP!");
-                    this.die(); 
-                }
+                this.showMessage("TIME UP!");
+                this.die(); 
             } 
         } });
         
@@ -286,9 +281,11 @@ class GameScene extends Phaser.Scene {
                 cloud.fillCircle(0, 0, 30); cloud.fillCircle(20, -10, 40); cloud.fillCircle(40, 0, 30);
                 cloud.setScrollFactor(0.1);
             } else if (theme === "Scorched Desert") {
-                let sun = this.add.graphics({x: i + 150, y: 80});
-                sun.fillStyle(0xFFD700, 0.2); sun.fillCircle(0, 0, 60);
-                sun.fillStyle(0xFF8C00, 0.4); sun.fillCircle(0, 0, 40);
+                let sun = this.add.graphics().setPosition(i + 150, 80);
+                sun.fillStyle(0xFFD700, 0.2);
+                sun.fillCircle(0, 0, 60);
+                sun.fillStyle(0xFF8C00, 0.4);
+                sun.fillCircle(0, 0, 40);
                 sun.setScrollFactor(0.05);
             } else if (theme === "Volcanic Pit" || theme === "Deep Caves" || theme === "Frozen Tundra") {
                 let smoke = this.add.graphics({x: i + Math.random() * 100, y: Phaser.Math.Between(50, 200)});
@@ -297,9 +294,16 @@ class GameScene extends Phaser.Scene {
                 smoke.setScrollFactor(0.15);
             }
 
-            let midG = this.add.graphics({x: i + 150, y: 480});
+            let midG = this.add.graphics().setPosition(i + 150, 480);
             if (theme === "Grasslands") midG.fillStyle(0x228B22, 0.4).fillTriangle(-150, 0, 0, -200, 150, 0);
-            else if (theme === "Scorched Desert") midG.fillStyle(0xD2B48C, 0.5).beginPath().moveTo(-200, 0).quadraticCurveTo(0, -100, 200, 0).closePath().fill();
+            else if (theme === "Scorched Desert") {
+                midG.fillStyle(0xD2B48C, 0.5);
+                midG.beginPath();
+                midG.moveTo(-200, 0);
+                midG.quadraticCurveTo(0, -100, 200, 0);
+                midG.closePath();
+                midG.fillPath();
+            }
             else if (theme === "Frozen Tundra") { midG.fillStyle(0xFFFFFF, 0.6).fillTriangle(-100, 0, 0, -250, 100, 0); midG.fillStyle(0xE0FFFF, 0.4).fillTriangle(-150, 0, 0, -180, 150, 0); }
             else if (theme === "Volcanic Pit") { midG.fillStyle(0x4B0000, 0.6).fillTriangle(-120, 0, 0, -150, 120, 0); midG.fillStyle(0xFF4500, 0.3).fillTriangle(-60, 0, 0, -80, 60, 0); }
             else if (theme === "Ancient Forest") { midG.fillStyle(0x004400, 0.5); for(let j=0; j<3; j++) { midG.fillRect(-20 + j*10, -150, 15, 150); midG.fillCircle(j*10, -150, 40); } }
@@ -315,32 +319,36 @@ class GameScene extends Phaser.Scene {
         for (let y = 0; y < lines.length; y++) {
             if (!lines[y]) continue;
             for (let x = 0; x < lines[y].length; x++) {
-                const char = lines[y][x]; const px = x * ts + 16; const py = y * ts + 16;
-                if (char === '#') this.platforms.create(px, py, this.levelData.groundTile || 'ground_grass');
-                else if (char === '-') this.platforms.create(px, py, 'platform');
-                else if (char === 'B') this.bricks.add(new Brick(this, px, py));
-                else if (char === '?') this.itemBoxes.add(new ItemBox(this, px, py));
+                const char = lines[y][x]; const px = x * ts + 16; 
+                // Platforms/Tiles use center origin (+16)
+                if (char === '#') this.platforms.create(px, y * ts + 16, this.levelData.groundTile || 'ground_grass');
+                else if (char === '-') this.platforms.create(px, y * ts + 16, 'platform');
+                
+                // Entities use bottom origin (+32)
+                const py = (y + 1) * ts;
+                if (char === 'B') this.bricks.add(new Brick(this, px, py - 16)); // Bricks are tiles, use center
+                else if (char === '?') this.itemBoxes.add(new ItemBox(this, px, py - 16));
                 else if (char === '1' || char === '2' || char === '3') this.enemies.add(new PatrolEnemy(this, px, py, parseInt(char)));
                 else if (char === 'M') this.enemies.add(new MissileEnemy(this, px, py));
                 else if (char === 'F') this.enemies.add(new ChaserEnemy(this, px, py));
-                else if (char === 'W') this.flyingEnemies.add(new CloudEnemy(this, px, py));
-                else if (char === 'U') this.flyingEnemies.add(new SunEnemy(this, px, py));
+                else if (char === 'W') this.flyingEnemies.add(new CloudEnemy(this, px, py - 16));
+                else if (char === 'U') this.flyingEnemies.add(new SunEnemy(this, px, py - 16));
                 else if (char === 'S') this.enemies.add(new SlimeEnemy(this, px, py));
-                else if (char === 'b') this.flyingEnemies.add(new BatEnemy(this, px, py));
-                else if (char === 'v') this.flyingEnemies.add(new BirdEnemy(this, px, py));
+                else if (char === 'b') this.flyingEnemies.add(new BatEnemy(this, px, py - 16));
+                else if (char === 'v') this.flyingEnemies.add(new BirdEnemy(this, px, py - 16));
                 else if (char === 'g') this.enemies.add(new DragonEnemy(this, px, py));
-                else if (char === 'H') this.flyingEnemies.add(new SunflowerEnemy(this, px, py));
+                else if (char === 'H') this.flyingEnemies.add(new SunflowerEnemy(this, px, py - 32)); // Top stuck
                 else if (char === 'w') this.enemies.add(new WormEnemy(this, px, py));
                 else if (char === 'O') this.bonusEntrances.add(new BonusEntrance(this, px, py, 'portal', 'sky'));
                 else if (char === 'C') this.chests.add(new Chest(this, px, py));
                 else if (char === 'D') this.doors.add(new Door(this, px, py));
-                else if (char === 'E') this.exits.add(this.physics.add.staticSprite(px, py - 30, 'door'));
-                else if (char === 'P') this.princess = this.physics.add.staticSprite(px, py, 'princess');
+                else if (char === 'E') this.exits.add(this.physics.add.staticSprite(px, py, 'door').setOrigin(0.5, 1));
+                else if (char === 'P') this.princess = this.physics.add.staticSprite(px, py, 'princess').setOrigin(0.5, 1);
                 else if (char === '@') this.player = new Player(this, px, py);
                 else if (['4','5','6','7','8'].includes(char)) {
                     let b = (char === '4') ? new Boss1(this, px, py) : (char === '5') ? new Boss2(this, px, py) : (char === '6') ? new Boss3(this, px, py) : (char === '7') ? new MidBoss(this, px, py) : new FinalBoss(this, px, py);
                     if (b) { this.enemies.add(b); this.boss = b; }
-                    for(let i=-2; i<=2; i++) { if (i !== 0) { this.itemBoxes.add(new ItemBox(this, px + i*150, py - 150)); } }
+                    for(let i=-2; i<=2; i++) { if (i !== 0) { this.itemBoxes.add(new ItemBox(this, px + i*150, py - 182)); } }
                 }
             }
         }
