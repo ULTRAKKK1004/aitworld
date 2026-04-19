@@ -81,6 +81,13 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y, key, damage, score) {
         super(scene, x, y, key);
         scene.add.existing(this); scene.physics.add.existing(this);
+        
+        // Difficulty Scaling: Size and Health
+        const stage = GameState.currentStage;
+        const scale = 1 + (stage * 0.05); // Grows 5% per stage
+        this.setScale(scale);
+        this.hp = Math.floor(1 + (stage / 5)); // Health increases every 5 stages
+        
         this.damage = damage; this.scoreValue = score;
         this.setCollideWorldBounds(true); this.body.onWorldBounds = true;
     }
@@ -88,6 +95,64 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
         super.preUpdate(time, delta);
         if (this.y > 550) { this.scene.respawnEnemy(this); this.destroy(); }
     }
+    takeDamage(amount) {
+        this.hp -= amount;
+        this.setTint(0xffffff);
+        this.scene.time.delayedCall(100, () => { if(this.active) this.clearTint(); });
+        if (this.hp <= 0) {
+            this.scene.addScore(this.scoreValue);
+            AudioSystem.playEnemyHit();
+            this.destroy();
+            return true;
+        }
+        return false;
+    }
+}
+
+class SunflowerEnemy extends Enemy {
+    constructor(scene, x, y) {
+        super(scene, x, y, 'sunflower', 2, 400);
+        this.body.setAllowGravity(false);
+        this.setFlipY(true); // Sticks to ceiling
+        scene.time.addEvent({ delay: 2500, callback: this.shootMissile, callbackScope: this, loop: true });
+    }
+    shootMissile() {
+        if (!this.active || !this.scene.player) return;
+        const m = this.scene.enemyProjectiles.create(this.x, this.y + 20, 'missile');
+        if (m) {
+            m.body.setAllowGravity(false);
+            this.scene.physics.moveToObject(m, this.scene.player, 280);
+            m.setRotation(Phaser.Math.Angle.Between(this.x, this.y, this.scene.player.x, this.scene.player.y));
+            AudioSystem.playHit();
+        }
+    }
+}
+
+class WormEnemy extends Enemy {
+    constructor(scene, x, y) {
+        super(scene, x, y, 'worm', 3, 600);
+        this.fireBalls = scene.add.group();
+        for(let i=0; i<3; i++) {
+            let f = scene.enemyProjectiles.create(x, y, 'fireball');
+            if (f) { f.body.setAllowGravity(false); f.setTint(0xffaa00); this.fireBalls.add(f); }
+        }
+    }
+    preUpdate(time, delta) {
+        super.preUpdate(time, delta);
+        if (!this.active) return;
+        let angle = time * 0.003;
+        let dist = 80 + Math.sin(time * 0.001) * 20;
+        this.fireBalls.getChildren().forEach((f, i) => {
+            let a = angle + (i * Math.PI * 2 / 3);
+            f.x = this.x + Math.cos(a) * dist;
+            f.y = this.y + Math.sin(a) * dist;
+        });
+        if (this.scene.player) {
+            this.setVelocityX((this.scene.player.x < this.x ? -1 : 1) * 80);
+            this.setFlipX(this.body.velocity.x > 0);
+        }
+    }
+    destroy() { this.fireBalls.destroy(true); super.destroy(); }
 }
 
 class PatrolEnemy extends Enemy {
@@ -168,10 +233,12 @@ class Boss extends Enemy {
     homing() { const p = this.scene.enemyProjectiles.create(this.x, this.y, 'missile'); if(p){ p.setTint(0xff00ff); p.setScale(1.5); p.body.setAllowGravity(false); this.scene.physics.moveToObject(p, this.scene.player, 320); this.scene.time.addEvent({ delay: 100, repeat: 30, callback: () => { if(p.active && this.scene.player) this.scene.physics.moveToObject(p, this.scene.player, 320); }}); } }
     mine() { const m = this.scene.enemyProjectiles.create(this.x, this.y, 'mine'); if(m){ m.setScale(1.5); m.body.setBounce(0.8); m.setVelocity(Phaser.Math.Between(-400, 400), -500); } }
     takeDamage(amount, isStomp) {
-        if (this.isStunned) return;
+        if (this.isStunned || this.hp <= 0) return;
         const dmg = isStomp ? amount * 10 : amount * 2; 
-        this.hp -= dmg; this.setTint(0xffffff);
+        this.hp -= dmg; 
+        this.setTint(0xffffff);
         this.updateHpBar();
+        
         if (isStomp) { 
             this.isStunned = true; 
             this.setVelocityX(0); 
@@ -179,13 +246,24 @@ class Boss extends Enemy {
             this.scene.time.delayedCall(800, () => { if (this.active) this.clearTint(); this.isStunned = false; }); 
         }
         else { this.scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); }); }
+        
         if (this.hp <= 0) { 
-            this.hpBar.destroy();
-            this.scene.unlockDoors(); 
+            this.hp = 0;
+            this.updateHpBar();
+            if (this.hpBar) {
+                this.scene.tweens.add({ targets: this.hpBar, alpha: 0, duration: 500, onComplete: () => { if (this.hpBar) this.hpBar.destroy(); } });
+            }
+            if (this.scene.unlockDoors) this.scene.unlockDoors(); 
             this.scene.addScore(this.scoreValue); 
             AudioSystem.playWin(); 
             this.scene.showMessage("BOSS DEFEATED! GATE OPENED!");
-            this.destroy(); 
+            
+            // Death animation before destroy
+            this.setAcceleration(0, 0);
+            this.setVelocity(0, -400);
+            this.setAngle(180);
+            this.body.setEnable(false);
+            this.scene.time.delayedCall(1500, () => { this.destroy(); });
         }
     }
 }

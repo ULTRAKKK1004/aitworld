@@ -146,11 +146,6 @@ var AssetGenerator = {
             this.draw(scene, 'mine', 24, 24, (ctx) => { ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(12, 12, 10, 0, 7); ctx.fill(); ctx.fillStyle = '#f00'; ctx.beginPath(); ctx.arc(12, 12, 4, 0, 7); ctx.fill(); });
             this.draw(scene, 'item_box', 32, 32, (ctx) => { ctx.fillStyle = '#FFD700'; ctx.fillRect(0, 0, 32, 32); ctx.fillStyle = '#000'; ctx.font = 'bold 24px Arial'; ctx.fillText('?', 8, 25); });
             this.draw(scene, 'brick', 32, 32, (ctx) => { ctx.fillStyle = '#8B4513'; ctx.fillRect(0, 0, 32, 32); ctx.strokeStyle = '#000'; ctx.strokeRect(0, 0, 32, 32); });
-            this.draw(scene, 'pipe', 64, 64, (ctx) => {
-                ctx.fillStyle = '#008000'; ctx.fillRect(10, 20, 44, 44);
-                ctx.fillStyle = '#006400'; ctx.fillRect(5, 0, 54, 20);
-                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(10, 20, 44, 44); ctx.strokeRect(5, 0, 54, 20);
-            });
             this.draw(scene, 'portal', 64, 64, (ctx) => {
                 const grad = ctx.createRadialGradient(32, 32, 5, 32, 32, 30);
                 grad.addColorStop(0, '#fff'); grad.addColorStop(0.5, '#00f'); grad.addColorStop(1, '#000');
@@ -158,6 +153,19 @@ var AssetGenerator = {
             });
             this.draw(scene, 'door', 80, 100, (ctx) => { ctx.fillStyle = '#4A2E1B'; ctx.fillRect(0, 0, 80, 100); ctx.fillStyle = '#8B4513'; ctx.fillRect(8, 8, 64, 92); });
             this.draw(scene, 'fireball', 24, 24, (ctx) => { ctx.fillStyle = '#FF4500'; ctx.beginPath(); ctx.arc(12, 12, 10, 0, 7); ctx.fill(); });
+            this.draw(scene, 'sunflower', 48, 48, (ctx) => {
+                ctx.fillStyle = '#8B4513'; ctx.beginPath(); ctx.arc(24, 24, 10, 0, 7); ctx.fill(); // Center
+                ctx.fillStyle = '#FFD700'; // Petals
+                for(let a=0; a<Math.PI*2; a+=Math.PI/4) {
+                    ctx.beginPath(); ctx.ellipse(24+Math.cos(a)*15, 24+Math.sin(a)*15, 8, 12, a, 0, 7); ctx.fill();
+                }
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(20, 22, 2, 0, 7); ctx.arc(28, 22, 2, 0, 7); ctx.fill(); // Eyes
+            });
+            this.draw(scene, 'worm', 60, 30, (ctx) => {
+                ctx.fillStyle = '#FF6347'; // Body segments
+                for(let i=0; i<3; i++) { ctx.beginPath(); ctx.arc(15 + i*15, 15, 12, 0, 7); ctx.fill(); }
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(45, 12, 2, 0, 7); ctx.arc(50, 12, 2, 0, 7); ctx.fill(); // Eyes
+            });
             this.draw(scene, 'cloud', 50, 40, (ctx) => { ctx.fillStyle = '#eee'; ctx.beginPath(); ctx.arc(15, 25, 12, 0, 7); ctx.arc(25, 15, 15, 0, 7); ctx.arc(35, 25, 12, 0, 7); ctx.fill(); });
             this.draw(scene, 'sun', 40, 40, (ctx) => { ctx.fillStyle = '#FF4500'; ctx.beginPath(); ctx.arc(20, 20, 15, 0, 7); ctx.fill(); ctx.strokeStyle = '#FF0'; ctx.lineWidth = 3; ctx.stroke(); });
             // Special Items

@@ -12,18 +12,19 @@ var LevelThemes = [
 
 var LevelGenerator = {
     generate(stage) {
-        if (stage % 10 === 0) return this.generateBossLevel(stage);
+        if (stage % 3 === 0) return this.generateBossLevel(stage);
         
-        const theme = LevelThemes[Math.floor((stage - 1) / 5) % LevelThemes.length];
-        const width = 400 + stage * 50; // Significant increase in width
+        const themeIndex = Math.floor((stage - 1) / 3) % LevelThemes.length;
+        const theme = LevelThemes[themeIndex] || LevelThemes[0];
+        const width = Math.floor(300 + stage * 70); // Reduced width (70% of original)
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
 
-        // Basic boundaries (Top and Sides only)
+        // Basic boundaries
         for(let x=0; x<width; x++) { layout[0][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
-        // Ground with gaps (Irregular and wider)
+        // Ground with gaps (Significant difficulty increase)
         let gapRemaining = 0;
         for(let x=1; x<width-1; x++) {
             if (gapRemaining > 0) {
@@ -31,10 +32,9 @@ var LevelGenerator = {
                 continue;
             }
 
-            // Probability of starting a gap increases slightly with stage
-            const gapChance = 0.08 + (stage * 0.001);
+            const gapChance = 0.08 + (stage * 0.02); // Faster gap probability increase
             if (x > 15 && x < width-15 && Math.random() < gapChance) {
-                gapRemaining = Math.floor(Math.random() * 4) + 2; // 2 to 5 blocks wide
+                gapRemaining = Math.floor(Math.random() * 4) + 2; 
                 continue;
             }
 
@@ -46,20 +46,13 @@ var LevelGenerator = {
         for(let x=5; x<width-15; x+=6) {
             let ry = Math.floor(Math.random() * 5) + 5;
             let rw = Math.floor(Math.random() * 4) + 3;
-            let hasItem = Math.random() < 0.3;
+            let hasItem = Math.random() < 0.2; // Less items as stage progresses?
             let itemX = x + Math.floor(rw/2);
 
             for(let i=0; i<rw; i++) {
                 if (x+i < width-10) {
                     if (hasItem && x+i === itemX) {
-                        const boxType = (Math.random() < 0.5 ? '?' : 'B');
-                        layout[ry][x+i] = boxType;
-                        // Ensure space below is clear if it's an item box
-                        if (boxType === '?' && layout[ry+1]) {
-                            layout[ry+1][x+i] = ' ';
-                        } else if (layout[ry+1] && layout[ry+1][x+i] !== ' ') {
-                            layout[ry+1][x+i] = (Math.random() < 0.3 ? 'B' : ' ');
-                        }
+                        layout[ry][x+i] = (Math.random() < 0.5 ? '?' : 'B');
                     } else {
                         layout[ry][x+i] = '-';
                     }
@@ -70,25 +63,20 @@ var LevelGenerator = {
         // Bonus Entrances
         if (Math.random() < 0.3) {
             let bx = Math.floor(Math.random() * (width - 20)) + 10;
-            layout[height-4][bx] = 'O'; // Portal to Bonus
-        }
-        if (Math.random() < 0.2) {
-            let bx = Math.floor(Math.random() * (width - 20)) + 10;
-            layout[height-4][bx] = 'I'; // Pipe to Underground
+            layout[height-4][bx] = 'O'; 
         }
 
         // Entities
-        layout[height-4][5] = '@'; // Player start
-        layout[height-4][width-5] = 'E'; // Exit
+        layout[height-4][5] = '@'; 
+        layout[height-4][width-5] = 'E'; 
 
-        const enemyTypes = ['1', '2', '3', 'M', 'F', 'W', 'U', 'S', 'b', 'v', 'g']; 
-        // 1-3: Patrol, M: Missile, F: Chaser, W: Cloud, U: Sun, S: Slime, b: Bat, v: Bird, g: Dragon
-        const availableEnemies = enemyTypes.slice(0, Math.min(enemyTypes.length, 3 + Math.floor(stage/5)));
+        const enemyTypes = ['1', '2', '3', 'M', 'F', 'W', 'U', 'S', 'b', 'v', 'g', 'H', 'w']; 
+        const availableEnemies = enemyTypes.slice(0, Math.min(enemyTypes.length, 3 + Math.floor(stage/2))); 
 
         for(let x=15; x<width-15; x+=10) {
-            if (Math.random() < 0.4 + (stage * 0.005)) {
+            if (Math.random() < 0.35 + (stage * 0.03)) { 
                 let et = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
-                let ey = (et === 'W' || et === 'U' || et === 'b') ? 4 : height-4;
+                let ey = (et === 'W' || et === 'U' || et === 'b' || et === 'H') ? 1 : height-4; // H is on ceiling
                 if (layout[ey][x] === ' ') layout[ey][x] = et;
             }
         }
@@ -104,10 +92,10 @@ var LevelGenerator = {
     },
 
     generateBossLevel(stage) {
-        const bossIndex = (stage / 10) % 5;
+        const bossIdx = Math.max(0, Math.floor(stage / 3) - 1) % 5;
         const bosses = ['4', '5', '6', '7', '8'];
-        const bossChar = bosses[Math.floor(bossIndex)];
-        const width = 150; // Slightly wider boss room
+        const bossChar = bosses[bossIdx];
+        const width = 120;
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
         
@@ -117,11 +105,11 @@ var LevelGenerator = {
         layout[height-4][10] = '@';
         layout[height-4][width-20] = bossChar;
         layout[height-4][width-5] = 'E';
-        layout[height-4][width-6] = 'D'; // Door
+        layout[height-4][width-6] = 'D'; 
 
         return {
             stage: stage,
-            name: `BOSS BATTLE ${stage/10}`,
+            name: `BOSS BATTLE ${Math.floor(stage/3)}`,
             bgColor: "#220000",
             groundTile: "ground_boss",
             musicTheme: "boss",
@@ -131,34 +119,18 @@ var LevelGenerator = {
 
     generateBonus(type, stage) {
         const s = Math.max(1, stage || 1);
-        const theme = LevelThemes[Math.floor((s - 1) / 5) % LevelThemes.length];
         const width = 120; // Longer bonus
         const height = 15;
         let layout = Array(height).fill().map(() => Array(width).fill(' '));
         for(let x=0; x<width; x++) { layout[0][x] = '#'; layout[height-2][x] = '#'; }
         for(let y=0; y<height; y++) { layout[y][0] = '#'; layout[y][width-1] = '#'; }
 
-        if (type === 'sky') {
-            // Sky bonus: many items, high platforms
-            for(let x=5; x<width-5; x+=4) {
-                let ry = Math.floor(Math.random() * 5) + 3;
-                layout[ry][x] = '?';
-                // Remove the platform directly below the item box
-                layout[ry+2][x] = '-'; 
-            }
-        } else {
-            // Underground bonus: many bricks, chests
-            for(let x=5; x<width-5; x+=4) {
-                for(let y=4; y<height-3; y+=4) {
-                    if (Math.random() < 0.6) {
-                        layout[y][x] = 'B';
-                    } else if (Math.random() < 0.4) {
-                        layout[y][x] = 'C';
-                        // Ensure space below chest is clear
-                        if (layout[y+1]) layout[y+1][x] = ' ';
-                    }
-                }
-            }
+        // Sky bonus only: many items, high platforms
+        for(let x=5; x<width-5; x+=4) {
+            let ry = Math.floor(Math.random() * 5) + 3;
+            layout[ry][x] = '?';
+            // Remove the platform directly below the item box
+            layout[ry+2][x] = '-'; 
         }
 
         layout[height-4][5] = '@';
@@ -167,10 +139,10 @@ var LevelGenerator = {
         return {
             stage: stage,
             isBonus: true,
-            name: type === 'sky' ? "Sky Heaven" : "Hidden Treasury",
-            bgColor: type === 'sky' ? "#87CEEB" : "#111111",
-            groundTile: type === 'sky' ? "platform" : "ground_dirt",
-            musicTheme: type === 'sky' ? "grass" : "dark",
+            name: "Sky Heaven",
+            bgColor: "#87CEEB",
+            groundTile: "platform",
+            musicTheme: "grass",
             layout: layout.map(row => row.join(''))
         };
     }

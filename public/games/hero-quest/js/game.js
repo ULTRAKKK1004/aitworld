@@ -53,7 +53,10 @@ class MenuScene extends Phaser.Scene {
             console.log("Starting Game...");
             resumeAudio();
             
-            // Start scene immediately to avoid wait
+            GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
+            GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
+            GameState.items = { hero_revive: 0, hero_mana_potion: 0 }; // Initialize with 0
+
             this.scene.start('GameScene');
 
             // Fetch user stats and items
@@ -72,8 +75,6 @@ class MenuScene extends Phaser.Scene {
                     GameState.maxJumps = stats.hero_max_jumps || 2;
                     GameState.hasShield = stats.hero_shield || 0;
 
-                    // Initialize shop items
-                    GameState.items = {};
                     if (data.items) {
                         data.items.forEach(item => {
                             GameState.items[item.item_key] = item.quantity;
@@ -81,9 +82,7 @@ class MenuScene extends Phaser.Scene {
                     }
                 }
             } catch (e) { console.warn("Background data load failed:", e); }
-
-            GameState.currentStage = 1; GameState.score = 0; GameState.playerLives = 3;
-            GameState.isMega = false; GameState.isReversed = false; GameState.scoreMultiplier = 1;
+            
             fetch('/api/increment-attempts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'hero' }) }).catch(() => {});
         };
 
@@ -111,18 +110,21 @@ class GameScene extends Phaser.Scene {
     }
     create() {
         this.isDying = false; this.isTransitioning = false;
-        this.cameras.main.resetFX(); // Ensure any previous fade is cleared
+        this.cameras.main.resetFX(); 
         
         if (this.bonusLevelData) {
             this.levelData = this.bonusLevelData;
+            this.timeLimit = 15; // 15s limit for bonus
         } else {
             this.levelData = LevelGenerator.generate(GameState.currentStage);
+            this.timeLimit = 100;
         }
         
         if (GameState.currentStage > 100) { this.scene.start('VictoryScene'); return; }
         
-        this.cameras.main.setBackgroundColor(this.levelData.bgColor);
-        try { BGM.start(this.levelData.musicTheme); } catch(e) {}
+        const bgColor = this.levelData.bgColor || '#87CEEB';
+        this.cameras.main.setBackgroundColor(bgColor);
+        try { BGM.start(this.levelData.musicTheme || 'grass'); } catch(e) {}
         
         this.platforms = this.physics.add.staticGroup();
         this.bricks = this.physics.add.staticGroup();
@@ -137,11 +139,18 @@ class GameScene extends Phaser.Scene {
         this.projectiles = this.physics.add.group(); 
         this.enemyProjectiles = this.physics.add.group();
         
-        this.boss = null; this.player = null; this.princess = null; this.timeLimit = 100;
+        this.boss = null; this.player = null; this.princess = null;
 
         this.createParallaxBackground();
         this.buildLevel();
-        if (!this.player) this.player = new Player(this, 100, 200);
+        
+        // Handle returning to original place from bonus
+        if (!this.player) {
+            const startX = (GameState.returnPos && !this.levelData.isBonus) ? GameState.returnPos.x : 100;
+            const startY = (GameState.returnPos && !this.levelData.isBonus) ? GameState.returnPos.y : 200;
+            this.player = new Player(this, startX, startY);
+            GameState.returnPos = null; // Clear
+        }
         this.player.health = GameState.playerHP;
 
         const worldWidth = Math.max(800, this.levelData.layout[0].length * 32);
@@ -177,8 +186,22 @@ class GameScene extends Phaser.Scene {
         if (this.princess) this.physics.add.overlap(this.player, this.princess, () => this.winGame(), null, this);
         
         this.physics.add.overlap(this.projectiles, this.enemies, (proj, enemy) => {
-            if (enemy instanceof Boss) { enemy.takeDamage(1, false); }
-            else { this.addScore(enemy.scoreValue); enemy.destroy(); }
+            if (enemy.takeDamage) {
+                const isDead = enemy.takeDamage(this.player.isMega ? 3 : 1);
+                if (isDead && !(enemy instanceof Boss)) this.addScore(enemy.scoreValue);
+            } else {
+                enemy.destroy();
+            }
+            if (!this.player.isMega) proj.destroy();
+        });
+
+        this.physics.add.overlap(this.projectiles, this.flyingEnemies, (proj, enemy) => {
+            if (enemy.takeDamage) {
+                const isDead = enemy.takeDamage(this.player.isMega ? 3 : 1);
+                if (isDead) this.addScore(enemy.scoreValue);
+            } else {
+                enemy.destroy();
+            }
             if (!this.player.isMega) proj.destroy();
         });
 
@@ -192,14 +215,19 @@ class GameScene extends Phaser.Scene {
             this.timeLimit--; 
             this.updateHUD(); 
             if (this.timeLimit <= 0) {
-                this.showMessage("TIME UP!");
-                this.die(); 
+                if (this.levelData.isBonus) {
+                    this.showMessage("BONUS TIME OVER!");
+                    this.reachExit(); // Auto-exit bonus
+                } else {
+                    this.showMessage("TIME UP!");
+                    this.die(); 
+                }
             } 
         } });
         
         this.scheduleCloudMonster();
 
-        if (this.levelData.name.includes("BOSS")) {
+        if (this.levelData.name && this.levelData.name.includes("BOSS")) {
             this.showMessage("BOSS FIGHT! STOMP ON HEAD!");
             this.time.addEvent({ delay: 3000, callback: this.spawnBossStageMinions, callbackScope: this, loop: true });
         }
@@ -240,23 +268,18 @@ class GameScene extends Phaser.Scene {
     }
 
     createParallaxBackground() {
+        if (!this.levelData || !this.levelData.layout || !this.levelData.layout[0]) return;
         const width = this.levelData.layout[0].length * 32;
-        let theme = "Grasslands"; // Default
+        let theme = "Grasslands"; 
         
         if (this.levelData.name) {
-            if (this.levelData.name.includes(" - ")) {
-                theme = this.levelData.name.split(' - ')[0];
-            } else {
-                theme = this.levelData.name;
-            }
+            theme = this.levelData.name.split(' - ')[0] || "Grasslands";
         }
         
-        // Map bonus names to internal theme keys
         if (theme === "Sky Heaven") theme = "Sky Palace";
-        if (theme === "Hidden Treasury" || theme.startsWith("BOSS BATTLE")) theme = "Deep Caves";
+        if (theme.startsWith("BOSS BATTLE")) theme = "Deep Caves";
 
         for(let i=0; i<width; i+=300) {
-            // Far background (Slowest)
             if (theme === "Grasslands" || theme === "Ancient Forest" || theme === "Sky Palace") {
                 let cloud = this.add.graphics({x: i + Math.random() * 100, y: Phaser.Math.Between(50, 150)});
                 cloud.fillStyle(0xffffff, 0.4); 
@@ -267,64 +290,37 @@ class GameScene extends Phaser.Scene {
                 sun.fillStyle(0xFFD700, 0.2); sun.fillCircle(0, 0, 60);
                 sun.fillStyle(0xFF8C00, 0.4); sun.fillCircle(0, 0, 40);
                 sun.setScrollFactor(0.05);
-            } else if (theme === "Volcanic Pit" || theme === "Deep Caves") {
+            } else if (theme === "Volcanic Pit" || theme === "Deep Caves" || theme === "Frozen Tundra") {
                 let smoke = this.add.graphics({x: i + Math.random() * 100, y: Phaser.Math.Between(50, 200)});
-                smoke.fillStyle(theme === "Deep Caves" ? 0x000000 : 0x333333, 0.3); 
+                smoke.fillStyle(theme === "Deep Caves" ? 0x000000 : (theme === "Frozen Tundra" ? 0xffffff : 0x333333), 0.3); 
                 smoke.fillCircle(0, 0, 40); smoke.fillCircle(20, 20, 30);
                 smoke.setScrollFactor(0.15);
             }
 
-            // Mid background
             let midG = this.add.graphics({x: i + 150, y: 480});
-            
-            if (theme === "Grasslands") {
-                midG.fillStyle(0x228B22, 0.4); midG.fillTriangle(-150, 0, 0, -200, 150, 0);
-            } else if (theme === "Scorched Desert") {
-                midG.fillStyle(0xD2B48C, 0.5); 
-                midG.beginPath(); midG.moveTo(-200, 0); midG.quadraticCurveTo(0, -100, 200, 0); midG.closePath(); midG.fill();
-            } else if (theme === "Frozen Tundra") {
-                midG.fillStyle(0xFFFFFF, 0.6); midG.fillTriangle(-100, 0, 0, -250, 100, 0);
-                midG.fillStyle(0xE0FFFF, 0.4); midG.fillTriangle(-150, 0, 0, -180, 150, 0);
-            } else if (theme === "Volcanic Pit") {
-                midG.fillStyle(0x4B0000, 0.6); midG.fillTriangle(-120, 0, 0, -150, 120, 0);
-                midG.fillStyle(0xFF4500, 0.3); midG.fillTriangle(-60, 0, 0, -80, 60, 0); 
-            } else if (theme === "Ancient Forest") {
-                midG.fillStyle(0x004400, 0.5); 
-                for(let j=0; j<3; j++) {
-                    midG.fillRect(-20 + j*10, -150, 15, 150);
-                    midG.fillCircle(j*10, -150, 40);
-                }
-            } else if (theme === "Sky Palace") {
-                midG.fillStyle(0xFFFFFF, 0.7);
-                midG.fillEllipse(0, -100, 100, 40);
-                midG.fillStyle(0xADD8E6, 0.5);
-                midG.fillEllipse(50, -120, 80, 30);
-            } else if (theme === "Deep Caves") {
-                midG.fillStyle(0x1a1a1a, 0.8);
-                // Stalagmite
-                midG.fillTriangle(-60, 0, 0, -120, 60, 0);
-                // Stalactite (relative to top)
-                let stalG = this.add.graphics({x: i + 250, y: 0});
-                stalG.fillStyle(0x111111, 0.8);
-                stalG.fillTriangle(-40, 0, 0, 100, 40, 0);
-                stalG.setScrollFactor(0.4);
-            }
+            if (theme === "Grasslands") midG.fillStyle(0x228B22, 0.4).fillTriangle(-150, 0, 0, -200, 150, 0);
+            else if (theme === "Scorched Desert") midG.fillStyle(0xD2B48C, 0.5).beginPath().moveTo(-200, 0).quadraticCurveTo(0, -100, 200, 0).closePath().fill();
+            else if (theme === "Frozen Tundra") { midG.fillStyle(0xFFFFFF, 0.6).fillTriangle(-100, 0, 0, -250, 100, 0); midG.fillStyle(0xE0FFFF, 0.4).fillTriangle(-150, 0, 0, -180, 150, 0); }
+            else if (theme === "Volcanic Pit") { midG.fillStyle(0x4B0000, 0.6).fillTriangle(-120, 0, 0, -150, 120, 0); midG.fillStyle(0xFF4500, 0.3).fillTriangle(-60, 0, 0, -80, 60, 0); }
+            else if (theme === "Ancient Forest") { midG.fillStyle(0x004400, 0.5); for(let j=0; j<3; j++) { midG.fillRect(-20 + j*10, -150, 15, 150); midG.fillCircle(j*10, -150, 40); } }
+            else if (theme === "Sky Palace") { midG.fillStyle(0xFFFFFF, 0.7).fillEllipse(0, -100, 100, 40); midG.fillStyle(0xADD8E6, 0.5).fillEllipse(50, -120, 80, 30); }
+            else if (theme === "Deep Caves") { midG.fillStyle(0x1a1a1a, 0.8).fillTriangle(-60, 0, 0, -120, 60, 0); let stalG = this.add.graphics({x: i + 250, y: 0}).fillStyle(0x111111, 0.8).fillTriangle(-40, 0, 0, 100, 40, 0).setScrollFactor(0.4); }
             midG.setScrollFactor(0.4);
         }
     }
 
     buildLevel() {
+        if (!this.levelData || !this.levelData.layout) return;
         const lines = this.levelData.layout; const ts = 32;
         for (let y = 0; y < lines.length; y++) {
+            if (!lines[y]) continue;
             for (let x = 0; x < lines[y].length; x++) {
                 const char = lines[y][x]; const px = x * ts + 16; const py = y * ts + 16;
-                if (char === '#') this.platforms.create(px, py, this.levelData.groundTile);
+                if (char === '#') this.platforms.create(px, py, this.levelData.groundTile || 'ground_grass');
                 else if (char === '-') this.platforms.create(px, py, 'platform');
                 else if (char === 'B') this.bricks.add(new Brick(this, px, py));
                 else if (char === '?') this.itemBoxes.add(new ItemBox(this, px, py));
-                else if (char === '1') this.enemies.add(new PatrolEnemy(this, px, py, 1));
-                else if (char === '2') this.enemies.add(new PatrolEnemy(this, px, py, 2));
-                else if (char === '3') this.enemies.add(new PatrolEnemy(this, px, py, 3));
+                else if (char === '1' || char === '2' || char === '3') this.enemies.add(new PatrolEnemy(this, px, py, parseInt(char)));
                 else if (char === 'M') this.enemies.add(new MissileEnemy(this, px, py));
                 else if (char === 'F') this.enemies.add(new ChaserEnemy(this, px, py));
                 else if (char === 'W') this.flyingEnemies.add(new CloudEnemy(this, px, py));
@@ -333,20 +329,16 @@ class GameScene extends Phaser.Scene {
                 else if (char === 'b') this.flyingEnemies.add(new BatEnemy(this, px, py));
                 else if (char === 'v') this.flyingEnemies.add(new BirdEnemy(this, px, py));
                 else if (char === 'g') this.enemies.add(new DragonEnemy(this, px, py));
+                else if (char === 'H') this.flyingEnemies.add(new SunflowerEnemy(this, px, py));
+                else if (char === 'w') this.enemies.add(new WormEnemy(this, px, py));
                 else if (char === 'O') this.bonusEntrances.add(new BonusEntrance(this, px, py, 'portal', 'sky'));
-                else if (char === 'I') this.bonusEntrances.add(new BonusEntrance(this, px, py, 'pipe', 'underground'));
                 else if (char === 'C') this.chests.add(new Chest(this, px, py));
                 else if (char === 'D') this.doors.add(new Door(this, px, py));
                 else if (char === 'E') this.exits.add(this.physics.add.staticSprite(px, py - 30, 'door'));
                 else if (char === 'P') this.princess = this.physics.add.staticSprite(px, py, 'princess');
                 else if (char === '@') this.player = new Player(this, px, py);
                 else if (['4','5','6','7','8'].includes(char)) {
-                    let b = null;
-                    if (char === '4') b = new Boss1(this, px, py);
-                    else if (char === '5') b = new Boss2(this, px, py);
-                    else if (char === '6') b = new Boss3(this, px, py);
-                    else if (char === '7') b = new MidBoss(this, px, py);
-                    else if (char === '8') b = new FinalBoss(this, px, py);
+                    let b = (char === '4') ? new Boss1(this, px, py) : (char === '5') ? new Boss2(this, px, py) : (char === '6') ? new Boss3(this, px, py) : (char === '7') ? new MidBoss(this, px, py) : new FinalBoss(this, px, py);
                     if (b) { this.enemies.add(b); this.boss = b; }
                     for(let i=-2; i<=2; i++) { if (i !== 0) { this.itemBoxes.add(new ItemBox(this, px + i*150, py - 150)); } }
                 }
@@ -359,9 +351,12 @@ class GameScene extends Phaser.Scene {
         this.isTransitioning = true;
         this.showMessage("ENTERING BONUS STAGE!");
         AudioSystem.playPowerup();
+        
+        // Save current position
+        GameState.returnPos = { x: this.player.x, y: this.player.y };
+
         const bonusData = LevelGenerator.generateBonus(entrance.targetStage, GameState.currentStage);
         
-        // Use a proper onComplete callback for fade
         this.cameras.main.fade(800, 255, 255, 255, false);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.restart({ bonus: bonusData });
@@ -489,11 +484,29 @@ class GameScene extends Phaser.Scene {
     hitItemBox(p, b) { if (p.body.touching.up && b.body.touching.down) b.hit(); }
     hitEnemy(p, e) {
         if (!e || !e.active || this.isDying || this.isTransitioning) return;
-        if (p.isRainbow) { this.addScore(e.scoreValue * 2); AudioSystem.playEnemyHit(); e.destroy(); return; }
+        
+        // Rainbow (Invincibility) effect handling
+        if (p.isRainbow) { 
+            if (e instanceof Boss) {
+                e.takeDamage(20, false);
+                p.setVelocityY(-500); 
+            } else {
+                if (e.takeDamage) e.takeDamage(10);
+                else e.destroy();
+            }
+            return; 
+        }
+
         const isStomping = p.body.velocity.y > 0 && p.y < (e.y - 10);
         if (isStomping) {
-            if (e instanceof Boss) { e.takeDamage(1, true); p.setVelocityY(-600); }
-            else { this.addScore(e.scoreValue); AudioSystem.playEnemyHit(); e.destroy(); p.setVelocityY(-500); p.jumps = 1; }
+            if (e.takeDamage) {
+                const isDead = e.takeDamage(e instanceof Boss ? 1 : 10); // Stomp is very strong for normal enemies
+                if (isDead) { p.setVelocityY(-500); p.jumps = 1; }
+                else { p.setVelocityY(-600); }
+            } else {
+                e.destroy();
+                p.setVelocityY(-500);
+            }
         } else if (!p.isInvulnerable) if (p.takeDamage(e.damage || 1)) this.die();
     }
     hitProjectile(p, pr) { if (this.isDying || this.isTransitioning) return; pr.destroy(); if (p.takeDamage(1)) this.die(); }
@@ -502,17 +515,24 @@ class GameScene extends Phaser.Scene {
         if (this.isTransitioning) return; 
         if (this.boss && this.boss.active) { this.showMessage("Defeat the Boss!"); return; } 
         this.isTransitioning = true; 
-        GameState.playerHP = this.player.health; 
-        GameState.isMega = this.player.isMega;
-        GameState.isReversed = this.player.isReversed;
-        GameState.scoreMultiplier = this.player.scoreMultiplier;
+        
+        if (this.player) {
+            GameState.playerHP = this.player.health; 
+            GameState.isMega = this.player.isMega;
+            GameState.isReversed = this.player.isReversed;
+            GameState.scoreMultiplier = this.player.scoreMultiplier;
+        }
+
         this.addScore(this.timeLimit * 10); AudioSystem.playWin(); try { BGM.stop(); } catch(e) {} 
-        this.cameras.main.fade(1000, 0, 0, 0, false, (cam, pct) => { 
-            if (pct === 1) { 
-                GameState.currentStage++; 
-                this.scene.start('GameScene', { bonus: null }); 
-            } 
-        }); 
+        
+        this.cameras.main.fade(1000, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            // If it was a bonus level, don't increment the stage number
+            if (this.levelData && !this.levelData.isBonus) {
+                GameState.currentStage++;
+            }
+            this.scene.start('GameScene', { bonus: null }); 
+        });
     }
     async die() {
         if (this.isDying) return; this.isDying = true; 
