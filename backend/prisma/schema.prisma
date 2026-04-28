@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  password       String
+  name           String
+  department     String
+  techGroup      String   // TG: SYSTEM, VISUAL, AUDIO, PCB, POWER, COMMON, PL, RF
+  detailTask     String
+  isAdmin        Boolean  @default(false)
+  joinDate       DateTime @default(now())
+  recentLogin    DateTime @default(now())
+  recentActivity String?
+  leaveSchedules LeaveSchedule[]
+}
+
+model LeaveSchedule {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+}
+
+model Project {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      String            @default("IN_PROGRESS") // PLANNED, IN_PROGRESS, COMPLETED, ON_HOLD
+  schedules   ProjectSchedule[]
+}
+
+model ProjectSchedule {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  project   Project  @relation(fields: [projectId], references: [id])
+  milestone String
+  deadline  DateTime
+  status    String   @default("PENDING") // PENDING, ONGOING, DONE, DELAYED
+}
+
+model TGServerConfig {
+  id             Int      @id @default(autoincrement())
+  tgName         String   // TG: SYSTEM, VISUAL, etc.
+  serverName     String   // 서버 식별 이름
+  serverUrl      String
+  description    String?  // 사용자가 입력한 자연어 설명 원본
+  executionLogic String   // LLM에 의해 생성된 구조화된 JSON 실행 로직 (API endpoint, method, mapping 등)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AgentConfig {
+  id           Int    @id @default(autoincrement())
+  agentName    String @unique // Situation, Assignment, Verification, Monitoring
+  model        String
+  systemPrompt String
+  provider     String // openwebui, ollama, request
+}
+
+model AgentLog {
+  id        Int      @id @default(autoincrement())
+  agentName String
+  level     String   // INFO, WARN, ERROR
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model SystemConfig {
+  key   String @id
+  value String
+}

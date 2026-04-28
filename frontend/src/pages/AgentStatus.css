@@ -1,0 +1,97 @@
+.agent-status-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.status-overview {
+  display: flex;
+  gap: 24px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-item h3 {
+  font-size: 1.125rem;
+  margin-bottom: 4px;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge.success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.logs-container h2 {
+  font-size: 1.25rem;
+  margin-bottom: 20px;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 600px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
+}
+
+.log-item.info {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.log-item.warn {
+  background-color: rgba(245, 158, 11, 0.05);
+  color: var(--warning);
+}
+
+.log-item.error {
+  background-color: rgba(239, 68, 68, 0.05);
+  color: var(--error);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.log-time {
+  color: var(--text-muted);
+  min-width: 100px;
+}
+
+.log-agent {
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 120px;
+}
+
+.log-level {
+  font-weight: 600;
+  min-width: 60px;
+}
+
+.log-message {
+  flex: 1;
+}
+
+.error-icon, .info-icon {
+  flex-shrink: 0;
+}

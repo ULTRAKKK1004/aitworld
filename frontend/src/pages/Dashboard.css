@@ -1,0 +1,142 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-success {
+  background-color: var(--success);
+  color: white;
+}
+
+.btn-error {
+  background-color: var(--error);
+  color: white;
+}
+
+.page-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.page-header p {
+  color: var(--text-muted);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-icon {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 20px;
+}
+
+.agent-flow-card h2, .issue-trend-card h2 {
+  font-size: 1.125rem;
+  margin-bottom: 24px;
+}
+
+.agent-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  overflow-x: auto;
+}
+
+.agent-node {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  min-width: 140px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-node.success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: var(--success);
+}
+
+.agent-node.muted {
+  background-color: rgba(148, 163, 184, 0.1);
+}
+
+.agent-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.agent-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.flow-arrow {
+  color: var(--border);
+}
+
+.bar-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  height: 200px;
+  padding: 20px 0;
+}
+
+.bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar {
+  width: 100%;
+  background: linear-gradient(to top, var(--primary), var(--accent));
+  border-radius: 4px 4px 0 0;
+  transition: height 0.5s ease-out;
+}
+
+.bar-group span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

@@ -1,0 +1,111 @@
+.agent-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tabs {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1px;
+}
+
+.tabs button {
+  padding: 12px 24px;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition);
+}
+
+.tabs button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 24px;
+}
+
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-header .icon {
+  color: var(--primary);
+}
+
+.tg-servers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.add-server-card h2 {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.server-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.server-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.server-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.server-card h4 {
+  font-size: 1rem;
+}
+
+.server-card .url {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.logic-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--success);
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,163 @@
+.members-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.members-toolbar {
+  display: flex;
+  gap: 16px;
+  padding: 16px 24px;
+}
+
+.search-box, .filter-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--bg-main);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.search-box input, .filter-box select {
+  background: none;
+  border: none;
+  color: var(--text-main);
+  outline: none;
+}
+
+.members-list {
+  padding: 0;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+td {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-email {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.tg-badge {
+  background-color: var(--primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.user-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dept {
+  font-size: 0.875rem;
+}
+
+.admin-badge {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.delete-btn {
+  color: var(--error);
+  padding: 8px;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.delete-btn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+
+.form-group.checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}

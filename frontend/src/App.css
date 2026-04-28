@@ -1,0 +1,94 @@
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+}
+
+.top-bar {
+  height: var(--header-height);
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.theme-switcher {
+  display: flex;
+  background-color: var(--bg-main);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.theme-switcher button {
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.theme-switcher button:hover {
+  color: var(--text-main);
+}
+
+.theme-switcher button.active {
+  background-color: var(--primary);
+  color: #ffffff;
+}
+
+.search-placeholder {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  background-color: var(--bg-main);
+  padding: 8px 16px;
+  border-radius: 20px;
+  width: 300px;
+  border: 1px solid var(--border);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background-color: var(--primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #ffffff;
+}
+
+.content-area {
+  padding: 40px;
+  flex: 1;
+  max-width: 1400px; /* 너무 넓어지는 것 방지 */
+  margin: 0 auto;
+  width: 100%;
+}

@@ -1,0 +1,99 @@
+:root {
+  /* Default: Midnight Blue (Standard) */
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --sidebar: #111827;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --accent: #0ea5e9;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  
+  --sidebar-width: 260px;
+  --header-height: 64px;
+  --transition: all 0.2s ease;
+}
+
+[data-theme='light'] {
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --sidebar: #f1f5f9;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --accent: #0284c7;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+}
+
+[data-theme='high-dark'] {
+  --bg-main: #000000;
+  --bg-card: #111111;
+  --sidebar: #0a0a0a;
+  --primary: #ffffff;
+  --primary-hover: #e2e8f0;
+  --accent: #fbbf24;
+  --text-main: #ffffff;
+  --text-muted: #a1a1aa;
+  --border: #27272a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Pretendard', 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 글자 깨짐 방지 및 가독성 향상 */
+h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+  word-break: keep-all;
+  line-height: 1.3;
+}
+
+p, span {
+  overflow-wrap: break-word;
+}
+
+.card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* 틀 깨짐 방지 */
+}
+
+.btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: #ffffff;
+}
+
+[data-theme='high-dark'] .btn-primary {
+  color: #000000;
+}

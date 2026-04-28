@@ -1,0 +1,139 @@
+.projects-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  transition: transform 0.2s;
+}
+
+.project-card:hover {
+  transform: translateY(-4px);
+}
+
+.project-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.in_progress { background-color: var(--primary); }
+.status-dot.completed { background-color: var(--success); }
+.status-dot.planned { background-color: var(--text-muted); }
+
+.project-status {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.project-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.8em;
+}
+
+.project-dates {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--bg-main);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.date-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.milestones-section {
+  flex: 1;
+}
+
+.milestones-section h4 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-main);
+}
+
+.milestone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8125rem;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.m-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.m-date {
+  color: var(--text-muted);
+}
+
+.no-milestones {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.btn-outline {
+  border: 1px solid var(--border);
+  color: var(--text-main);
+}
+
+.btn-outline:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.icon-btn {
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.icon-btn:hover {
+  color: var(--error);
+  background-color: rgba(239, 68, 68, 0.1);
+}
